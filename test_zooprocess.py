@@ -17,7 +17,7 @@ import os
 import Border
 
 from img_tools import (
-        crop, crop_scan, crophw,
+        crop, crop_scan, crophw, cropnp,
         loadimage, saveimage, 
         picheral_median, 
         converthisto16to8, convertImage16to8bit, 
@@ -333,7 +333,7 @@ class Test_ZooProcess(unittest.TestCase):
         saveimage(draw_image, sample, "drew", ext="tiff", path=output_path)
 
 
-    # @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
+    @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
     def test_border(self):
 
         # resolution = 2400
@@ -365,6 +365,7 @@ class Test_ZooProcess(unittest.TestCase):
         print(f"Limit right: {limitedroite}")
 
         img = crop(image, left=limitetop, top=limitegauche, right=limitbas, bottom=limitedroite)
+        # img = cropnp(image, top=limitetop, left=limitegauche, bottom=limitbas, right=limitedroite)
         print(f"shape of cropped image: {img.shape}")
         self.assertGreater(img.shape[0], 0, "height is null")
         self.assertGreater(img.shape[1], 0 , "width is null")
@@ -372,7 +373,7 @@ class Test_ZooProcess(unittest.TestCase):
         # saveimage(image, sample, "image", ext="tiff", path=output_path)
 
 
-    # @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
+    #@pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
     def test_border_background(self):
         # resolution = 2400
         # step = resolution/240
@@ -404,13 +405,41 @@ class Test_ZooProcess(unittest.TestCase):
         print(f"limit left: {limitegauche}")
         print(f"Limit right: {limitedroite}")
 
-        img = crop(image, left=limitetop, top=limitegauche, right=limitbas, bottom=limitedroite)
+        # img = crop(image, left=limitetop, top=limitegauche, right=limitbas, bottom=limitedroite)
+        img = cropnp(image, top=limitetop, left=limitegauche, bottom=limitbas, right=limitedroite)
         print(f"shape of cropped image: {img.shape}")
         self.assertGreater(img.shape[0], 0, "height is null")
         self.assertGreater(img.shape[1], 0 , "width is null")
         saveimage(img, sample, "cropped", ext="tiff", path=output_path)
         # saveimage(image, sample, "image", ext="tiff", path=output_path)
         
+
+    @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
+    def test_left_border_background(self):
+
+        output_path = self.TP.testfolder
+        # sample = "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1"
+        sample = "20240112_1518_back_large" 
+
+        # scan_file = Path(self.TP.folder, "Zooscan_scan", sample + "_1" + ".tif")
+
+        rawscan_file = Path(self.TP.folder, "Zooscan_back", sample + "_1" + ".tif")
+        print(f"rawscan_file: {rawscan_file}")
+
+        image = loadimage(rawscan_file.as_posix())
+        height = image.shape[0]
+        width = image.shape[1]
+        print(f'image size width: {width} height: {height}')
+
+        border = Border.Border(image)
+        border.output_path = output_path
+        border.name = sample
+        border.draw_image = loadimage(rawscan_file.as_posix())
+
+        left_limit = border.left_limit()
+        print(f"left: {left_limit}")
+
+
     @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
     def test_bord_droit_background(self):
 
