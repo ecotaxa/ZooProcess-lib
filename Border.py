@@ -77,7 +77,7 @@ class Border:
         print(f"shape of cropped image: {img.shape}")
         mean = np.mean(img, axis=None)
         print(f"Mean of cropped image: {mean}")
-        saveimage(img, self.name, "crop_left" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
+        # saveimage(img, self.name, "crop_left" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
         self.draw_image = draw_box(self.draw_image, x=k, y=self.height/2 - self.height/8, h=self.height*0.25, w=self.step, color=(255,0,0)) 
 
         greyvalb = int(mean * self.greytaux)
@@ -88,7 +88,7 @@ class Border:
             print(f"shape of cropped image: {img.shape}")
             print(f"dim: {k}, {self.height/2 - self.height*0.125}, {self.step}, {self.height*0.25} mean:{mean} <? {greyvalb}")
             mean = np.mean(img, axis=None)
-            saveimage(img, self.name, "crop_left" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
+            # saveimage(img, self.name, "crop_left" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
             self.draw_image = draw_box(self.draw_image, x=k, y=self.height/2 - self.height*0.125, h=self.height*0.25, w=self.step, color=(255,0,0)) 
 
             print(f"Mean of cropped image: {mean}")
