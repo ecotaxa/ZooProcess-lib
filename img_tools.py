@@ -297,17 +297,36 @@ def cropnp(image:np.ndarray, top, left, bottom , right) -> np.ndarray:
     # print(f"L:R {left}:{right}, T:B {top}:{bottom}")
     # try:
     # cropped_image = image[int(left):int(right), int(top):int(bottom)]
-    cropped_image = image[int(right):int(left), int(bottom):int(top)]
+    # cropped_image = image[int(right):int(left), int(bottom):int(top)]
+    # symetrie à 45°
+    cropped_image = image[int(top):int(bottom), int(left):int(right)]
     # except OSError as error:
     #   raise error
     return cropped_image
 
 
 def crophw(image:np.ndarray,top,left,height,width) -> np.ndarray:
-    cropped_image = cropnp(image,top=top,left=left,bottom=top+height,right=left+width)
-    # cropped_image = crop(image, top=top, left=left, right=top+height, bottom=left+width)
-    print(f"shape: {cropped_image.shape}")
-    return cropped_image
+    if height<0 or width<0:
+        raise ValueError("Height and width must be positive")
+    if height == 0:
+        raise ValueError("Cannot crop with height of 0")
+    if width == 0:
+        raise ValueError("Cannot crop with width of 0")
+    
+    bottom=top+height
+    right=left+width
+
+    if top > bottom or left > right:
+        raise ValueError("Cropped region is not within image boundaries")
+
+    return crop(image,top,left,bottom,right)
+
+    # cropped_image = crop(image,top=top,left=left,bottom=top+height,right=left+width)
+    # # if cropped_image is None:
+    #     # raise ValueError("Cropped image is None")
+    # # cropped_image = crop(image, top=top, left=left, right=top+height, bottom=left+width)
+    # print(f"shape: {cropped_image.shape}")
+    # return cropped_image
 
 
 def crop_scan(image) -> np.ndarray:
