@@ -876,9 +876,12 @@ def converthisto16to8(min,max): #:_ShapeLike):
         hist[i]=hist[i]-min
         if hist[i]<0: hist[i]=0
         else:
-            hist[i]=int(hist[i]*scale + 0.5)
-            # if hist[i]>max: hist[i]=255
-            if hist[i]>255: hist[i]=255
+            # hist[i]=int(hist[i]*scale + 0.5)
+            hist[i]=int(hist[i]*scale)
+
+            # pourquoi j'avais enlevé le filtrage sur max ?????????
+            if hist[i]>max: hist[i]=254
+            # if hist[i]>255: hist[i]=255
 
     return hist
 
