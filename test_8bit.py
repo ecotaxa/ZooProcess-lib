@@ -58,4 +58,5 @@ class test_8bit(unittest.TestCase):
 
     def test_convertion(self):
 
-        
+        pass
+    
