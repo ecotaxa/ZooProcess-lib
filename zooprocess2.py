@@ -31,34 +31,109 @@ from img_tools import (
 
 class zooprocessv10:
 
+    """
+    How to use it:
 
+    Define your project location
+    ```
     project_folder = "Zooscan_sn001_rond_carre_zooprocess_separation_training"
     TP = ProjectClass(project_folder)
+    ```
+
+    Define the background and the scan to analyze:
+    ```
+    scan_name = "test_01_tot"
+    bg_name = "20141003_1144_back_large"
+    ```
+
+    Instantiate the class:
+    ```
+    zooprocess = zooprocessv10(TP, scan_name, bg_name)
+    ```
+    
+    to debug: and write the file in a particular folder
+    overwrite
+    ```
+    zooprocess.output_path = TP.testfolder
+    ```
+
+    Run the analyze:
+    zooprocess.process()
+
+    """
 
     # back_name = "20141003_1144_back_large_1.tif" 
     # back_name = "20141003_1144_back_large" 
     # sample = "test_01_tot"
 
     use_raw = True
+    use_average = True
 
-    bg_name = "20141003_1144_back_large"
-    name = "test_01_tot"
+    # bg_name = "20141003_1144_back_large"
+    # name = "test_01_tot"
     # back_name = "20141003_1144_back_large_raw_1.tif" 
     # sample = "test_01_tot_raw_1.tif"
-    back_name = bg_name + "_raw" + "_1" + ".tif" 
-    sample = name + "_raw" + "_1" + ".tif"
+    # back_name = bg_name + "_raw" + "_1" + ".tif" 
+    # sample = name + "_raw" + "_1" + ".tif"
 
-    output_path = Path(TP.testfolder)
+    # output_path = Path(self.TP.testfolder)
 
-    def __init__(self):
-        pass
+    def __init__(self, TP: ProjectClass, scan_name, back_name):
+        self.TP = TP
+        self.name = scan_name
+        self.bg_name = back_name
+
+        self.sample = self.name + "_raw" + "_1" + ".tif"
+        self.back_name = self.bg_name + "_raw" + "_1" + ".tif" 
+        self.back_name_2 = self.bg_name + "_raw" + "_2" + ".tif" 
+
+        output_path = Path(self.TP.testfolder)
+
+
+    def background(self,scan_image, imin,imax,min,max):
+        from to8bit import resize
+
+        back_image = loadimage(self.back_name, path=self.TP.back)
+
+        a = (max - min) / (imax - imin)
+        b = max - a * imax
+        # print(f"a: {a}, b: {b}")
+        back_image_8bit = (a * back_image + b).astype(np.uint8)
+        scan_image_8bit = (a * scan_image + b).astype(np.uint8)
+        image_back_resized = resize(scan_image_8bit, back_image_8bit)
+        
+        return image_back_resized
+
+    def background_average(self,scan_image, imin,imax,min,max):
+
+        from to8bit import resize
+
+        back_image = loadimage(self.back_name, path=self.TP.back)
+        back_image_2 = loadimage(self.back_name_2, path=self.TP.back)
+
+        a = (max - min) / (imax - imin)
+        b = max - a * imax
+        # print(f"a: {a}, b: {b}")
+        back_image_8bit = (a * back_image + b).astype(np.uint8)
+        back_image_2_8bit = (a * back_image_2 + b).astype(np.uint8)
+
+        scan_image_8bit = (a * scan_image + b).astype(np.uint8)
+
+        image_back_resized = resize(scan_image_8bit, back_image_8bit)
+        image_back_2_resized = resize(scan_image_8bit, back_image_2_8bit)
+
+        image_back_median_resized = (image_back_resized / 2 + image_back_2_resized / 2 ).astype(np.uint8)
+        
+        return image_back_median_resized
+
 
     def process(self):
 
         from to8bit import resize, filters
 
         scan_image = loadimage(self.sample, path=self.TP.rawscan)
-        back_image = loadimage(self.back_name,path=self.TP.back)
+        # back_image = loadimage(self.back_name, path=self.TP.back)
+        # back_image_2 = loadimage(self.back_name_2, path=self.TP.back)
 
         imin,imax,min,max = filters(scan_image)
         print( f"imin: {imin}, imax: {imax} - min: {min}, max: {max}" )
@@ -66,10 +141,20 @@ class zooprocessv10:
         a = (max - min) / (imax - imin)
         b = max - a * imax
         # print(f"a: {a}, b: {b}")
-        back_image_8bit = (a * back_image + b).astype(np.uint8)
+        # back_image_8bit = (a * back_image + b).astype(np.uint8)
+        # back_image_2_8bit = (a * back_image_2 + b).astype(np.uint8)
+
         scan_image_8bit = (a * scan_image + b).astype(np.uint8)
 
-        image_back_resized = resize(scan_image_8bit, back_image_8bit)
+        # image_back_resized = resize(scan_image_8bit, back_image_8bit)
+        # image_back_2_resized = resize(scan_image_8bit, back_image_2_8bit)
+
+        # image_back_median_resized = (image_back_resized + image_back_2_resized) / 2
+
+        if self.use_average:
+            image_back_resized = self.background_average(scan_image, imin,imax,min,max)
+        else:
+            image_back_resized = self.background(scan_image, imin,imax,min,max)
 
         image_substracted = np.subtract(scan_image_8bit, image_back_resized)
         saveimage(image_substracted, self.sample, "substracted_back_filter", ext="tiff", path=self.output_path)
@@ -144,5 +229,6 @@ class zooprocessv10:
         saveimage(image_3channels, self.sample, "draw_boxes_filtered", path=self.output_path)
 
         vignettepath = Path(self.output_path,"vignettes")
+        mkdir(vignettepath)
         filelist = generate_vignettes(image_scan_unbordered,contours,filter, path=vignettepath)
 
