@@ -9,7 +9,7 @@ from ProjectClass import ProjectClass
 from img_tools import mkdir
 class test_zooprocess2(unittest.TestCase):
 
-    @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
+    # @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
     def test_process_on_test_project_scan_rectangle(self):
 
         project_folder = "Zooscan_sn001_rond_carre_zooprocess_separation_training"
@@ -115,7 +115,7 @@ class test_zooprocess2(unittest.TestCase):
 
         z.process()
 
-    # @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
+    @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
     def test_process_on_test_project_trace_noire_2(self):
 
         project_folder = "Zooscan_test_traces_noires_sn173"

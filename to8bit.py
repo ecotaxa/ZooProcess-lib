@@ -149,6 +149,7 @@ def convert(img, target_type_min, target_type_max, target_type):
 
     return new_img
 
+
 def convert_forced(img, target_type_min, target_type_max, target_type):
     """
     sample: imgu8 = convert(img16u, 0, 255, np.uint8)
@@ -169,6 +170,7 @@ def convert_forced(img, target_type_min, target_type_max, target_type):
     # new_img = new_img > 255 
 
     return new_img
+
 
 def filters(img) -> tuple:
     imin = img.min()

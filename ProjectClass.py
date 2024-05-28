@@ -2,6 +2,7 @@
 from tools import create_folder
 
 from pathlib import Path
+from ReadLog import ReadLog
 
 class ProjectClass():
     """
@@ -14,11 +15,16 @@ class ProjectClass():
 
     userhome = "/Users/sebastiengalvagno/"
     # piqv="piqv/plankton/zooscan_monitoring/"
-    piqv="piqv/plankton/zooscan_lov/"
-    piqvhome=userhome+piqv
+    categoriefolder="zooscan_lov"
+    piqv=Path("piqv/plankton/" , categoriefolder).as_posix()
+    piqvhome= Path(userhome,piqv).as_posix()
 
-    def __init__(self,project_name, testfolder=None) -> None:
+    def __init__(self, project_name, piqvhome= None, testfolder = None) -> None:
         print("ProjectClass __init__")
+
+        if piqvhome:
+            self.piqvhome = piqvhome
+
         self.project_name = project_name
         # if project_name:
         self.folder = Path(self.piqvhome, project_name)
@@ -26,11 +32,11 @@ class ProjectClass():
         self.home = Path(self.piqvhome)
 
         if testfolder:
-            self.testfolder = testfolder
+            self.testfolder = Path(testfolder)
         else:
             self.testfolder = Path(self.piqvhome, project_name, "Test")
 
-        create_folder(self.testfolder)
+        # create_folder(self.testfolder)
 
         self.back = Path(self.folder, "Zooscan_back")
         self.scan = Path(self.folder, "Zooscan_scan")
@@ -49,4 +55,72 @@ class ProjectClass():
         path = Path(self.back, background_date + "_back_large_raw_" + str(index) + ".tif")  
         return path.absolute().as_posix()
     
+
+    def getWorkScanPath(self, sample):
+        path = Path(self.workscan, sample)
+        return path.absolute().as_posix()
+    
+    def getLogFile(self, sample, index=None ):
+        indexstr = ""
+        if (index): indexstr = "_" + str(index)
+        path = Path(self.workscan, sample + indexstr, sample + indexstr + "_log.txt")
+        return path.absolute().as_posix()
+    
+    def getBackgroundUsed(self, sample):
+
+        logfile = self.getLogFile(sample)
+        # key = "Background_correct_using"
+
+        # log = ReadLog(self, sample)
+        log = ReadLog(Path(logfile))
+        return log.getBackgroundPattern()
+
+    def getBackgroundFile(self, sample:str, index:int=None):
+        indexstr = ""
+        if index:
+            indexstr = "_" + str(index)
+        background = self.getBackgroundUsed(sample + indexstr)
+        return Path(self.back, background + "_back_large_raw" + indexstr + ".tif")
+
+
+
+
+
+# Factory
+def buildProjectClass(project_name, remotePIQVHome = None, projectDir = "zooscan_lov" ) -> ProjectClass:
+
+    localPiqvhome = "/Volumes/sgalvagno/plankton/"
+
+    if remotePIQVHome:
+        piqvhome = Path(remotePIQVHome, projectDir ).as_posix()
+    else:
+        piqvhome = Path(localPiqvhome, projectDir ).as_posix() # Path.home()
+
+    print(f"piqVhome: {piqvhome}")
+
+    # if projectDir == None : projectDir = "zooscan_lov"
+    # projectName = "Zooscan_iado_wp2_2020_sn001"
+    sampletName = "s_21_14_tot_1"
+
+    TPtemp = ProjectClass(project_name=project_name)
+
+    # testFolder = TPtemp.testfolder
+    testFolder = Path(TPtemp.userhome,"piqv/plankton/",projectDir,project_name,"Test").as_posix()
+
+    # if ( projectDir ):
+    # piqvhome = piqvhome + projectDir + "/"
+    # else
+
+    # projectDir = "zooscan_lov/"
+    # projectName = projectDir
+
+    # localFolder = "/home/sebastiengalvagno/"
+    # testFolder = Path(localFolder, projectDir, projectName, "test")
+    # TPtemp = ProjectClass( project_name="" ) 
+    # testFolder = TPtemp.testfolder.as_posix()
+
+    TP = ProjectClass( project_name=project_name, piqvhome=piqvhome, testfolder=testFolder )
+    # TPtemp = None
+
+    return TP
 
