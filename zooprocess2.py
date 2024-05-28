@@ -29,6 +29,15 @@ from img_tools import (
     )
 
 
+def filterSize(contour):
+    h=50
+    w=50
+    x,y,width,height = cv2.boundingRect(contour)
+    if width < w or height < h:
+        return False
+    else:
+        return True
+
 class zooprocessv10:
 
     """
@@ -104,6 +113,7 @@ class zooprocessv10:
         
         return image_back_resized
 
+
     def background_average(self,scan_image, imin,imax,min,max):
 
         from to8bit import resize
@@ -124,6 +134,8 @@ class zooprocessv10:
 
         image_back_median_resized = (image_back_resized / 2 + image_back_2_resized / 2 ).astype(np.uint8)
         
+        image_back_median_resized = cv2.medianBlur(image_back_median_resized, 3)
+
         return image_back_median_resized
 
 
@@ -134,6 +146,9 @@ class zooprocessv10:
         scan_image = loadimage(self.sample, path=self.TP.rawscan)
         # back_image = loadimage(self.back_name, path=self.TP.back)
         # back_image_2 = loadimage(self.back_name_2, path=self.TP.back)
+
+        scan_image = cv2.medianBlur(scan_image, 3)
+
 
         imin,imax,min,max = filters(scan_image)
         print( f"imin: {imin}, imax: {imax} - min: {min}, max: {max}" )
@@ -191,44 +206,103 @@ class zooprocessv10:
         # transforme en masque (binarisation par seuillage)
         
         # ret,mask = cv2.threshold(image_scan_unbordered,100,200,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        thresh_min = 0 # 225 # 237 # 200 # 243 # 220 # 243 # 200 # 126 # 243 # 0 # 100
-        thresh_max = 255 # 241 # 250 # 243 # 255 # 243
-        th, mask = cv2.threshold(image_scan_unbordered,thresh_min,thresh_max,cv2.THRESH_BINARY)
-        saveimage(mask, self.sample, "unbordered_mask" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=self.output_path)
-        print(f"th: {th}")
+        # thresh_min = 0 # 225 # 237 # 200 # 243 # 220 # 243 # 200 # 126 # 243 # 0 # 100
+        # thresh_max = 255 # 241 # 250 # 243 # 255 # 243
+        # th, mask = cv2.threshold(image_scan_unbordered,thresh_min,thresh_max,cv2.THRESH_BINARY)
+        # saveimage(mask, self.sample, "unbordered_mask" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=self.output_path)
+        # print(f"th: {th}")
 
-        th, mask = cv2.threshold(image_scan_unbordered,thresh_min,thresh_max,cv2.THRESH_OTSU)
-        saveimage(mask, self.sample, "unbordered_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=self.output_path)
-        print(f"th: {th}")
+        # th, mask = cv2.threshold(image_scan_unbordered,thresh_min,thresh_max,cv2.THRESH_OTSU)
+        # saveimage(mask, self.sample, "unbordered_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=self.output_path)
+        # print(f"th: {th}")
 
-        th, mask = cv2.threshold(image_scan_unbordered,thresh_min,thresh_max,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
-        saveimage(mask, self.sample, "unbordered_bin_inv_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=self.output_path)
-        print(f"th: {th}")
+        # th, mask = cv2.threshold(image_scan_unbordered,thresh_min,thresh_max,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+        # saveimage(mask, self.sample, "unbordered_bin_inv_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=self.output_path)
+        # print(f"th: {th}")
 
+        # mask = self.threshold_binary(image_scan_unbordered, path=self.output_path )
+        # mask = self.thresholding_with_otsu(image_scan_unbordered, path=self.output_path)
+        mask = self.thresholding_with_inv_otsu(image_scan_unbordered, path=self.output_path)
+
+
+        contours = self.contours(mask)
+        # self.draw_contours_filtered(image_scan_unbordered, contours) #, filterSize)
+        self.draw_contours(image_scan_unbordered, contours)
+
+        self.vignettes(image_scan_unbordered, contours)
+
+
+    def threshold_binary(self, image, thresh_min = 0, thresh_max = 255, path:Path = None):
+        th, mask = cv2.threshold(image, thresh_min, thresh_max, cv2.THRESH_BINARY)
+        if path:
+            saveimage(mask, self.sample, "unbordered_mask" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=path)
+        print(f"threshold at: {th}")
+        return mask
+
+    def thresholding_with_otsu(self, image, thresh_min = 0, thresh_max = 255, path:Path = None):
+        th, mask = cv2.threshold(image, thresh_min, thresh_max, cv2.THRESH_OTSU)
+        saveimage(mask, self.sample, "unbordered_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=path)
+        print(f"threshold at: {th}")
+        return mask
+
+    def thresholding_with_inv_otsu(self, image, thresh_min = 0, thresh_max = 255, path:Path = None):
+        th, mask = cv2.threshold(image, thresh_min, thresh_max, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+        saveimage(mask, self.sample, "unbordered_bin_inv_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=path)
+        print(f"threshold at: {th}")
+        return mask
+
+
+    def contours(self, mask):
         contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         print("Number of Contours found = " + str(len(contours)))
+        return contours
 
+
+    def draw_contours(self, image_scan_unbordered, contours):
         image_3channels = draw_contours(image_scan_unbordered, contours)
         saveimage(image_3channels,self.sample, "draw_contours_on_image", path=self.output_path)
 
-        white_mask = np.full(mask.shape[:2],255, np.uint8)
+        # white_mask = np.full(mask.shape[:2],255, np.uint8)
+        white_mask = np.full(image_scan_unbordered.shape[:2], 255, np.uint8)
         image_3channels = draw_contours(white_mask, contours)
         saveimage(image_3channels, self.sample, "draw_contours", path=self.output_path)
 
-        organism_size = 50
+    # def draw_contours_filtered(self, image_scan_unbordered, contours): #, filter):
+        
+    #     # filtered_contours = list(filter(lambda c: filter(c), contours))
+    #     filtersize = 50
+    #     def f (contour):
+    #         x,y,w,h = cv2.boundingRect(contour)
+    #         if w < filtersize and h < filtersize:
+    #             return False
+    #         return True
 
+    #     filtered_contours = list(filter(f, contours))
+
+    #     # filtered_contours = filter(filter, contours)
+
+    #     white_mask = np.full(image_scan_unbordered.shape[:2], 255, np.uint8)
+    #     image_3channels = draw_contours(white_mask, filtered_contours)
+    #     saveimage(image_3channels, self.sample, "draw_contours_filtered", path=self.output_path)
+    #     return image_3channels
+
+    def vignettes(self, image_scan_unbordered, contours, organism_size = 50):
         # acceptable size
         def filter(h,w)-> bool:
             if h < organism_size and w < organism_size: return False
             return True
 
-        image_3channels = draw_boxes_filtered(image_scan_unbordered, contours,filter)
+        image_3channels = draw_boxes_filtered(image_scan_unbordered, contours, filter)
         saveimage(image_3channels, self.sample, "draw_boxes_filtered_on_image", path=self.output_path)
 
+        # white_mask = np.full(mask.shape[:2],255, np.uint8)
+        white_mask = np.full(image_scan_unbordered.shape[:2], 255, np.uint8)
         image_3channels = draw_boxes_filtered(white_mask, contours,filter, add_number=True)
         saveimage(image_3channels, self.sample, "draw_boxes_filtered", path=self.output_path)
 
-        vignettepath = Path(self.output_path,"vignettes")
+        vignettepath = Path(self.output_path, "vignettes")
         mkdir(vignettepath)
-        filelist = generate_vignettes(image_scan_unbordered,contours,filter, path=vignettepath)
+        filelist = generate_vignettes(image_scan_unbordered, contours, filter, path=vignettepath)
 
+        print(f"Vignettes générées: {len(filelist)}")
+        print(f"{filelist}")
