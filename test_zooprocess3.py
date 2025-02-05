@@ -4,12 +4,12 @@ import pytest
 
 from pathlib import Path
 
-from zooprocess2 import zooprocessv10,  Analyze_sample
+from zooprocess3 import zooprocessv10,  Analyze_sample
 from ProjectClass import ProjectClass
 from img_tools import mkdir
 class test_zooprocess2(unittest.TestCase):
 
-    @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
+    # @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
     def test_process_on_test_project_scan_rectangle(self):
 
         project_folder = "Zooscan_sn001_rond_carre_zooprocess_separation_training"
@@ -239,4 +239,5 @@ class test_zooprocess2(unittest.TestCase):
             Analyze_sample(TP, sample)
 
         print("Done")
+    
     

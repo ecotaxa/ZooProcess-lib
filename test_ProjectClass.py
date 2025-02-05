@@ -78,7 +78,7 @@ class Test_ProjectClass(unittest.TestCase):
         # file2 = TP.getBackgroundFile(sample,2)
         # self.assertTrue(file2.exists())
 
-    # @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
+    @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
     def test_process_on_remote_piqv_project(self):
         
         TP = buildProjectClass(  
@@ -93,3 +93,21 @@ class Test_ProjectClass(unittest.TestCase):
         self.assertEqual(file1.name,"20141003_1144_back_large_raw_1.tif")
         self.assertTrue(file1.exists())
 
+
+    # @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
+    def test_list_sample(self):
+
+        # TP = buildProjectClass(  
+        #     project_name = "Zooscan_sn001_rond_carre_zooprocess_separation_training", 
+        #     remotePIQVHome = "/Volumes/sgalvagno/piqv/plankton/",
+        #     # projectDir = "zooscan_archives_lov"
+        #     projectDir = "zooscan_lov"
+        # )
+
+        project_folder = "Zooscan_sn001_rond_carre_zooprocess_separation_training"
+        TP = ProjectClass(project_name = project_folder)
+
+        samples = TP.listSamples()
+        print(samples)
+
+        

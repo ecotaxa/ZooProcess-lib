@@ -20,7 +20,7 @@ from img_tools import (
         normalize, normalize_back,
         separate_apply_mask,
         draw_contours, draw_boxes, draw_boxes_filtered,
-        generate_vignettes,
+        generate_vignettes, generate_vignettes3,
         mkdir,
         getPath,
         resize,
@@ -53,15 +53,18 @@ def Analyze_sample(TP: ProjectClass, sample: str):
     z.process()
 
 
-
-def filterSize(contour):
-    h=100
-    w=100
-    x,y,width,height = cv2.boundingRect(contour)
-    if width < w or height < h:
-        return False
-    else:
-        return True
+# def areaFilter(contour):
+#     if area < organism_size_min or area > organism_size_max: return False
+#     return True
+    
+# def filterSize(contour):
+#     h=100
+#     w=100
+#     x,y,width,height = cv2.boundingRect(contour)
+#     if width < w or height < h:
+#         return False
+#     else:
+#         return True
 
 class zooprocessv10:
     """
@@ -138,29 +141,72 @@ class zooprocessv10:
         return image_back_resized
 
 
-    def background_average(self, scan_image, imin, imax, min, max):
+    def convert_to_8bit(self, image):
 
-        from to8bit import resize
+        median, mean = picheral_median(image)
+        imin,imax = minAndMax(median)
 
-        back_image   = loadimage(self.back_name, path=self.TP.back)
-        back_image_2 = loadimage(self.back_name_2, path=self.TP.back)
+        min = 0
+        max = 254
 
         a = (max - min) / (imax - imin)
         b = max - a * imax
-        # print(f"a: {a}, b: {b}")
-        back_image_8bit = (a * back_image + b).astype(np.uint8)
-        back_image_2_8bit = (a * back_image_2 + b).astype(np.uint8)
+        # b = imax - a * max
 
-        scan_image_8bit = (a * scan_image + b).astype(np.uint8)
+        back_image_8bit = (a * image + b).astype(np.uint8)
 
-        image_back_resized = resize(scan_image_8bit, back_image_8bit)
+        return back_image_8bit
+
+
+    def normalize(self, scan_image):
+
+        from to8bit import resize
+
+        back_image_1   = loadimage(self.back_name, path=self.TP.back)
+        back_image_2 = loadimage(self.back_name_2, path=self.TP.back)
+
+        back_image_1_8bit = self.convert_to_8bit(back_image_1)
+        back_image_2_8bit = self.convert_to_8bit(back_image_2)
+
+        saveimage(back_image_1_8bit, self.back_name, "8bit", ext="tiff", path=self.output_path)
+        saveimage(back_image_2_8bit, self.back_name, "8bit", ext="tiff", path=self.output_path)
+
+        scan_image_8bit = self.convert_to_8bit(scan_image)
+        saveimage(scan_image_8bit, self.sample, "8bit", ext="tiff", path=self.output_path)
+
+        image_back_1_resized = resize(scan_image_8bit, back_image_1_8bit)
         image_back_2_resized = resize(scan_image_8bit, back_image_2_8bit)
 
-        image_back_median_resized = (image_back_resized / 2 + image_back_2_resized / 2 ).astype(np.uint8)
+        image_back_median_resized = (image_back_1_resized / 2 + image_back_2_resized / 2 ).astype(np.uint8)
         
-        image_back_median_resized = cv2.medianBlur(image_back_median_resized, 3)
+        # image_back_median_resized = cv2.medianBlur(image_back_median_resized, 3)
 
-        return image_back_median_resized
+        image_back_rotated = rotate90c(image_back_median_resized)
+        image_scan_rotated = rotate90c(scan_image_8bit)
+
+        saveimage(image_back_rotated, self.back_name, "image_back_rotated", ext="tiff", path=self.output_path)
+        saveimage(image_scan_rotated, self.sample,    "image_scan_rotated", ext="tiff", path=self.output_path)
+
+        # ajouter un flip horizontal pour que l'utilsateur voit l'image comme son scan
+
+        return image_scan_rotated , image_back_rotated
+
+
+
+    def crop(self, image):
+        border = Border(image)
+        border.output_path = self.output_path
+        border.name = self.back_name
+
+        # reload the image_back_rotated to don't mutated the original (a copy is need to work)
+        # make a byte copy will probably most efficiant
+        back_file = Path(getPath(self.back_name, extraname="image_back_rotated", ext="tiff", path=self.output_path))
+        border.draw_image = loadimage(back_file.as_posix())
+
+        limitetop, limitbas, limitegauche, limitedroite = border.detect()
+
+        return limitetop, limitbas, limitegauche, limitedroite
+
 
 
     def process(self):
@@ -168,104 +214,77 @@ class zooprocessv10:
         from to8bit import resize, filters
 
         scan_image = loadimage(self.sample, path=self.TP.rawscan)
-        # back_image = loadimage(self.back_name, path=self.TP.back)
-        # back_image_2 = loadimage(self.back_name_2, path=self.TP.back)
 
-        scan_image = cv2.medianBlur(scan_image, 3)
+        print(f"scan_image shape: {scan_image.shape}")
 
+        # normalise : scan en 8 bit rotated, mix back1 & back 2 8 bits 
+        image_scan_normed , image_back_normed = self.normalize(scan_image)
 
-        imin,imax,min,max = filters(scan_image)
-        print( f"imin: {imin}, imax: {imax} - min: {min}, max: {max}" )
+        print(f"image_scan_normed shape: {image_scan_normed.shape}")
+        print(f"image_back_normed shape: {image_back_normed.shape}")
 
-        a = (max - min) / (imax - imin)
-        b = max - a * imax
-        # print(f"a: {a}, b: {b}")
-        # back_image_8bit = (a * back_image + b).astype(np.uint8)
-        # back_image_2_8bit = (a * back_image_2 + b).astype(np.uint8)
+        # image_substracted = np.subtract(image_scan_normed, image_back_normed)
+        # saveimage(image_substracted, self.sample, "substracted_back", ext="tiff", path=self.output_path)
 
-        scan_image_8bit = (a * scan_image + b).astype(np.uint8)
+        # image_substracted2 = np.subtract(image_back_normed, image_scan_normed)
+        # saveimage(image_substracted2, self.sample, "substracted_back_inv", ext="tiff", path=self.output_path)
 
-        # image_back_resized = resize(scan_image_8bit, back_image_8bit)
-        # image_back_2_resized = resize(scan_image_8bit, back_image_2_8bit)
-
-        # image_back_median_resized = (image_back_resized + image_back_2_resized) / 2
-
-        if self.use_average:
-            image_back_resized = self.background_average(scan_image, imin,imax,min,max)
-        else:
-            image_back_resized = self.background(scan_image, imin,imax,min,max)
-
-        image_substracted = np.subtract(scan_image_8bit, image_back_resized)
-        saveimage(image_substracted, self.sample, "substracted_back_filter", ext="tiff", path=self.output_path)
-
-        image_substracted2 = np.subtract(image_back_resized, scan_image_8bit)
-        saveimage(image_substracted2, self.sample, "substracted2_back_filter", ext="tiff", path=self.output_path)
-
-        image_back_rotated = rotate90c(image_back_resized)
-        image_scan_rotated = rotate90c(image_substracted2)
-
-        saveimage(image_back_rotated, self.back_name, "image_back_rotated", ext="tiff", path=self.output_path)
-        saveimage(image_scan_rotated, self.sample, "image_scan_rotated", ext="tiff", path=self.output_path)
-
-        # ajouter un flip horizontal pour que l'utilsateur voit l'image comme son scan
-
-        border = Border(image_back_rotated)
-        border.output_path = self.output_path
-        border.name = self.back_name
-        # reload the image_back_rotated to don't mutated the original (a copy is need to work)
-        # make a byte copy will probably most efficiant
-        back_file = Path(getPath(self.back_name, extraname="image_back_rotated", ext="tiff", path=self.output_path))
-        border.draw_image = loadimage(back_file.as_posix())
-
-        limitetop, limitbas, limitegauche, limitedroite = border.detect()
+        # On recherche les bords de l'image de fond
+        limitetop, limitbas, limitegauche, limitedroite = self.crop(image_back_normed)
         print(f"back limite t={limitetop}, b={limitbas}, l={limitegauche}, r={limitedroite}")
 
         # on se fiche de cette image
         # image_back_unbordered = crop(image_back_rotated, left=limitetop, top=limitegauche, right=limitbas, bottom=limitedroite)
         # saveimage(image_back_unbordered, self.back_name, "unbordered", ext="tiff", path=self.output_path)
 
-        image_scan_unbordered = crop(image_scan_rotated, left=limitetop, top=limitegauche, right=limitbas, bottom=limitedroite)
+        # on crop le scan original
+        image_scan_unbordered = crop(rotate90c(scan_image), left=limitetop, top=limitegauche, right=limitbas, bottom=limitedroite)
         saveimage(image_scan_unbordered, self.sample, "unbordered", ext="tiff", path=self.output_path)
 
-        # transforme en masque (binarisation par seuillage)
-        
-        # ret,mask = cv2.threshold(image_scan_unbordered,100,200,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        # thresh_min = 0 # 225 # 237 # 200 # 243 # 220 # 243 # 200 # 126 # 243 # 0 # 100
-        # thresh_max = 255 # 241 # 250 # 243 # 255 # 243
-        # th, mask = cv2.threshold(image_scan_unbordered,thresh_min,thresh_max,cv2.THRESH_BINARY)
-        # saveimage(mask, self.sample, "unbordered_mask" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=self.output_path)
-        # print(f"th: {th}")
+        # on crop les 8 bit
+        image_scan_normed_cropped = crop(image_scan_normed, left=limitetop, top=limitegauche, right=limitbas, bottom=limitedroite)
+        saveimage(image_scan_normed_cropped, self.sample, "image_scan_normed_unbordered", ext="tiff", path=self.output_path)
 
-        # th, mask = cv2.threshold(image_scan_unbordered,thresh_min,thresh_max,cv2.THRESH_OTSU)
-        # saveimage(mask, self.sample, "unbordered_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=self.output_path)
-        # print(f"th: {th}")
+        image_back_normed_cropped = crop(image_back_normed, left=limitetop, top=limitegauche, right=limitbas, bottom=limitedroite)
+        saveimage(image_back_normed_cropped, self.sample, "image_back_normed_unbordered", ext="tiff", path=self.output_path)
 
-        # th, mask = cv2.threshold(image_scan_unbordered,thresh_min,thresh_max,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
-        # saveimage(mask, self.sample, "unbordered_bin_inv_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=self.output_path)
-        # print(f"th: {th}")
 
-        # mask = self.threshold_binary(image_scan_unbordered, path=self.output_path )
-        # mask = self.thresholding_with_otsu(image_scan_unbordered, path=self.output_path)
-        mask = self.thresholding_with_inv_otsu(image_scan_unbordered, path=self.output_path)
+        # # on crop le scan 8 bits
+        # image_scan_normed_unbordered = crop(image_scan_normed, left=limitetop, top=limitegauche, right=limitbas, bottom=limitedroite)
+        # saveimage(image_scan_unbordered, self.sample, "unbordered_8bit", ext="tiff", path=self.output_path)
+
+        image_substracted = np.subtract(image_scan_normed_cropped, image_back_normed_cropped)
+        saveimage(image_substracted, self.sample, "substracted_back", ext="tiff", path=self.output_path)
+
+        image_substracted2 = np.subtract(image_back_normed_cropped, image_scan_normed_cropped)
+        saveimage(image_substracted2, self.sample, "substracted_back_inv", ext="tiff", path=self.output_path)
+
+
+        # transforme en masque (binarisation par seuillage de l'image 8 bits)
+        # mask_inv = self.thresholding_with_inv_otsu(image_scan_normed_unbordered, path=self.output_path)
+        # saveimage(mask_inv, self.sample, "mask_inv", ext="tiff", path=self.output_path)
+        mask = self.thresholding_with_inv_otsu(image_substracted, path=self.output_path)
+        saveimage(mask, self.sample, "mask", ext="tiff", path=self.output_path)
 
 
         contours = self.contours(mask)
-        self.draw_contours_filtered(image_scan_unbordered, contours, organism_size = 100) #, filterSize)
+        self.draw_contours_filtered(image_scan_unbordered, contours, organism_size_min = 100, organism_size_max = 100) #, filterSize)
         # self.draw_contours(image_scan_unbordered, contours)
 
-        self.vignettes(image_scan_unbordered, contours)
+        # self.vignettes(image_scan_unbordered, contours)
+        self.vignettes(image_scan_normed_cropped, contours)
 
         print(f"Done open {self.output_path}")
 
 
-    def aire_filter(self,resolution,minsize,maxsize) -> tuple:
+    def aire_filter(self, resolution, minsize, maxsize) -> tuple:
         pixel = 25.4/resolution;
         Smmin=(3.1416/4)*pow(minsize,2);
         Spmin = round(Smmin/(pow(pixel,2)));
         Smmax=(3.1416/4)*pow(maxsize,2);
         Spmax = round(Smmax/(pow(pixel,2)));
 
-        return (Spmin,Spmax)
+        return (Spmin, Spmax)
 
 
     def threshold_binary(self, image, thresh_min = 0, thresh_max = 255, path:Path = None):
@@ -275,11 +294,14 @@ class zooprocessv10:
         print(f"threshold at: {th}")
         return mask
 
+
+
     def thresholding_with_otsu(self, image, thresh_min = 0, thresh_max = 255, path:Path = None):
         th, mask = cv2.threshold(image, thresh_min, thresh_max, cv2.THRESH_OTSU)
         saveimage(mask, self.sample, "unbordered_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff", path=path)
         print(f"threshold at: {th}")
         return mask
+
 
     def thresholding_with_inv_otsu(self, image, thresh_min = 0, thresh_max = 255, path:Path = None):
         th, mask = cv2.threshold(image, thresh_min, thresh_max, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
@@ -303,6 +325,7 @@ class zooprocessv10:
         image_3channels = draw_contours(white_mask, contours)
         saveimage(image_3channels, self.sample, "draw_contours2", path=self.output_path)
 
+
     # def draw_contours_filtered(self, image_scan_unbordered, contours): #, filter):
         
     #     # filtered_contours = list(filter(lambda c: filter(c), contours))
@@ -322,7 +345,8 @@ class zooprocessv10:
     #     saveimage(image_3channels, self.sample, "draw_contours_filtered", path=self.output_path)
     #     return image_3channels
 
-    def draw_contours_filtered(self, image_scan_unbordered, contours, organism_size = 100):
+
+    def draw_contours_filtered(self, image_scan_unbordered, contours, organism_size_min = 100, organism_size_max = 10000):
         # filtersize = 50
         # def f (contour):
         #     x,y,w,h = cv2.boundingRect(contour)
@@ -347,16 +371,32 @@ class zooprocessv10:
         nb = 0
         c = []
         
-        def filter(h,w)-> bool:
-            if h < organism_size and w < organism_size: return False
+        # def filter(h,w)-> bool:
+        #     if h < organism_size and w < organism_size: return False
+        #     return True
+
+
+        # def areaFilter(area):
+        #     print(f"area: {area}")
+        #     return True
+        #     if area < organism_size_min or area > organism_size_max: return False
+        #     return True
+
+        def filter(contour)-> bool:
+            # x,y,w,h = cv2.boundingRect(contour)
+            area = cv2.contourArea(contour)
+            if area < organism_size_min and area > organism_size_max: return False
             return True
 
         for i in range (0, len(contours)):      
             # mask_BB_i = np.zeros((len(th),len(th[0])), np.uint8)
             x,y,w,h = cv2.boundingRect(contours[i])
-            area = cv2.minAreaRect(contours[i])
+            # area = cv2.minAreaRect(contours[i])
+            area = cv2.contourArea(contours[i])
             # if h < 100 or w < 100: continue
-            if filter(h,w) :
+            # if filter(h,w) :
+            # if areaFilter(area):
+            if filter(contours[i]):
                 c.append(contours[i]) 
                 nb = nb + 1
                 # cv2.drawContours()
@@ -375,11 +415,14 @@ class zooprocessv10:
     def vignettes(self, image_scan_unbordered, contours, organism_size = 100):
         # acceptable size
         # def filter(h,w)-> bool:
+        #     return True
         #     if h < organism_size and w < organism_size: return False
         #     return True
 
         def filter(contour)-> bool:
             x,y,w,h = cv2.boundingRect(contour)
+            print(f"h: {h} w: {w}")
+            if h == 1 or w == 1 : return False
             if h < organism_size and w < organism_size: return False
             return True
 

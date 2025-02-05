@@ -4,7 +4,7 @@ from tools import timeit
 import cv2
 from pathlib import Path
 
-debug=False
+debug=True #False
 
 def print_image_info(img,title=None) -> None:
     # get dimensions of image
@@ -113,8 +113,12 @@ def getPath(filename, extraname=None, ext=None, path=None) -> str:
         new_filename = new_path.absolute().as_posix()
     return new_filename
 
-def saveimage(image, filename, extraname=None, ext="jpg", path=None, dpi=None) -> str:
+def saveimage(image: np.ndarray, filename, extraname=None, ext="jpg", path=None, dpi=None) -> str:
     import cv2
+
+    if debug: print(f"image shpae: {image.shape}")
+    if image.shape[0] == 0 or image.shape[1] == 0 : return None
+
     new_filename = getPath(filename, extraname=extraname, ext=ext, path=path)
     # if extraname:
     #     new_filename = rename(filename,extraname,ext)
@@ -343,10 +347,23 @@ def crop_scan(image) -> np.ndarray:
 
 import cv2
 
-def draw_contours(image, contours, color=(0, 255, 0),thickness=3) -> np.ndarray:
+def draw_contours(image, contours, color=(0, 255, 0),thickness=3, index = -1) -> np.ndarray:
+    """
+    index = -1 : mean draw all contours
+    index = x : mean draw the i th contour
+    """
     image_3channels = cv2.merge([image, image, image])
-    cv2.drawContours(image_3channels, contours, -1, color, thickness)
+    cv2.drawContours(image_3channels, contours, index, color, thickness)
     # saveimage(image_3channels, file_scan, "draw_contours2dilate", path=zooscan_test_folder)
+    return image_3channels
+
+def append_contours(image_3channels: np.ndarray, contours, color=(0, 255, 0),thickness=3, index = -1) ->  np.ndarray:
+    """
+    append a contour on a 3 channels image
+    index = -1 : mean draw all contours
+    index = x : mean draw the i th contour
+    """
+    cv2.drawContours(image_3channels, contours, index, color, thickness)
     return image_3channels
 
 def draw_box(image_3channels,x,y,w,h,color=(0, 0, 255),thickness=3) -> np.ndarray:
@@ -417,7 +434,21 @@ def draw_boxes(image, contours, add_number=False, font=None) -> np.ndarray:
 
     return image_3channels
 
-def draw_boxes_filtered(image, contours,filter, add_number=False, font=None) -> np.ndarray:
+def filterContours(contours, h, w):
+    # contours_filtered = contours.filter(lambda contour: h < 100 or w < 100)
+    # contours_filtered = contours.filter(cv2.boundingRect (contours[i])[2] > h and cv2.boundingRect(contours[i])[3] > w)
+    def size(contour):
+        w=50
+        h=50
+        x,y,width,height = cv2.boundingRect(contour)
+        if width < w or height < h:
+            return False
+        else:
+            return True
+    contours_filtered = list(filter(lambda c: size(c,h,w), contours))
+    return contours_filtered
+
+def draw_boxes_filtered(image, contours, filter, add_number=False, font=None) -> np.ndarray:
     image_3channels = cv2.merge([image, image, image])
 
     # if add_number and not font:
@@ -430,9 +461,12 @@ def draw_boxes_filtered(image, contours,filter, add_number=False, font=None) -> 
 
     for i in range (0, len(contours)):
         # mask_BB_i = np.zeros((len(th),len(th[0])), np.uint8)
-        x,y,w,h = cv2.boundingRect(contours[i])
+        # x,y,w,h = cv2.boundingRect(contours[i])
         # if h < 100 or w < 100: continue
-        if filter(h,w) : 
+        # if filter(h,w): 
+        if filter(contours[i]): 
+            x,y,w,h = cv2.boundingRect(contours[i])
+            
             image_3channels = draw_box(image_3channels,x,y,w,h)
 
             if add_number:
@@ -457,17 +491,40 @@ def generate_vignettes(image, contours,filter,path):
     filelist = []
     for i in range (0, len(contours)) :
         # mask_BB_i = np.zeros((len(th),len(th[0])), np.uint8)
-        x,y,w,h = cv2.boundingRect(contours[i])
+        # x,y,w,h = cv2.boundingRect(contours[i])
         # if h < 100 or w < 100: continue
-        if filter(h,w) : 
+        # if filter(h,w) : 
+        if filter(contours[i]) : 
             # image_3channels = draw_box(image_3channels,x,y,w,h)
-            cropped_image = crophw(image_3channels,x,y,w,h)
+            x,y,w,h = cv2.boundingRect(contours[i])
+            print(f"x: {x} - y: {y} - h: {h} - w: {w}")
+            if h != 0 and w != 0:
+                cropped_image = crophw(image_3channels,x,y,w,h)
+                if True:
+                    filename = f"vignette_{i}.tif"
+                    print(f"vignette filename: {filename}")
+                    filepath = saveimage(cropped_image, filename, path=path)
+                    filelist.append(filepath)
+    
+    return filelist
+
+def generate_vignettes3(image:np.ndarray, contours,filter,path):
+    # image_3channels = cv2.merge([image, image, image])
+    filelist = []
+    for i in range (0, len(contours)) :
+        # mask_BB_i = np.zeros((len(th),len(th[0])), np.uint8)
+        # x,y,w,h = cv2.boundingRect(contours[i])
+        # if h < 100 or w < 100: continue
+        # if filter(h,w) : 
+        if filter(contours[i]) : 
+            # image_3channels = draw_box(image_3channels,x,y,w,h)
+            x,y,w,h = cv2.boundingRect(contours[i])
+            cropped_image = crophw(image,x,y,w,h)
             filename = f"vignette_{i}.tif"
             filepath = saveimage(cropped_image,filename,path=path)
             filelist.append(filepath)
     
     return filelist
-
 
 
 def resize(largeur,hauteur):

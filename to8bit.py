@@ -180,7 +180,7 @@ def filters(img) -> tuple:
 
     target_type_max = 254
 
-    return (imin,imax,target_type_min,target_type_max)
+    return (imin, imax, target_type_min, target_type_max)
 
 
 def convert_mm(img, target_type_min, target_type_max, min, max, target_type):

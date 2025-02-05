@@ -121,7 +121,7 @@ class Border:
         # print(f"shape of cropped image: {img.shape}")
         mean = np.mean(img, axis=None)
         print(f"Mean of cropped image: {mean}")
-        saveimage(img, self.name, "crop_right" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
+        # saveimage(img, self.name, "crop_right" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
         self.draw_image = draw_box(self.draw_image, x=k, y=self.height/4, h=self.height/4, w=10*self.step, color=(255,255,0)) 
 
         greyvalb = int(mean * self.greytaux)
@@ -130,7 +130,7 @@ class Border:
             img = crophw(self.image, top=k, left=self.height/4, width=self.height/4, height=self.step)
             # print(f"shape of cropped image: {img.shape}")
             mean = np.mean(img, axis=None)
-            saveimage(img, self.name, "crop_right" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
+            # saveimage(img, self.name, "crop_right" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
             self.draw_image = draw_box(self.draw_image, x=k, y=self.height/4, h=self.height/4, w=self.step, color=(255,255,0)) 
             # print(f"Mean of cropped image: {mean}")
             if mean < greyvalb:
@@ -158,7 +158,7 @@ class Border:
         print(f"Mean of cropped image: {mean}")
         # if mean is not int : print ("NNNNNNNNNNNaaaaaaaaaaNNNNNNNNNNN") ; return
 
-        saveimage(img, self.name, "crop_bottom" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
+        # saveimage(img, self.name, "crop_bottom" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
         self.draw_image = draw_box(self.draw_image, x=self.width / 6, y=k, w=self.width*0.15, h=self.step, color=(255,0,0)) 
 
         greyvalb = int(mean * self.greytaux)
@@ -168,7 +168,7 @@ class Border:
             img = crophw(self.image, top=self.width / 6, left=k, height=self.width*0.15, width=self.step)
             # print(f"shape of cropped image: {img.shape}")
             mean = np.mean(img, axis=None)
-            saveimage(img, self.name, "crop_bottom" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
+            # saveimage(img, self.name, "crop_bottom" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
             self.draw_image = draw_box(self.draw_image, x=self.width / 6, y=k, w=self.width*0.15, h=self.step, color=(255,0,0)) 
             # print(f"Mean of cropped image: {mean}")
             if mean < greyvalb: # on arrete
@@ -192,7 +192,7 @@ class Border:
         # print(f"shape of cropped image: {img.shape}")
         mean = np.mean(img, axis=None)
         # print(f"Mean of cropped image: {mean}")
-        saveimage(img, self.name, "crop_top" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
+        # saveimage(img, self.name, "crop_top" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
         # self.draw_image = draw_box(self.draw_image, x=self.width / 4, y=k, h=self.width*0.2, w=self.step, color=(255,0,0)) 
         self.draw_image = draw_box(self.draw_image, y=k, x=self.width/2 - self.width/8, w=self.width/4, h=self.step, color=(255,0,0)) 
 
@@ -204,7 +204,7 @@ class Border:
 
             # print(f"shape of cropped image: {img.shape}")
             mean = np.mean(img, axis=None)
-            saveimage(img, self.name, "crop_top" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
+            # saveimage(img, self.name, "crop_top" + "_" + str(int(k)) + "_" + str(int(mean)), ext="tiff", path=self.crop_output_path)
             # self.draw_image = draw_box(self.draw_image, x=self.width / 4, y=k, h=self.width*0.2, w=self.step, color=(255,0,0)) 
             self.draw_image = draw_box(self.draw_image, y=k, x=self.width/2 - self.width/8, w=self.width/4, h=self.step, color=(255,0,0)) 
 
