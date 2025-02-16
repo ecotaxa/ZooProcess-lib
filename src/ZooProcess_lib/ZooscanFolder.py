@@ -1,9 +1,8 @@
 from pathlib import Path
-from typing import Generator
+from typing import Generator, List, Tuple, Union, Any, Dict
 
 
-class ZooscanFolder():
-
+class ZooscanFolder:
     # zooscan_back_folder="Zooscan_back/"
     # zooscan_scan_folder="Zooscan_scan/"
     # zooscan_config_folder="Zooscan_config/"
@@ -13,7 +12,7 @@ class ZooscanFolder():
     # zooscan_PID_process_folder="PID_process/"
 
     # def __init__(self, project:str, home:str=None, piqv:str=None) -> None:
-    def __init__(self, project: str, home: Path) -> None:
+    def __init__(self, home: Path, project: str) -> None:
         # self.home="/Users/sebastiengalvagno/"
         # self.piqv="piqv/plankton/zooscan_monitoring/"
         # if home:
@@ -52,19 +51,8 @@ class ZooscanFolder():
         raw = sample + "_" + str(mesure)
 
 
-class Zooscan_scan_Folder():
+class Zooscan_scan_Folder:
     _zooscan_path = "Zooscan_scan"
-
-    # def __init__(self, project:str, home:str=None) -> None:
-    # self.project = project
-    # print("project",self.project)
-    # if home:
-    #     self.path = Path(home,project)
-    # else:
-    #     self.path = Path(project)
-
-    # self.raw = Zooscan_scan_raw_Folder(self.path.absolute())
-    # self.work = Zooscan_scan_work_Folder(self.path.absolute())
 
     def __init__(self, zooscan_scan_folder: Path) -> None:
         self.path = Path(zooscan_scan_folder, self._zooscan_path)
@@ -72,7 +60,7 @@ class Zooscan_scan_Folder():
         self.work = Zooscan_scan_work_Folder(self.path)
 
 
-class Zooscan_back_Folder():
+class Zooscan_back_Folder:
     _zooscan_path = "Zooscan_back"
 
     def __init__(self, zooscan_scan_folder: Path) -> None:
@@ -90,7 +78,7 @@ class Zooscan_back_Folder():
             pass
 
         # raw_files = Path(self.path).glob('*_raw_*')
-        raw_files = Path(self.path).glob('*')
+        raw_files = Path(self.path).glob("*")
 
         file_type = {
             "_back_large_raw_1": "raw_1",
@@ -98,7 +86,7 @@ class Zooscan_back_Folder():
             "_back_large_1": "scan_1",
             "_back_large_2": "scan_2",
             "_background_": "background",
-            "_back_large_manual_log": "log"
+            "_back_large_manual_log": "log",
         }
 
         files = {}
@@ -127,7 +115,6 @@ class Zooscan_back_Folder():
     # def getNameFromRawFile(self,filename,key):
 
     def getbacks(self):
-
         try:
             if self.backs:
                 return self.backs
@@ -144,14 +131,13 @@ class Zooscan_back_Folder():
         return backs
 
     def get_samples(self) -> Generator:  # -> Array(Path):
-
         try:
             if self.files:
                 return self.files
         except:
             pass
 
-        raw_files = Path(self.path).glob('*_raw_*')
+        raw_files = Path(self.path).glob("*_raw_*")
 
         files = []
         # names = []
@@ -182,8 +168,10 @@ class Zooscan_back_Folder():
         """
         return the list of dates
         """
-        if self.dates: return self.dates
-        if not self.files: self.get_samples()
+        if self.dates:
+            return self.dates
+        if not self.files:
+            self.get_samples()
 
         dates = {}
         for file in self.files:
@@ -196,30 +184,19 @@ class Zooscan_back_Folder():
         return self.dates
 
 
-class Zooscan_scan_work_Folder():
+class Zooscan_scan_work_Folder:
     _work = "_work"
 
     def __init__(self, zooscan_scan_raw_folder: Path) -> None:
         self.path = Path(zooscan_scan_raw_folder, self._work)
 
-    def get_files(self, sample_name) -> Generator:
+    def get_files(
+        self, sample_name: str, index: int
+    ) -> dict[str, Union[list[Path], Path]]:
+        path = Path(self.path, sample_name + "_" + str(index))
+        filelist = Path(path).glob("*")
 
-        try:
-            if self.files[sample_name]:
-                return self.files[sample_name]
-        except:
-            # print("Exception 1:",e) 
-            try:
-                if self.files: pass
-            except:
-                # print("Exception 2:",e) 
-                self.files = {}
-
-        path = Path(self.path, sample_name)
-        print("path:", path.absolute())
-        filelist = Path(path).glob('*')
-
-        file_type = {
+        file_type: Dict[str, str] = {
             ".tsv": "tsv",
             "_sep.gif": "sep",
             "_out1.gif": "out1",
@@ -227,101 +204,54 @@ class Zooscan_scan_work_Folder():
             "_meta.txt": "meta",
             "_meas.txt": "meas",
             "_log.txt": "log",
-            "_dat1.pid": "pid"
+            "_dat1.pid": "pid",
+            "_vis1.zip": "rawz",
         }
-
-        files = {}
-        files['jpg'] = []
-        # names = []
+        files = {"jpg": []}
         for file in filelist:
-            # files.append(file)
-            filename = file.name
-            # names.append(filename)
-            print(filename)
-
             for pattern in file_type:
                 if pattern in file.name:
-                    print("pattern:", pattern, end=" - ")
-                    print("append:", filename)
                     files[file_type[pattern]] = file
                     del file_type[pattern]
                     break
-
             if ".jpg" in file.name:
                 files["jpg"].append(file)
+        if len(files["jpg"]) == 0:
+            del files["jpg"]
+        return files
 
-        if len(files["jpg"]) == 0: del files["jpg"]
-        self.files[sample_name] = files
-        return self.files[sample_name]
 
+class Zooscan_scan_raw_Folder:
+    _raw = "_raw"
 
-class Zooscan_scan_raw_Folder():
-    _raw = '_raw'
-
-    # def __init__(self, zooscan_scan_folder:str) -> None:
     def __init__(self, zooscan_scan_folder: Path) -> None:
         self.path = Path(zooscan_scan_folder, self._raw)
 
-    # def get_samples(self) -> Array(Path):
-    # def get_samples(self) : # -> Array(Path):
-    def get_samples(self) -> Generator:  # -> Array(Path):
-
-        try:
-            if self.files:
-                return self.files
-        except:
-            pass
-
-        raw_files = Path(self.path).glob('*_raw_*')
-
+    def get_samples(self) -> List[Path]:
+        raw_files = self.path.glob("*_raw_*")
         files = []
-        names = []
         for file in raw_files:
             files.append(file)
-            # filename = file.name
-            # name = filename.split("_raw")[0]
-            # print(name)
-            # # names.append(file)
-            # files.append((file,name))
+        return files
 
-        # return raw_files
-        # return (files,names)
-        self.files = files
-        return self.files
-
-    def extract_sample_name(self, file: Path):
+    @staticmethod
+    def extract_sample_name(file: Path) -> Tuple[str, int]:
         filename = file.name
-        splittedname = filename.split("_raw_")
-        name = splittedname[0]
-        print(name)
-        print(splittedname[1])
-        id = int(splittedname[1].split('.')[0])
-        return (name, id)
+        split_name = filename.split("_raw_")
+        name = split_name[0]
+        id_ = int(split_name[1].split(".")[0])
+        return name, id_
 
-    def get_names(self):
-        try:
-            if self.names: return self.names
-        except:
-            pass
-        # if not self.files: self.get_samples()
-        try:
-            files = self.files
-        except:
-            files = self.get_samples()
-
+    def get_names(self) -> list[dict[str, Union[int, str]]]:
         names = []
-        for file in files:
-            name, id = self.extract_sample_name(file)
-            nameid = {}
-            nameid['name'] = name
-            nameid['id'] = id
+        for file in self.get_samples():
+            name, id_ = self.extract_sample_name(file)
+            nameid = {"name": name, "id": id_}
             names.append(nameid)
-
-        self.names = names
-        return self.names
+        return names
 
 
-class Zooscan_sample_scan():
+class Zooscan_sample_scan:
     _log = "_log"
     _raw = "_raw"
     _meta = "_meta"
@@ -339,8 +269,7 @@ class Zooscan_sample_scan():
         self.folder = sample + "_" + str(scan_id)
 
 
-class Zooscan_sample():
-
+class Zooscan_sample:
     def __init__(self, sample, raw_path) -> None:
         self.rawfile = ""
         self.workfolder = ""
@@ -348,8 +277,7 @@ class Zooscan_sample():
         self.metafile = ""
 
 
-class Zooscan_Project():
-
+class Zooscan_Project:
     def __init__(self, projectname, home_path: Path) -> None:
         # self.scans : Array(Zooscan_sample_scan) = []
         self.scans = []
@@ -359,7 +287,7 @@ class Zooscan_Project():
         self.path = Path(home_path, projectname)
         # self.zooscan = ZooscanFolder(project_path.absolute(),home="",piqv="")
         # self.zooscan = ZooscanFolder(project_path.absolute(),home="",piqv="")
-        self.zooscan = ZooscanFolder(projectname, home_path)
+        self.zooscan = ZooscanFolder(home_path, projectname)
         # self.zooscan = ZooscanFolder(self.path)
         self.rawfolder = self.zooscan.zooscan_scan.raw
         # samples = self.zooscan.zooscan_scan.raw.get_samples()

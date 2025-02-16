@@ -55,7 +55,7 @@ class ZooscanProject:
         )
         return path.absolute().as_posix()
 
-    def getWorkScanPath(self, sample):
+    def getWorkScanPath(self, sample: str):
         path = Path(self.workscan, sample)
         return path.absolute().as_posix()
 
@@ -93,7 +93,9 @@ class ZooscanProject:
         )
 
     def getCombinedBackgroundFile(self, scan_date: str, color_balance: str):
-        return Path(self.back, scan_date + "_background_large_" + color_balance + ".tif")
+        return Path(
+            self.back, scan_date + "_background_large_" + color_balance + ".tif"
+        )
 
     def listSamples(self) -> list[str]:
         print(f"scan: {self.scan.as_posix()}")
@@ -122,7 +124,7 @@ class ZooscanProject:
 
 
 # Factory
-def buildProjectClass(
+def buildZooscanProject(
     project_name, remotePIQVHome=None, projectDir="zooscan_lov"
 ) -> ZooscanProject:
     localPiqvhome = "/Volumes/sgalvagno/plankton/"
