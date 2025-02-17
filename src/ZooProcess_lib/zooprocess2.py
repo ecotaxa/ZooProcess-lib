@@ -10,8 +10,9 @@ from .img_tools import (
     rotate90c, draw_contours, draw_boxes_filtered,
     generate_vignettes,
     mkdir,
-    getPath,
+    getPath, resize,
 )
+from .to8bit import filters
 
 
 def Analyze_sample(TP: ZooscanProject, sample: str):
@@ -105,7 +106,6 @@ class zooprocessv10:
         output_path = Path(self.TP.testfolder)
 
     def background(self, scan_image, imin, imax, min, max):
-        from to8bit import resize
 
         back_image = loadimage(self.back_name, path=self.TP.back)
 
@@ -143,8 +143,6 @@ class zooprocessv10:
         return image_back_median_resized
 
     def process(self):
-
-        from to8bit import filters
 
         scan_image = loadimage(self.sample, path=self.TP.rawscan)
         # back_image = loadimage(self.back_name, path=self.TP.back)

@@ -1,8 +1,11 @@
+from datetime import datetime
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Optional, Dict
+from zipfile import ZipFile
 
 import cv2
 import numpy as np
+from PIL.ExifTags import Base
 
 from .Lut import Lut
 from .tools import timeit
@@ -18,8 +21,9 @@ def print_image_info(img, title=None) -> None:
     height = img.shape[0]
     width = img.shape[1]
     # channels = img.shape[2]
-    if title: print(title)
-    print('Image Dimension    : ', dimensions)
+    if title:
+        print(title)
+    print("Image Dimension    : ", dimensions)
     # print('Image Height       : ',height)
     # print('Image Width        : ',width)
     # print('Number of Channels : ',channels)
@@ -27,7 +31,6 @@ def print_image_info(img, title=None) -> None:
 
 # draw a grayscale histogram
 def histogram(image, normalize=True, title=None, show=True):
-    import cv2
     from matplotlib import pyplot as plt
 
     # compute a grayscale histogram
@@ -44,7 +47,8 @@ def histogram(image, normalize=True, title=None, show=True):
         _xLabel = "Bins"
         _ylabel = "# of Pixels"
 
-    if title: _title = title
+    if title:
+        _title = title
 
     # matplotlib expects RGB images so convert and then display the image
     # with matplotlib
@@ -59,24 +63,22 @@ def histogram(image, normalize=True, title=None, show=True):
     plt.ylabel(_ylabel)
     plt.plot(hist)
     plt.xlim([0, 256])
-    if show: plt.show()
+    if show:
+        plt.show()
     # plt.fig
     return plt
 
 
 def convert_image_to_8bit(img) -> np.ndarray:
-    import cv2
-    return cv2.convertScaleAbs(img, alpha=1. / 256., beta=-.49999)
+    return cv2.convertScaleAbs(img, alpha=1.0 / 256.0, beta=-0.49999)
 
 
 def rotate90c(img) -> np.ndarray:
-    import cv2
     image = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
     return image
 
 
 def rotate90cc(img) -> np.ndarray:
-    import cv2
     image = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
     return image
 
@@ -87,17 +89,20 @@ def mkdir(path):
 
 def rename(filename, extraname, ext=None) -> str:
     """
-    rename : define a new filename. 
+    rename : define a new filename.
     The function insert the string extraname in the filename and its extension.
     also it could change the extension with ext parameter. Don't use dot ie: ext="jpg", ext="tiff", etc...
     """
     if extraname == None:
         raise ValueError("extraname could not eqal to None")
     import os
+
     decompose = os.path.splitext(filename)
-    if debug: print(f"decompose {decompose}")
+    if debug:
+        print(f"decompose {decompose}")
     extension = decompose[1]
-    if ext: extension = "." + ext
+    if ext:
+        extension = "." + ext
     new_filename = decompose[0] + "_" + extraname + extension
     return new_filename
 
@@ -109,12 +114,14 @@ def getPath(filename, extraname=None, ext=None, path=None) -> str:
             new_filename = rename(filename, extraname, ext)
         else:
             # new_filename = extraname
-            raise ValueError("filename is Node, please set a value")
-        if debug: print(f"new name: {new_filename}")
+            raise ValueError("filename is None, please set a value")
+        if debug:
+            print(f"new name: {new_filename}")
     else:
         new_filename = filename
     if path:
-        if debug: print(f"path: {path}")
+        if debug:
+            print(f"path: {path}")
         new_path = Path(path)
         # if path[-1] != "/": new_path + "/"
         # new_path += new_filename
@@ -123,11 +130,13 @@ def getPath(filename, extraname=None, ext=None, path=None) -> str:
     return new_filename
 
 
-def saveimage(image: np.ndarray, filename, extraname=None, ext="jpg", path=None, dpi=None) -> str:
-    import cv2
-
-    if debug: print(f"image shpae: {image.shape}")
-    if image.shape[0] == 0 or image.shape[1] == 0: return None
+def saveimage(
+    image: np.ndarray, filename, extraname=None, ext="jpg", path=None, dpi=None
+) -> str:
+    if debug:
+        print(f"image shpae: {image.shape}")
+    if image.shape[0] == 0 or image.shape[1] == 0:
+        return None
 
     new_filename = getPath(filename, extraname=extraname, ext=ext, path=path)
     # if extraname:
@@ -135,16 +144,20 @@ def saveimage(image: np.ndarray, filename, extraname=None, ext="jpg", path=None,
     # else:
     #     new_filename = filename
     # if path: new_filename = path+"/"+new_filename
-    if debug: print(f"Saving {new_filename}")
+    if debug:
+        print(f"Saving {new_filename}")
 
     if dpi:
         from PIL import Image
+
         pil_image = Image.fromarray(image)
-        if debug: print(f"** Save file ** (pil) {new_filename}")
+        if debug:
+            print(f"** Save file ** (pil) {new_filename}")
         pil_image.save(new_filename, dpi=dpi)
     else:
         path_as_str = Path(new_filename).absolute().as_posix()
-        if debug: print(f"** Save file ** (cv2) {path_as_str}")
+        if debug:
+            print(f"** Save file ** (cv2) {path_as_str}")
         cv2.imwrite(path_as_str, image)
     return new_filename
 
@@ -161,8 +174,10 @@ def saveimage(image: np.ndarray, filename, extraname=None, ext="jpg", path=None,
 #     cv2.imwrite(new_filename, image)
 #     return new_filename
 
-def loadimage(filename, extraname=None, ext=None, path=None, type=cv2.COLOR_BGR2GRAY) -> np.ndarray:
-    import cv2
+
+def loadimage(
+    filename, extraname=None, ext=None, path=None, type=cv2.COLOR_BGR2GRAY
+) -> np.ndarray:
     new_filename = getPath(filename, extraname=extraname, ext=ext, path=path)
     # if extraname:
     #     new_filename = rename(filename,extraname,ext)
@@ -173,8 +188,19 @@ def loadimage(filename, extraname=None, ext=None, path=None, type=cv2.COLOR_BGR2
     image = cv2.imread(new_filename, type)
     # assert image is not None, f"file {new_filename} could not be read, check with os.path.exists()"
     # assert image is not None
-    if image is None: raise Exception(f"file: {filename} don't exist\nat path {new_filename}")
+    if image is None:
+        raise Exception(f"file: {filename} don't exist\nat path {new_filename}")
     return image
+
+
+def load_zipped_image(file_path: Path) -> np.ndarray:
+    assert file_path.name.lower().endswith(".zip")
+    with ZipFile(file_path, "r") as img_zip:
+        inside = img_zip.filelist
+        assert len(inside) == 1
+        the_file = inside[0]
+        file_content = np.frombuffer(img_zip.read(the_file), np.uint8)
+        return cv2.imdecode(file_content, flags=cv2.IMREAD_UNCHANGED)
 
 
 def properties(image, title=None, showMatrix=False) -> None:
@@ -182,16 +208,18 @@ def properties(image, title=None, showMatrix=False) -> None:
     print image properties
     change showMatrix to True if your are mad
     """
-    if title: print(title)
+    if title:
+        print(title)
     print("Type:", type(image))
     print("Shape of Image:", image.shape)
-    print('Total Number of pixels:', image.size)
+    print("Total Number of pixels:", image.size)
     print("Image data type:", image.dtype)
     print("Dimension:", image.ndim)
-    if showMatrix: print("Pixel Values:\n", image)
+    if showMatrix:
+        print("Pixel Values:\n", image)
 
 
-def normalize(image) -> np.ndarray:
+def normalize(image: np.ndarray) -> np.ndarray:
     image8bit = convert_image_to_8bit(image)
     image_rotated = rotate90c(image8bit)
     return image_rotated
@@ -205,7 +233,6 @@ def normalize_filename(filename, path=None) -> str:
 
 
 def normalize_back(image, size) -> np.ndarray:
-    import cv2
     resized = cv2.resize(image, size, interpolation=cv2.INTER_AREA)
     normed = normalize(resized)
     return normed
@@ -223,7 +250,7 @@ def canny(image, low_threshold, high_threshold, aperture_size) -> np.ndarray:
     """
     Aperture size should be odd between 3 and 7 in function 'Canny'
     """
-    import cv2
+
     edges = cv2.Canny(image, low_threshold, high_threshold, apertureSize=aperture_size)
     return edges
 
@@ -231,18 +258,24 @@ def canny(image, low_threshold, high_threshold, aperture_size) -> np.ndarray:
 @timeit
 def canny2(image, low_threshold, high_threshold, aperture_size) -> np.ndarray:
     from skimage.feature import canny
-    edges = canny(image, sigma=aperture_size, low_threshold=low_threshold, high_threshold=80)
+
+    edges = canny(
+        image, sigma=aperture_size, low_threshold=low_threshold, high_threshold=80
+    )
     return edges
 
 
 def wait(purge=True) -> None:
-    import cv2
     cv2.waitKey(0)
-    if purge: cv2.destroyAllWindows()
+    if purge:
+        cv2.destroyAllWindows()
 
 
-def rolling_ball_black_background(image, filename=None, path=None):  # -> Tuple(np.ndarray, np.ndarray):
+def rolling_ball_black_background(
+    image, filename=None, path=None
+):  # -> Tuple(np.ndarray, np.ndarray):
     from skimage import restoration, util
+
     image_inverted = util.invert(image)
     saveimage(image_inverted, filename, "invert", path=path)
 
@@ -254,7 +287,7 @@ def rolling_ball_black_background(image, filename=None, path=None):  # -> Tuple(
     saveimage(filtered_image, filename, "filtered_image", path=path)
     background = util.invert(background_inverted)
     saveimage(background, filename, "background_rollingball_final", path=path)
-    return (filtered_image, background)
+    return filtered_image, background
 
 
 def label(image, mask):
@@ -268,8 +301,8 @@ def label(image, mask):
     fig, ax0 = plt.subplots(ncols=1, nrows=1)
     # ax0 = axes[0] #.flat
     ax0.imshow(image, cmap=plt.cm.gray)
-    ax0.set_title('Labeled items', fontsize=24)
-    ax0.axis('off')
+    ax0.set_title("Labeled items", fontsize=24)
+    ax0.axis("off")
     # props = regionprops(label_image,connectivity=2)
     props = regionprops(label_image)
     print(f"regionprops:{props.count}")
@@ -277,12 +310,14 @@ def label(image, mask):
     for region in props:
         # Draw rectangle around segmented coins.
         minr, minc, maxr, maxc = region.bbox
-        rect = mpatches.Rectangle((minc, minr),
-                                  maxc - minc,
-                                  maxr - minr,
-                                  fill=False,
-                                  edgecolor='red',
-                                  linewidth=2)
+        rect = mpatches.Rectangle(
+            (minc, minr),
+            maxc - minc,
+            maxr - minr,
+            fill=False,
+            edgecolor="red",
+            linewidth=2,
+        )
         ax0.add_patch(rect)
     # ax[0].show()
     plt.tight_layout()
@@ -299,7 +334,7 @@ def crop(image: np.ndarray, top, left, bottom, right) -> np.ndarray:
     # if type(right) != int : print("right not int")
     # print(f"L:R {left}:{right}, T:B {top}:{bottom}")
     # try:
-    cropped_image = image[int(left):int(right), int(top):int(bottom)]
+    cropped_image = image[int(left) : int(right), int(top) : int(bottom)]
     # except OSError as error:
     #   raise error
     return cropped_image
@@ -318,7 +353,7 @@ def cropnp(image: np.ndarray, top, left, bottom, right) -> np.ndarray:
     # cropped_image = image[int(left):int(right), int(top):int(bottom)]
     # cropped_image = image[int(right):int(left), int(bottom):int(top)]
     # symetrie à 45°
-    cropped_image = image[int(top):int(bottom), int(left):int(right)]
+    cropped_image = image[int(top) : int(bottom), int(left) : int(right)]
     # except OSError as error:
     #   raise error
     return cropped_image
@@ -363,7 +398,9 @@ def crop_scan(image) -> np.ndarray:
 import cv2
 
 
-def draw_contours(image, contours, color=(0, 255, 0), thickness=3, index=-1) -> np.ndarray:
+def draw_contours(
+    image, contours, color=(0, 255, 0), thickness=3, index=-1
+) -> np.ndarray:
     """
     index = -1 : mean draw all contours
     index = x : mean draw the i th contour
@@ -374,7 +411,9 @@ def draw_contours(image, contours, color=(0, 255, 0), thickness=3, index=-1) -> 
     return image_3channels
 
 
-def append_contours(image_3channels: np.ndarray, contours, color=(0, 255, 0), thickness=3, index=-1) -> np.ndarray:
+def append_contours(
+    image_3channels: np.ndarray, contours, color=(0, 255, 0), thickness=3, index=-1
+) -> np.ndarray:
     """
     append a contour on a 3 channels image
     index = -1 : mean draw all contours
@@ -385,7 +424,9 @@ def append_contours(image_3channels: np.ndarray, contours, color=(0, 255, 0), th
 
 
 def draw_box(image_3channels, x, y, w, h, color=(0, 0, 255), thickness=3) -> np.ndarray:
-    image = cv2.rectangle(image_3channels, (int(x), int(y)), (int(x + w), int(y + h)), color, thickness)
+    image = cv2.rectangle(
+        image_3channels, (int(x), int(y)), (int(x + w), int(y + h)), color, thickness
+    )
     return image
 
 
@@ -407,7 +448,7 @@ def write_text(x, y, w, h, text, image):
         text=text,
         org=point,
         bottomLeftOrigin=True,  # ((x+w)/2,(y+h)/2),
-        # font=font, 
+        # font=font,
         fontScale=font.fontScale,
         # fontColor=fontColor,
         color=font.fontColor,
@@ -441,8 +482,8 @@ def draw_boxes(image, contours, add_number=False, font=None) -> np.ndarray:
             #     img=image_3channels,
             #     text=str(i),
             #     org= point,
-            #     bottomLeftOrigin= True, #((x+w)/2,(y+h)/2), 
-            #     # font=font, 
+            #     bottomLeftOrigin= True, #((x+w)/2,(y+h)/2),
+            #     # font=font,
             #     fontScale=fontScale,
             #     # fontColor=fontColor,
             #     color = fontColor,
@@ -470,7 +511,9 @@ def filterContours(contours, h, w):
     return contours_filtered
 
 
-def draw_boxes_filtered(image, contours, filter, add_number=False, font=None) -> np.ndarray:
+def draw_boxes_filtered(
+    image, contours, filter, add_number=False, font=None
+) -> np.ndarray:
     image_3channels = cv2.merge([image, image, image])
 
     # if add_number and not font:
@@ -485,7 +528,7 @@ def draw_boxes_filtered(image, contours, filter, add_number=False, font=None) ->
         # mask_BB_i = np.zeros((len(th),len(th[0])), np.uint8)
         # x,y,w,h = cv2.boundingRect(contours[i])
         # if h < 100 or w < 100: continue
-        # if filter(h,w): 
+        # if filter(h,w):
         if filter(contours[i]):
             x, y, w, h = cv2.boundingRect(contours[i])
 
@@ -493,9 +536,9 @@ def draw_boxes_filtered(image, contours, filter, add_number=False, font=None) ->
 
             if add_number:
                 write_text(x, y, w, h, str(i), image_3channels)
-                # cv2.putText(image_3channels,text=str(i), 
-                # bottomLeftOrigin=((x+w)/2,(y+h)/2), 
-                # font=font, 
+                # cv2.putText(image_3channels,text=str(i),
+                # bottomLeftOrigin=((x+w)/2,(y+h)/2),
+                # font=font,
                 # fontScale=fontScale,
                 # fontColor=fontColor,
                 # thickness=thickness,
@@ -516,7 +559,7 @@ def generate_vignettes(image, contours, filter, path):
         # mask_BB_i = np.zeros((len(th),len(th[0])), np.uint8)
         # x,y,w,h = cv2.boundingRect(contours[i])
         # if h < 100 or w < 100: continue
-        # if filter(h,w) : 
+        # if filter(h,w) :
         if filter(contours[i]):
             # image_3channels = draw_box(image_3channels,x,y,w,h)
             x, y, w, h = cv2.boundingRect(contours[i])
@@ -539,7 +582,7 @@ def generate_vignettes3(image: np.ndarray, contours, filter, path):
         # mask_BB_i = np.zeros((len(th),len(th[0])), np.uint8)
         # x,y,w,h = cv2.boundingRect(contours[i])
         # if h < 100 or w < 100: continue
-        # if filter(h,w) : 
+        # if filter(h,w) :
         if filter(contours[i]):
             # image_3channels = draw_box(image_3channels,x,y,w,h)
             x, y, w, h = cv2.boundingRect(contours[i])
@@ -557,6 +600,7 @@ def resize(largeur, hauteur):
     W = largeur * 0.94
     H = hauteur * 0.93
     from math import ceil, floor
+
     return [floor(BX), floor(BY), ceil(W), ceil(H)]
 
 
@@ -568,7 +612,9 @@ def minAndMax(median, lut: Lut = None) -> Tuple[int, int]:
     Return: (min, smax)
     """
     import math
-    if not lut: lut = Lut()
+
+    if not lut:
+        lut = Lut()
     MINREC = lut.min
     MAXREC = lut.max
     if lut.adjust == "yes":
@@ -603,6 +649,7 @@ def picheral_median(image: np.ndarray):
     Return: (median, mean)
     """
     import math
+
     # from 16to8bit import resize
     height = image.shape[0]
     width = image.shape[1]
@@ -667,7 +714,7 @@ def separate_apply_mask(filename_image, filename_mask) -> np.ndarray:
 
 # def minmax():
 #     from math import floor
-#     # if (adjust == "yes" ) { 
+#     # if (adjust == "yes" ) {
 # 	# // floor(n) : Returns the largest value that is not greater than n and is equal to an integer.
 #     MAXREC = 	floor(median * ratio)
 #     # //	MAXREC = 	floor(mean * ratio);
@@ -681,18 +728,19 @@ def separate_apply_mask(filename_image, filename_mask) -> np.ndarray:
 
 def dpi():
     """
-    To calculate DPI, 
-    divide the horizontal pixels by the total width in inches, 
-    add this result to the result of the vertical pixels divided by the height, 
+    To calculate DPI,
+    divide the horizontal pixels by the total width in inches,
+    add this result to the result of the vertical pixels divided by the height,
     then finally, divide this result by 2
     """
     pass
 
 
-def image_info(imagepath):
+def image_info(imagepath: Path):
     import PIL
     from PIL import Image
     from PIL.ExifTags import TAGS
+
     PIL.Image.MAX_IMAGE_PIXELS = 375000000
 
     image = Image.open(imagepath)
@@ -704,15 +752,11 @@ def image_info(imagepath):
         "Image Format": image.format,
         "Image Mode": image.mode,
         "Image is Animated": getattr(image, "is_animated", False),
-        "Frames in Image": getattr(image, "n_frames", 1)
+        "Frames in Image": getattr(image, "n_frames", 1),
     }
 
     for info in image.info:
-        # print(f"INFO {info} = {image.info[info]}")
         info_dict[info] = image.info[info]
-
-    # for label,value in info_dict.items():
-    #     print(f"{label:25}: {value}")
 
     exifdata = image.getexif()
     # iterating over all EXIF data fields
@@ -723,17 +767,26 @@ def image_info(imagepath):
             # print (f"{tag:25}: <DATA>")
             continue
         data = exifdata.get(tag_id)
-        # decode bytes 
+        # decode bytes
         if isinstance(data, bytes):
             data = data.decode()
-        # print(f"{tag:25}: {data}")
         info_dict[tag] = data
+
+    if "ExifOffset" in info_dict:
+        for tag_id, tag_value in exifdata.get_ifd(Base.ExifOffset).items():
+            tag = TAGS.get(tag_id, tag_id)
+            info_dict[tag] = tag_value
 
     return info_dict
 
 
+def get_date_time_digitized(img_info: Dict[str, str]) -> Optional[datetime]:
+    val = img_info.get("DateTimeDigitized")  # e.g. '2024:01:16 10:46:21'
+    return datetime.strptime(val, "%Y:%m:%d %H:%M:%S")
+
+
 def map_uint16_to_uint8(img, lower_bound=None, upper_bound=None):
-    '''
+    """
     Map a 16-bit image trough a lookup table to convert it to 8-bit.
 
     Parameters
@@ -752,35 +805,37 @@ def map_uint16_to_uint8(img, lower_bound=None, upper_bound=None):
     Returns
     -------
     numpy.ndarray[uint8]
-    '''
-    if not (0 <= lower_bound < 2 ** 16) and lower_bound is not None:
-        raise ValueError(
-            '"lower_bound" must be in the range [0, 65535]')
-    if not (0 <= upper_bound < 2 ** 16) and upper_bound is not None:
-        raise ValueError(
-            '"upper_bound" must be in the range [0, 65535]')
+    """
+    if not (0 <= lower_bound < 2**16) and lower_bound is not None:
+        raise ValueError('"lower_bound" must be in the range [0, 65535]')
+    if not (0 <= upper_bound < 2**16) and upper_bound is not None:
+        raise ValueError('"upper_bound" must be in the range [0, 65535]')
     if lower_bound is None:
         lower_bound = np.min(img)
     if upper_bound is None:
         upper_bound = np.max(img)
     if lower_bound >= upper_bound:
-        raise ValueError(
-            '"lower_bound" must be smaller than "upper_bound"')
-    lut = np.concatenate([
-        np.zeros(lower_bound, dtype=np.uint16),
-        np.linspace(0, 255, upper_bound - lower_bound).astype(np.uint16),
-        np.ones(2 ** 16 - upper_bound, dtype=np.uint16) * 255
-    ])
+        raise ValueError('"lower_bound" must be smaller than "upper_bound"')
+    lut = np.concatenate(
+        [
+            np.zeros(lower_bound, dtype=np.uint16),
+            np.linspace(0, 255, upper_bound - lower_bound).astype(np.uint16),
+            np.ones(2**16 - upper_bound, dtype=np.uint16) * 255,
+        ]
+    )
     return lut[img].astype(np.uint8)
 
 
-def generate_cropped_image(image: np.ndarray, x, y, w, h, name=None, extraname=None, path=None):
+def generate_cropped_image(
+    image: np.ndarray, x, y, w, h, name=None, extraname=None, path=None
+):
     crop = crophw(image, x, y, w, h)
     if name:
         s = f"_{x}_{y}_{w}_{h}"
         # print(s)
         _extraname = s
-        if extraname: _extraname = extraname + _extraname
+        if extraname:
+            _extraname = extraname + _extraname
         saveimage(crop, name, _extraname, path=path)
 
     return crop
@@ -789,8 +844,9 @@ def generate_cropped_image(image: np.ndarray, x, y, w, h, name=None, extraname=N
 def save_cv2_image_with_dpi(opencv_image, output_path, dpi=(300, 300)) -> str:
     # from PIL import Image
     color_coverted = cv2.cvtColor(opencv_image, cv2.COLOR_BGR2RGB)
-    color_coverted.save(output_path, optimize=True, quality=50,
-                        jfif_unit=1, dpi=dpi, jfif_density=dpi)
+    color_coverted.save(
+        output_path, optimize=True, quality=50, jfif_unit=1, dpi=dpi, jfif_density=dpi
+    )
     return output_path
 
 
@@ -802,11 +858,12 @@ def set_image_dpi_resize(image):
     """
     import tempfile
     from PIL import Image
+
     length_x, width_y = image.size
     factor = min(1, float(1024.0 / length_x))
     size = int(factor * length_x), int(factor * width_y)
     image_resize = image.resize(size, Image.ANTIALIAS)
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='1.png')
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix="1.png")
     temp_filename = temp_file.name
     image_resize.save(temp_filename, dpi=(300, 300))
     return temp_filename
@@ -819,8 +876,9 @@ def set_image_dpi(image):
     :return: A rescaled image
     """
     import tempfile
+
     image_resize = image
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     temp_filename = temp_file.name
     image_resize.save(temp_filename, dpi=(300, 300))
     return temp_filename
@@ -852,6 +910,7 @@ def close_image(image):
 def plot_histogram(image, title, mask=None):
     import matplotlib.pyplot as plt
     import cv2
+
     # split the image into its respective channels, then initialize
     # the tuple of channel names along with our figure for plotting
     chans = cv2.split(image)
@@ -862,7 +921,7 @@ def plot_histogram(image, title, mask=None):
     plt.ylabel("# of Pixels")
 
     # loop over the image channels
-    for (chan, color) in zip(chans, colors):
+    for chan, color in zip(chans, colors):
         # create a histogram for the current channel and plot it
         hist = cv2.calcHist([chan], [0], mask, [256], [0, 256])
         plt.plot(hist, color=color)
@@ -907,12 +966,13 @@ def convertShortToByte(image: np.ndarray, min, max) -> np.ndarray:
         for j in range(0, image.shape[0]):
             # print(f"{i*100/image.shape[1]}/100")
             # pixel = (image[j][i][0] & 0xffff) - min
-            pixel = (image[j][i] & 0xffff) - min
+            pixel = (image[j][i] & 0xFFFF) - min
             if pixel < 0:
                 pixel = 0
             else:
                 pixel = int(pixel * scale + 0.5)
-                if pixel > 255: pixel = 255
+                if pixel > 255:
+                    pixel = 255
             # pixels8[j][i][0] = pixel
             # pixels8[j][i][1] = pixel
             # pixels8[j][i][2] = pixel
@@ -922,7 +982,6 @@ def convertShortToByte(image: np.ndarray, min, max) -> np.ndarray:
 
 
 def converthisto16to8(min, max):  #:_ShapeLike):
-
     # hist = [] # np.zeros(65536,np.int8)
     # for i in range(0,65536):
     #     level = i & 0xffff
@@ -942,7 +1001,8 @@ def converthisto16to8(min, max):  #:_ShapeLike):
             hist[i] = int(hist[i] * scale)
 
             # pourquoi j'avais enlevé le filtrage sur max ?????????
-            if hist[i] > max: hist[i] = 254
+            if hist[i] > max:
+                hist[i] = 254
             # if hist[i]>255: hist[i]=255
 
     return hist
@@ -955,7 +1015,7 @@ def convertImage16to8bit(image: np.ndarray, histolut, log=False) -> np.ndarray:
     for i in range(0, image.shape[1]):
         if log:
             if (i % 1000) == 0:
-                log = True;
+                log = True
                 print("")
             else:
                 log = False
@@ -977,7 +1037,8 @@ def convertImage16to8bitWithNumpy(image: np.ndarray, histolut) -> np.ndarray:
     print("image shape:", image.shape)
     pixels8 = np.zeros(image.shape, np.uint8)
     for i in range(0, 65536):  # len(histolut)
-        if (i % 1000) == 0: print(".", end="")
+        if (i % 1000) == 0:
+            print(".", end="")
         pixels8[image == i] = histolut[i]
 
     return pixels8
@@ -987,10 +1048,10 @@ def find_res(filename):
     """
     Find the resolution of a jpeg image
     """
-    with open(filename, 'rb') as img_file:  # open image in binary mode
+    with open(filename, "rb") as img_file:  # open image in binary mode
         # height of image is at 164th position
         img_file.seek(163)
-        # read the two bytes 
+        # read the two bytes
         a = img_file.read(2)
         # calculate height
         height = (a[0] << 8) + a[1]

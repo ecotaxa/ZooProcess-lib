@@ -28,6 +28,7 @@ debug = False
 def TP(projects):
     return ZooscanProject(projects, APERO2000)
 
+
 # class Test_ZooProcess(unittest.TestCase):
 #
 #     # project_folder = "Zooscan_dyfamed_wp2_2023_biotom_sn001"
@@ -71,7 +72,10 @@ def test_convert_raw(TP, tmp_path):
     image = ut.normalize_rawscan(rawscan_file)
 
     scanfile_exist = is_file_exist(scan_file)
-    assert scanfile_exist, f"scanfile do not exist.\n-----------------------\n{scan_file}\n-----------------------\n"
+    assert (
+        scanfile_exist
+    ), f"scanfile do not exist.\n-----------------------\n{scan_file}\n-----------------------\n"
+
 
 # Zooscan_1asep.txt:396
 @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
@@ -182,8 +186,9 @@ def test_bord_gauche(TP):
     print(f"Limit left: {limitgauche}")
     saveimage(draw_image, sample, "drew", ext="tiff", path=output_path)
 
+
 @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
-def test_bord_droit(TP):
+def test_bord_droit(TP, tmp_path):
     resolution = 2400
     step = resolution / 240
 
@@ -259,8 +264,9 @@ def test_bord_droit(TP):
 
     print(f"Limit right: {limitedroite}")
 
+
 @pytest.mark.skip(reason="Skipping this taest for now because of XYZ reason.")
-def test_bord_bas(TP):
+def test_bord_bas(TP, tmp_path):
     resolution = 2400
     step = resolution / 240
 
@@ -333,8 +339,9 @@ def test_bord_bas(TP):
     print(f"Limit bottom: {limitebas}")
     saveimage(draw_image, sample, "drew", ext="tiff", path=output_path)
 
+
 @pytest.mark.skip(reason="Skipping this taest for now because of XYZ reason.")
-def test_bord_haut(TP):
+def test_bord_haut(TP, tmp_path):
     resolution = 2400
     step = resolution / 240
 
@@ -430,8 +437,9 @@ def test_bord_haut(TP):
     print(f"Limit top: {limitetop}")
     saveimage(draw_image, sample, "drew", ext="tiff", path=output_path)
 
+
 @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
-def test_border(TP):
+def test_border(TP, tmp_path):
     # resolution = 2400
     # step = resolution/240
 
@@ -472,8 +480,8 @@ def test_border(TP):
     saveimage(img, sample, "cropped", ext="tiff", path=output_path)
     # saveimage(image, sample, "image", ext="tiff", path=output_path)
 
-# @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
-def test_border_background(TP):
+
+def test_border_background(TP, tmp_path):
     # resolution = 2400
     # step = resolution/240
 
@@ -491,7 +499,7 @@ def test_border_background(TP):
     width = image.shape[1]
     print(f"image size width: {width} height: {height}")
 
-    border = Border.Border(image)
+    border = Border(image)
     border.output_path = output_path
     border.name = sample
     border.draw_image = loadimage(rawscan_file.as_posix())
@@ -509,12 +517,13 @@ def test_border_background(TP):
         image, top=limitetop, left=limitegauche, bottom=limitbas, right=limitedroite
     )
     print(f"shape of cropped image: {img.shape}")
-    self.assertGreater(img.shape[0], 0, "height is null")
-    self.assertGreater(img.shape[1], 0, "width is null")
+    assert img.shape[0] > 0, "height is null"
+    assert img.shape[1] > 0, "width is null"
     saveimage(img, sample, "cropped", ext="tiff", path=output_path)
     # saveimage(image, sample, "image", ext="tiff", path=output_path)
 
-def test_left_border_background(TP):
+
+def test_left_border_background(TP, tmp_path):
     output_path = tmp_path
     # sample = "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1"
     sample = "20240112_1518_back_large"
@@ -529,7 +538,7 @@ def test_left_border_background(TP):
     width = image.shape[1]
     print(f"image size width: {width} height: {height}")
 
-    border = Border.Border(image)
+    border = Border(image)
     border.output_path = output_path
     border.name = sample
     border.draw_image = loadimage(rawscan_file.as_posix())
@@ -537,8 +546,9 @@ def test_left_border_background(TP):
     left_limit = border.left_limit()
     print(f"left: {left_limit}")
 
+
 @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
-def test_bord_droit_background(TP):
+def test_bord_droit_background(TP, tmp_path):
     resolution = 2400
     step = resolution / 240
 

@@ -1,34 +1,16 @@
+import re
+from datetime import datetime
 from pathlib import Path
-from typing import Generator, List, Tuple, Union, Any, Dict
+from typing import List, Tuple, Union, Dict, TypedDict, Optional
 
 
 class ZooscanFolder:
-    # zooscan_back_folder="Zooscan_back/"
-    # zooscan_scan_folder="Zooscan_scan/"
-    # zooscan_config_folder="Zooscan_config/"
-    # zooscan_check_folder="Zooscan_check/"
-    # zooscan_meta_folder="Zooscan_meta/"
-    # zooscan_results_folder="Zooscan_results/"
-    # zooscan_PID_process_folder="PID_process/"
-
-    # def __init__(self, project:str, home:str=None, piqv:str=None) -> None:
     def __init__(self, home: Path, project: str) -> None:
-        # self.home="/Users/sebastiengalvagno/"
-        # self.piqv="piqv/plankton/zooscan_monitoring/"
-        # if home:
-        #     self.home=home
-        # if piqv:
-        #     self.piqv=piqv
-        # self._absolute_home_project_path = Path(self.home,self.piqv)
         self.project = project
         self.path = Path(home, project)  # noqa: E501
-
-        self._folders()
-        self._debug_folders()
-
-    def _folders(self):
         self.zooscan_scan = Zooscan_scan_Folder(self.path)
         self.zooscan_back = Zooscan_back_Folder(self.path)
+        self._debug_folders()
 
     def _debug_folders(self):
         # folder to save my image processed
@@ -60,128 +42,82 @@ class Zooscan_scan_Folder:
         self.work = Zooscan_scan_work_Folder(self.path)
 
 
+class BackgroundEntry(TypedDict):
+    nb_scans: int
+    raw_scans: List[Path]
+    scans_8bit: List[Path]
+    final_background: Optional[Path]
+    log_file: Optional[Path]
+
+
+date_re = re.compile(r"(\d{8}_\d{4})_.*")
+
+
 class Zooscan_back_Folder:
     _zooscan_path = "Zooscan_back"
 
     def __init__(self, zooscan_scan_folder: Path) -> None:
         self.path = Path(zooscan_scan_folder, self._zooscan_path)
+        self.content: Dict[str, BackgroundEntry] = {}
+        self.read()
 
-    def get_back_scans(self) -> Generator:
-        """
-        arg bug - a tester avec plusierus date
-        """
+    def read(self):
+        """ """
+        all_files = sorted(Path(self.path).glob("*"))
+        for a_file in all_files:
+            date_match = date_re.match(a_file.name)
+            if not date_match:
+                continue
+            date = date_match.group(1)
+            date_entry = self.content.setdefault(
+                date,
+                BackgroundEntry(
+                    nb_scans=0,
+                    raw_scans=[],
+                    scans_8bit=[],
+                    final_background=None,
+                    log_file=None,
+                ),
+            )
+            if a_file.name.endswith("_background_large_manual.tif"):
+                date_entry["final_background"] = a_file
 
-        try:
-            if self.files:
-                return self.files
-        except:
-            pass
+        # file_type = {
+        #     "_back_large_raw_1": "raw_1",
+        #     "_back_large_raw_2": "raw_2",
+        #     "_back_large_1": "scan_1",
+        #     "_back_large_2": "scan_2",
+        #     "_background_": "background",
+        #     "_back_large_manual_log": "log",
+        # }
+        #
+        # files = {}
+        # for file in raw_files:
+        #     types = file_type
+        #     for pattern in file_type:
+        #         if pattern in file.name:
+        #             files[file_type[pattern]] = file
+        #             del types[pattern]
+        #             break
+        #
+        # return files
 
-        # raw_files = Path(self.path).glob('*_raw_*')
-        raw_files = Path(self.path).glob("*")
-
-        file_type = {
-            "_back_large_raw_1": "raw_1",
-            "_back_large_raw_2": "raw_2",
-            "_back_large_1": "scan_1",
-            "_back_large_2": "scan_2",
-            "_background_": "background",
-            "_back_large_manual_log": "log",
-        }
-
-        files = {}
-        # names = []
-        for file in raw_files:
-            # files.append(file)
-            # filename = file.name
-            # names.append(filename)
-            # print(filename)
-
-            types = file_type
-
-            for pattern in file_type:
-                if pattern in file.name:
-                    # print("pattern:",pattern,end=" - ")
-                    # print("append:", filename)
-                    files[file_type[pattern]] = file
-                    del types[pattern]
-                    break
-
-        # return raw_files
-        # return (files,names)
-        self.files = files
-        return self.files
-
-    # def getNameFromRawFile(self,filename,key):
-
-    def getbacks(self):
-        try:
-            if self.backs:
-                return self.backs
-        except:
-            pass
-
-        # files = Path(self.path).glob('*')
-
-        backs = []
-        for file in self.files:
-            name = file.filename()
-            backs.append(name)
-
-        return backs
-
-    def get_samples(self) -> Generator:  # -> Array(Path):
-        try:
-            if self.files:
-                return self.files
-        except:
-            pass
-
-        raw_files = Path(self.path).glob("*_raw_*")
-
-        files = []
-        # names = []
-        for file in raw_files:
-            files.append(file)
-            # filename = file.name
-            # name = filename.split("_raw")[0]
-            # print(name)
-            # # names.append(file)
-            # files.append((file,name))
-
-        # return raw_files
-        # return (files,names)
-        self.files = files
-        return self.files
-
-    def extract_date(file: Path):
-        """
-        Extract the date from the raw filename path
-        """
-
-        filename = file.name
-        name = filename.split("_raw")[0]
-        print(name)
-        return name
-
-    def get_date(self):
+    def get_dates(self) -> List[str]:
         """
         return the list of dates
         """
-        if self.dates:
-            return self.dates
-        if not self.files:
-            self.get_samples()
+        return list(self.content.keys())
 
-        dates = {}
-        for file in self.files:
-            date = self.extract_date(file)
-            dates.append(date)
-
-        sorted_dates = sorted(frozenset(dates), reverse=True)
-
-        self.dates = sorted_dates
-        return self.dates
+    def get_last_background_before(self, max_date: datetime) -> Path:
+        sorted_dates = sorted(
+            [
+                (datetime.strptime(a_date, "%Y%m%d_%H%M"), a_date)
+                for a_date in self.get_dates()
+            ]
+        )
+        not_after = list(filter(lambda d: d[0] < max_date, sorted_dates))
+        last_date, last_date_str = not_after[-1]
+        return self.content[last_date_str]["final_background"]
 
 
 class Zooscan_scan_work_Folder:
@@ -250,6 +186,9 @@ class Zooscan_scan_raw_Folder:
             names.append(nameid)
         return names
 
+    def get_file(self, name: str, index: int) -> Path:
+        return Path(self.path, f"{name}_raw_{index}.tif")
+
 
 class Zooscan_sample_scan:
     _log = "_log"
@@ -300,7 +239,6 @@ class Zooscan_Project:
         return rawFiles
 
     def getBackScan(self):
-        backFiles = []
         scans = self.backfolder.get_back_scans()
         return scans
 
