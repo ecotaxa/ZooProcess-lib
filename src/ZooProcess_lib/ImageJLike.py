@@ -11,8 +11,9 @@ def convert_16bit_image_to_8bit_min_max(
     Vectorial port of ImageJ v1.41o algorithm in ij.process.TypeConverter.convertShortToByte
     """
     assert img.dtype == np.uint16
-    scale = 256.0 / (max_val - min_val + 1)
-    min_removed_img = img - min_val
+    max_val = min(65535, max_val)  # From ij.process.ShortProcessor.setMinAndMax
+    scale = np.float64(256) / (max_val - min_val + 1)
+    min_removed_img = img.astype(np.int32) - min_val
     min_removed_img[min_removed_img < 0] = 0
     scaled_img = min_removed_img * scale + 0.5
     scaled_img[scaled_img > 255] = 255

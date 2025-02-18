@@ -1,14 +1,19 @@
+import math
 from datetime import datetime
 from pathlib import Path
-from typing import Tuple, Optional, Dict
+from typing import Tuple, Optional, Dict, Any
 from zipfile import ZipFile
 
+import PIL
 import cv2
 import numpy as np
-from PIL.ExifTags import Base
+from PIL import Image
+from PIL.ExifTags import Base, TAGS
 
 from .Lut import Lut
 from .tools import timeit
+
+PIL.Image.MAX_IMAGE_PIXELS = 375000000
 
 debug = True  # False
 
@@ -611,8 +616,6 @@ def minAndMax(median, lut: Lut = None) -> Tuple[int, int]:
     """
     Return: (min, smax)
     """
-    import math
-
     if not lut:
         lut = Lut()
     MINREC = lut.min
@@ -736,14 +739,24 @@ def dpi():
     pass
 
 
-def image_info(imagepath: Path):
-    import PIL
-    from PIL import Image
-    from PIL.ExifTags import TAGS
+class ImageInfo(Dict[str, Any]):
+    @property
+    def width(self) -> int:
+        return self["Image Size"][0]
 
-    PIL.Image.MAX_IMAGE_PIXELS = 375000000
+    @property
+    def height(self) -> int:
+        return self["Image Size"][1]
 
-    image = Image.open(imagepath)
+    @property
+    def resolution(self) -> int:
+        dpi_vert, dpi_horiz = self["dpi"]
+        assert dpi_vert == dpi_horiz
+        return int(dpi_vert)
+
+
+def image_info(image_path: Path) -> ImageInfo:
+    image = Image.open(image_path)
     info_dict = {
         "Filename": image.filename,
         "Image Size": image.size,
@@ -758,26 +771,25 @@ def image_info(imagepath: Path):
     for info in image.info:
         info_dict[info] = image.info[info]
 
-    exifdata = image.getexif()
+    exif_data = image.getexif()
     # iterating over all EXIF data fields
-    for tag_id in exifdata:
+    for tag_id in exif_data:
         # get the tag name, instead of human unreadable tag id
         tag = TAGS.get(tag_id, tag_id)
         if tag == "StripOffsets" or tag == "StripByteCounts":
-            # print (f"{tag:25}: <DATA>")
             continue
-        data = exifdata.get(tag_id)
+        data = exif_data.get(tag_id)
         # decode bytes
         if isinstance(data, bytes):
             data = data.decode()
         info_dict[tag] = data
 
     if "ExifOffset" in info_dict:
-        for tag_id, tag_value in exifdata.get_ifd(Base.ExifOffset).items():
+        for tag_id, tag_value in exif_data.get_ifd(Base.ExifOffset).items():
             tag = TAGS.get(tag_id, tag_id)
             info_dict[tag] = tag_value
 
-    return info_dict
+    return ImageInfo(info_dict)
 
 
 def get_date_time_digitized(img_info: Dict[str, str]) -> Optional[datetime]:

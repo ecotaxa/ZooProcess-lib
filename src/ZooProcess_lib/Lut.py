@@ -4,24 +4,27 @@ from pathlib import Path
 
 
 class Lut:
-
     def __init__(self):
-        # TODO: not the same defaults as IJ macro
         self.min: int = 0
         self.max: int = 65536
         self.gamma: float = 1
         self.sens: str = "before"
-        self.adjust: str = "yes"
+        # Appeared in a later version
+        self.adjust: str = "no"
         self.odrange: float = 1.8
+        # Appeared in a later version
         self.ratio: float = 1.15
-        self.sizelimit: int = 800
+        # Appeared in a later version
+        self.sizelimit: int = 800  # Unused?
         self.overlap: float = 0.07
+        # Appeared in a later version
         self.medianchoice: str = "no"
         self.medianvalue: int = 1
-        self.resolutionreduct: int = 2400
+        # Appeared in a later version
+        self.resolutionreduct: int = 1200
 
     @staticmethod
-    def read(path: Path) -> 'Lut':
+    def read(path: Path) -> "Lut":
         ret = Lut()
         with open(path, "r") as f:
             lines = f.readlines()
@@ -34,4 +37,7 @@ class Lut:
                     setattr(ret, a_var_name, float(a_line))
                 elif isinstance(a_var, str):
                     setattr(ret, a_var_name, a_line.strip())
+        # From legacy macro, there is a typo "od_g_range" so the code doesn't do what it should I guess
+        # if ret.odrange >= 3:
+        #     ret.odgrange = 1.15
         return ret

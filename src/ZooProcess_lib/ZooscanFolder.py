@@ -41,6 +41,10 @@ class Zooscan_scan_Folder:
         self.raw = Zooscan_scan_raw_Folder(self.path)
         self.work = Zooscan_scan_work_Folder(self.path)
 
+    def get_file_produced_from(self, raw_file_name: str) -> Path:
+        assert "_raw" in raw_file_name
+        return Path(self.path, raw_file_name.replace("_raw", ""))
+
 
 class BackgroundEntry(TypedDict):
     nb_scans: int
