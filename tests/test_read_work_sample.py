@@ -15,7 +15,7 @@ def test_read_sample_in_work(projects, tmp_path):
         a_sample["name"] for a_sample in folder.zooscan_scan.raw.get_names()
     ]
     work_files_in_sample = folder.zooscan_scan.work.get_files(sample, index)
-    zipped_raw = work_files_in_sample.get("rawz")
+    zipped_raw = work_files_in_sample.get("combz")
     source_zip = zipped_raw
     assert source_zip.exists()
     reference_image = load_zipped_image(source_zip)

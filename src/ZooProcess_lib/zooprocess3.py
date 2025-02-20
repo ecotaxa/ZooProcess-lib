@@ -3,9 +3,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from Border import Border
-from ZooscanProject import ZooscanProject
-from img_tools import (
+from .Border import Border
+from .ZooscanProject import ZooscanProject
+from .img_tools import (
     crop, loadimage, saveimage,
     picheral_median,
     minAndMax,
@@ -109,7 +109,7 @@ class zooprocessv10:
         output_path = Path(self.TP.testfolder)
 
     def background(self, scan_image, imin, imax, min, max):
-        from to8bit import resize
+        from ZooProcess_lib.to8bit import resized_like
 
         back_image = loadimage(self.back_name, path=self.TP.back)
 
@@ -118,7 +118,7 @@ class zooprocessv10:
         # print(f"a: {a}, b: {b}")
         back_image_8bit = (a * back_image + b).astype(np.uint8)
         scan_image_8bit = (a * scan_image + b).astype(np.uint8)
-        image_back_resized = resize(scan_image_8bit, back_image_8bit)
+        image_back_resized = resized_like(back_image_8bit, scan_image_8bit)
 
         return image_back_resized
 
@@ -140,7 +140,7 @@ class zooprocessv10:
 
     def normalize(self, scan_image):
 
-        from to8bit import resize
+        from to8bit import resized_like
 
         back_image_1 = loadimage(self.back_name, path=self.TP.back)
         back_image_2 = loadimage(self.back_name_2, path=self.TP.back)
@@ -154,8 +154,8 @@ class zooprocessv10:
         scan_image_8bit = self.convert_to_8bit(scan_image)
         saveimage(scan_image_8bit, self.sample, "8bit", ext="tiff", path=self.output_path)
 
-        image_back_1_resized = resize(scan_image_8bit, back_image_1_8bit)
-        image_back_2_resized = resize(scan_image_8bit, back_image_2_8bit)
+        image_back_1_resized = resized_like(back_image_1_8bit, scan_image_8bit)
+        image_back_2_resized = resized_like(back_image_2_8bit, scan_image_8bit)
 
         image_back_median_resized = (image_back_1_resized / 2 + image_back_2_resized / 2).astype(np.uint8)
 

@@ -1,3 +1,5 @@
+import cv2
+
 from ZooProcess_lib.img_tools import crop
 from ZooProcess_lib.img_tools import minAndMax, converthisto16to8
 
@@ -233,15 +235,9 @@ def convert2(image_data, display_min, display_max):
     return datab.astype(np.uint8)
 
 
-def resize(scan_image: np.ndarray, back_image: np.ndarray) -> np.ndarray:
-    import cv2
-
-    H = scan_image.shape[0]
-    L = scan_image.shape[1]
-    # scale factor
-    # fx =
-    # fy =
+def resized_like(image: np.ndarray, model: np.ndarray) -> np.ndarray:
+    """ Return image resized to same size as model """
+    height = model.shape[0]
+    width = model.shape[1]
     interpolation = cv2.INTER_LINEAR
-    image_back_resized = cv2.resize(back_image, dsize=(L, H), interpolation=interpolation)
-    # saveimage(image_back_resized, self.back_name, "resized", ext="tiff", path=output_path)
-    return image_back_resized
+    return cv2.resize(image, dsize=(width, height), interpolation=interpolation)

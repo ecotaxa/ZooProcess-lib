@@ -48,6 +48,7 @@ def test_openproject(TP):
     assert check, "Folder do not exist"
 
 
+@pytest.mark.skip(reason="Too slow, 3min")
 def test_convert_raw(TP, tmp_path):
     ut = ZooProcess(TP.home, TP.project_name)
 

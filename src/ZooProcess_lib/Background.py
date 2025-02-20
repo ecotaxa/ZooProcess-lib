@@ -1,27 +1,42 @@
-import numpy as np
+from pathlib import Path
 
 import cv2
+import numpy as np
 
+from .ImageJLike import circular_mean_blur
 from .img_tools import crophw, crop, saveimage, draw_box
 
 
 class Background:
+    """port of algorithms from legacy Zooscan_1asep.txt macro"""
+
     def __init__(
-        self, image, image_name, resolution=300, scan_resolution=2400, output_path=None
+        self,
+        image: np.ndarray,
+        image_path: Path,
+        resolution=300,
+        sample_scan_resolution=2400,
+        output_path=None,  # TODO: Remove
     ):
+        """
+        :param image: np.ndarray (H, W)
+        :param image_path: the file the image comes from
+        :param resolution: present background resolution
+        :param sample_scan_resolution: associated scan resolution
+        """
         self.image = image
-        self.name = image_name
+        self.name = image_path.name
 
         self.output_path = output_path
 
         self.blancres = resolution
         self.frametypeback = None
-        if image_name.find("large"):
+        if self.name.find("_large_"):
             self.frametypeback = "large"
-        if image_name.find("narrow"):
+        if self.name.find("_narrow_"):
             self.frametypeback = "narrow"
 
-        self.backratio(scan_resolution)
+        self.backratio = self.compute_backratio(sample_scan_resolution)
 
         self.height = self.image.shape[0]
         self.width = self.image.shape[1]
@@ -37,8 +52,6 @@ class Background:
         self.HM = self.H * 1.05
 
     def __str__(self):
-        # def __repr__(self):
-
         return f"""
             name: {self.name}
             blancres: {self.blancres}
@@ -72,43 +85,37 @@ class Background:
         print(mean)
         return mean
 
-    # def backratio(self, scan_resolution=2400):
-    def backratio(self, scan_resolution=2400):
-        self.backratio = scan_resolution / self.blancres
-        return self.backratio
+    def compute_backratio(self, scan_resolution=2400):
+        return scan_resolution / self.blancres
 
     def voxel(self, scan_image):
         # backratio = self.backratio(scan_image)
         pass
 
-    def redim(self):
-        # cropx = getWidth();
-        # cropy = getHeight();
-        cropx = self.width
-        cropy = self.height
-
-        larg = cropx / self.backratio
-        haut = cropy / self.backratio
+    def resized_for_sample_scan(
+        self, sample_scan_cropx: int, sample_scan_cropy: int
+    ) -> np.ndarray:
+        larg = sample_scan_cropx / self.backratio
+        haut = sample_scan_cropy / self.backratio
         fondx0 = self.lf - larg
         fondy0 = self.hf - haut
+        # TODO: What happen on ImageJ side?
+        fondy0 = max(fondy0, 0)
 
         print(f"fond: {fondx0},{fondy0} {haut},{larg}")
 
-        # makeRectangle(fondx0,fondy0,larg,haut);
-        image_cropped = crophw(self.image, fondx0, fondy0, haut, larg)
-        # run("Crop");
+        image_cropped = crophw(self.image, fondx0, fondy0, larg, haut)
+        # macro: run("Mean...", "radius=3");
+        image_mean = circular_mean_blur(image_cropped, 3)
 
-        image_median = cv2.medianBlur(image_cropped, 3)
+        img2 = np.resize(image_mean, (image_mean.shape[0] + 1, image_mean.shape[1]))
 
-        fx = self.L / larg
-        fy = self.H / haut
-        interpolation = cv2.INTER_LINEAR
         image_resized = cv2.resize(
-            image_median, (self.L, self.H), fx, fy, interpolation
+            image_mean, dsize=(self.L, self.H), interpolation=cv2.INTER_LINEAR
         )
 
         saveimage(
             image_resized, self.name, "resized", ext="tiff", path=self.output_path
         )
 
-        return image_resized
+        return image_cropped, image_mean, image_resized

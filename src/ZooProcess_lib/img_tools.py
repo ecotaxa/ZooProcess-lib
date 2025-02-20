@@ -1,7 +1,7 @@
 import math
 from datetime import datetime
 from pathlib import Path
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional, Dict, Any, Callable, Union
 from zipfile import ZipFile
 
 import PIL
@@ -139,7 +139,7 @@ def saveimage(
     image: np.ndarray, filename, extraname=None, ext="jpg", path=None, dpi=None
 ) -> str:
     if debug:
-        print(f"image shpae: {image.shape}")
+        print(f"image shape: {image.shape}")
     if image.shape[0] == 0 or image.shape[1] == 0:
         return None
 
@@ -345,6 +345,58 @@ def crop(image: np.ndarray, top, left, bottom, right) -> np.ndarray:
     return cropped_image
 
 
+def crop_right(image: np.ndarray, right: Union[float, int]) -> np.ndarray:
+    cropped_image = image[0:, 0 : int(right)]
+    return cropped_image
+
+
+def clear_outside(image: np.ndarray, right, top, width, height) -> np.ndarray:
+    """ImageJ implementation does the 4 borders  ij.plugin.filter.Filler.clearOutside"""
+    assert image.dtype == np.uint8
+    mask = (
+        np.zeros_like(image) + 255
+    )  # Full white image, TODO: There is certainly a more clever way
+    mask = cv2.rectangle(
+        mask, (right, top), (right + width - 1, top + height - 1), (0,), -1
+    )  # Clear oustside -> keep inside
+    return np.maximum(image, mask)
+
+
+def draw_outside_lines(
+    image: np.array,
+    sample_dims: Tuple[int, int],
+    right_limit,
+    left_limit,
+    top_limit,
+    bottom_limit,
+    limitod,
+):
+    from ZooProcess_lib.ImageJLike import draw_line
+
+    height, width = sample_dims
+    if limitod < width:
+        width = limitod
+    if right_limit != width and right_limit < limitod:
+        draw_line(image, (right_limit, 0), (right_limit, height / 4), 0, 1)
+        draw_line(image, (right_limit, height / 4 + 4), (right_limit, height), 0, 1)
+    if left_limit != 0:
+        draw_line(image, (left_limit, 0), (left_limit, height / 4), 0, 1)
+        draw_line(image, (left_limit, height / 4 + 4), (left_limit, height), 0, 1)
+    if bottom_limit != height:
+        draw_line(image, (0, bottom_limit), (width / 4, bottom_limit), 0, 1)
+        draw_line(image, (width / 4 + 4, bottom_limit), (width, bottom_limit), 0, 1)
+    if top_limit != 0:
+        draw_line(image, (0, top_limit), (width / 4, top_limit), 0, 1)
+        draw_line(image, (width / 4 + 4, top_limit), (width, top_limit), 0, 1)
+
+
+def crop_if_larger(image: np.ndarray, right: int, bottom: int) -> np.ndarray:
+    img_bottom, img_right = image.shape
+    if img_bottom > bottom or img_right > right:
+        return image[0 : min(bottom, img_bottom), 0 : min(right, img_right)]
+    return image
+
+
 def cropnp(image: np.ndarray, top, left, bottom, right) -> np.ndarray:
     # cropped_image = img[80:280, 150:330]
     # start_row:end_row, start_col:end_col
@@ -365,6 +417,8 @@ def cropnp(image: np.ndarray, top, left, bottom, right) -> np.ndarray:
 
 
 def crophw(image: np.ndarray, top, left, height, width) -> np.ndarray:
+    if top < 0 or left < 0:
+        raise ValueError("Top and left must be positive")
     if height < 0 or width < 0:
         raise ValueError("Height and width must be positive")
     if height == 0:
@@ -398,9 +452,6 @@ def crop_scan(image) -> np.ndarray:
 
     image = crop(image, top, left, bottom, right)
     return image
-
-
-import cv2
 
 
 def draw_contours(
@@ -517,7 +568,7 @@ def filterContours(contours, h, w):
 
 
 def draw_boxes_filtered(
-    image, contours, filter, add_number=False, font=None
+    image, contours, filter: Callable[[int], int], add_number=False, font=None
 ) -> np.ndarray:
     image_3channels = cv2.merge([image, image, image])
 
@@ -599,7 +650,7 @@ def generate_vignettes3(image: np.ndarray, contours, filter, path):
     return filelist
 
 
-def resize(largeur, hauteur):
+def inside_a_bit(largeur, hauteur):
     BX = largeur * 0.03
     BY = hauteur * 0.05
     W = largeur * 0.94
@@ -641,7 +692,7 @@ def picheral_median_background(image: np.ndarray):
     width = image.shape[1]
     print(f"size {width}x{height}")
 
-    BX, BY, W, H = resize(width, height)
+    BX, BY, W, H = inside_a_bit(width, height)
 
     median = np.median(image, axis=None)
     return median
@@ -663,7 +714,7 @@ def picheral_median(image: np.ndarray):
     # W = width *0.94
     # H = height*0.93
 
-    BX, BY, W, H = resize(width, height)
+    BX, BY, W, H = inside_a_bit(width, height)
     print(f"BX,BY,W,H = {BX},{BY},{W},{H}")
     step = math.floor(H / 20)
     print(f"step: {step}")
@@ -944,7 +995,7 @@ def plot_histogram(image, title, mask=None):
 
 def rotateAndFlip(image):
     """
-    transform image to look like the operator POV
+    Transform image to look like the operator POV
     """
     image_rotated = rotate90c(image)
     image_flipped = cv2.flip(image_rotated, 0)

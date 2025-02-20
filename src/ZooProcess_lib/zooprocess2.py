@@ -6,11 +6,16 @@ import numpy as np
 from .Border import Border
 from .ZooscanProject import ZooscanProject
 from .img_tools import (
-    crop, loadimage, saveimage,
-    rotate90c, draw_contours, draw_boxes_filtered,
+    crop,
+    loadimage,
+    saveimage,
+    rotate90c,
+    draw_contours,
+    draw_boxes_filtered,
     generate_vignettes,
     mkdir,
-    getPath, resize,
+    getPath,
+    inside_a_bit,
 )
 from .to8bit import filters
 
@@ -66,7 +71,7 @@ class zooprocessv10:
     ```
     zooprocess = zooprocessv10(TP, scan_name, bg_name)
     ```
-    
+
     to debug: and write the file in a particular folder
     overwrite
     ```
@@ -78,8 +83,8 @@ class zooprocessv10:
 
     """
 
-    # back_name = "20141003_1144_back_large_1.tif" 
-    # back_name = "20141003_1144_back_large" 
+    # back_name = "20141003_1144_back_large_1.tif"
+    # back_name = "20141003_1144_back_large"
     # sample = "test_01_tot"
 
     use_raw = True
@@ -87,9 +92,9 @@ class zooprocessv10:
 
     # bg_name = "20141003_1144_back_large"
     # name = "test_01_tot"
-    # back_name = "20141003_1144_back_large_raw_1.tif" 
+    # back_name = "20141003_1144_back_large_raw_1.tif"
     # sample = "test_01_tot_raw_1.tif"
-    # back_name = bg_name + "_raw" + "_1" + ".tif" 
+    # back_name = bg_name + "_raw" + "_1" + ".tif"
     # sample = name + "_raw" + "_1" + ".tif"
 
     # output_path = Path(self.TP.testfolder)
@@ -106,7 +111,6 @@ class zooprocessv10:
         output_path = Path(self.TP.testfolder)
 
     def background(self, scan_image, imin, imax, min, max):
-
         back_image = loadimage(self.back_name, path=self.TP.back)
 
         a = (max - min) / (imax - imin)
@@ -114,13 +118,12 @@ class zooprocessv10:
         # print(f"a: {a}, b: {b}")
         back_image_8bit = (a * back_image + b).astype(np.uint8)
         scan_image_8bit = (a * scan_image + b).astype(np.uint8)
-        image_back_resized = resize(scan_image_8bit, back_image_8bit)
+        image_back_resized = inside_a_bit(scan_image_8bit, back_image_8bit)
 
         return image_back_resized
 
     def background_average(self, scan_image, imin, imax, min, max):
-
-        from to8bit import resize
+        from to8bit import resized_like
 
         back_image = loadimage(self.back_name, path=self.TP.back)
         back_image_2 = loadimage(self.back_name_2, path=self.TP.back)
@@ -133,17 +136,18 @@ class zooprocessv10:
 
         scan_image_8bit = (a * scan_image + b).astype(np.uint8)
 
-        image_back_resized = resize(scan_image_8bit, back_image_8bit)
-        image_back_2_resized = resize(scan_image_8bit, back_image_2_8bit)
+        image_back_resized = resized_like(back_image_8bit, scan_image_8bit)
+        image_back_2_resized = resized_like(back_image_2_8bit, scan_image_8bit)
 
-        image_back_median_resized = (image_back_resized / 2 + image_back_2_resized / 2).astype(np.uint8)
+        image_back_median_resized = (
+            image_back_resized / 2 + image_back_2_resized / 2
+        ).astype(np.uint8)
 
         image_back_median_resized = cv2.medianBlur(image_back_median_resized, 3)
 
         return image_back_median_resized
 
     def process(self):
-
         scan_image = loadimage(self.sample, path=self.TP.rawscan)
         # back_image = loadimage(self.back_name, path=self.TP.back)
         # back_image_2 = loadimage(self.back_name_2, path=self.TP.back)
@@ -167,21 +171,47 @@ class zooprocessv10:
         # image_back_median_resized = (image_back_resized + image_back_2_resized) / 2
 
         if self.use_average:
-            image_back_resized = self.background_average(scan_image, imin, imax, min, max)
+            image_back_resized = self.background_average(
+                scan_image, imin, imax, min, max
+            )
         else:
             image_back_resized = self.background(scan_image, imin, imax, min, max)
 
         image_substracted = np.subtract(scan_image_8bit, image_back_resized)
-        saveimage(image_substracted, self.sample, "substracted_back_filter", ext="tiff", path=self.output_path)
+        saveimage(
+            image_substracted,
+            self.sample,
+            "substracted_back_filter",
+            ext="tiff",
+            path=self.output_path,
+        )
 
         image_substracted2 = np.subtract(image_back_resized, scan_image_8bit)
-        saveimage(image_substracted2, self.sample, "substracted2_back_filter", ext="tiff", path=self.output_path)
+        saveimage(
+            image_substracted2,
+            self.sample,
+            "substracted2_back_filter",
+            ext="tiff",
+            path=self.output_path,
+        )
 
         image_back_rotated = rotate90c(image_back_resized)
         image_scan_rotated = rotate90c(image_substracted2)
 
-        saveimage(image_back_rotated, self.back_name, "image_back_rotated", ext="tiff", path=self.output_path)
-        saveimage(image_scan_rotated, self.sample, "image_scan_rotated", ext="tiff", path=self.output_path)
+        saveimage(
+            image_back_rotated,
+            self.back_name,
+            "image_back_rotated",
+            ext="tiff",
+            path=self.output_path,
+        )
+        saveimage(
+            image_scan_rotated,
+            self.sample,
+            "image_scan_rotated",
+            ext="tiff",
+            path=self.output_path,
+        )
 
         # ajouter un flip horizontal pour que l'utilsateur voit l'image comme son scan
 
@@ -190,19 +220,39 @@ class zooprocessv10:
         border.name = self.back_name
         # reload the image_back_rotated to don't mutated the original (a copy is need to work)
         # make a byte copy will probably most efficiant
-        back_file = Path(getPath(self.back_name, extraname="image_back_rotated", ext="tiff", path=self.output_path))
+        back_file = Path(
+            getPath(
+                self.back_name,
+                extraname="image_back_rotated",
+                ext="tiff",
+                path=self.output_path,
+            )
+        )
         border.draw_image = loadimage(back_file.as_posix())
 
         limitetop, limitbas, limitegauche, limitedroite = border.detect()
-        print(f"back limite t={limitetop}, b={limitbas}, l={limitegauche}, r={limitedroite}")
+        print(
+            f"back limite t={limitetop}, b={limitbas}, l={limitegauche}, r={limitedroite}"
+        )
 
         # on se fiche de cette image
         # image_back_unbordered = crop(image_back_rotated, left=limitetop, top=limitegauche, right=limitbas, bottom=limitedroite)
         # saveimage(image_back_unbordered, self.back_name, "unbordered", ext="tiff", path=self.output_path)
 
-        image_scan_unbordered = crop(image_scan_rotated, left=limitetop, top=limitegauche, right=limitbas,
-                                     bottom=limitedroite)
-        saveimage(image_scan_unbordered, self.sample, "unbordered", ext="tiff", path=self.output_path)
+        image_scan_unbordered = crop(
+            image_scan_rotated,
+            left=limitetop,
+            top=limitegauche,
+            right=limitbas,
+            bottom=limitedroite,
+        )
+        saveimage(
+            image_scan_unbordered,
+            self.sample,
+            "unbordered",
+            ext="tiff",
+            path=self.output_path,
+        )
 
         # transforme en masque (binarisation par seuillage)
 
@@ -223,10 +273,14 @@ class zooprocessv10:
 
         # mask = self.threshold_binary(image_scan_unbordered, path=self.output_path )
         # mask = self.thresholding_with_otsu(image_scan_unbordered, path=self.output_path)
-        mask = self.thresholding_with_inv_otsu(image_scan_unbordered, path=self.output_path)
+        mask = self.thresholding_with_inv_otsu(
+            image_scan_unbordered, path=self.output_path
+        )
 
         contours = self.contours(mask)
-        self.draw_contours_filtered(image_scan_unbordered, contours, organism_size=100)  # , filterSize)
+        self.draw_contours_filtered(
+            image_scan_unbordered, contours, organism_size=100
+        )  # , filterSize)
         # self.draw_contours(image_scan_unbordered, contours)
 
         self.vignettes(image_scan_unbordered, contours)
@@ -234,44 +288,72 @@ class zooprocessv10:
         print(f"Done open {self.output_path}")
 
     def aire_filter(self, resolution, minsize, maxsize) -> tuple:
-        pixel = 25.4 / resolution;
-        Smmin = (3.1416 / 4) * pow(minsize, 2);
-        Spmin = round(Smmin / (pow(pixel, 2)));
-        Smmax = (3.1416 / 4) * pow(maxsize, 2);
-        Spmax = round(Smmax / (pow(pixel, 2)));
+        pixel = 25.4 / resolution
+        Smmin = (3.1416 / 4) * pow(minsize, 2)
+        Spmin = round(Smmin / (pow(pixel, 2)))
+        Smmax = (3.1416 / 4) * pow(maxsize, 2)
+        Spmax = round(Smmax / (pow(pixel, 2)))
 
         return (Spmin, Spmax)
 
     def threshold_binary(self, image, thresh_min=0, thresh_max=255, path: Path = None):
         th, mask = cv2.threshold(image, thresh_min, thresh_max, cv2.THRESH_BINARY)
         if path:
-            saveimage(mask, self.sample, "unbordered_mask" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff",
-                      path=path)
+            saveimage(
+                mask,
+                self.sample,
+                "unbordered_mask" + "_" + str(thresh_min) + "_" + str(thresh_max),
+                ext="tiff",
+                path=path,
+            )
         print(f"threshold at: {th}")
         return mask
 
-    def thresholding_with_otsu(self, image, thresh_min=0, thresh_max=255, path: Path = None):
+    def thresholding_with_otsu(
+        self, image, thresh_min=0, thresh_max=255, path: Path = None
+    ):
         th, mask = cv2.threshold(image, thresh_min, thresh_max, cv2.THRESH_OTSU)
-        saveimage(mask, self.sample, "unbordered_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max), ext="tiff",
-                  path=path)
+        saveimage(
+            mask,
+            self.sample,
+            "unbordered_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max),
+            ext="tiff",
+            path=path,
+        )
         print(f"threshold at: {th}")
         return mask
 
-    def thresholding_with_inv_otsu(self, image, thresh_min=0, thresh_max=255, path: Path = None):
-        th, mask = cv2.threshold(image, thresh_min, thresh_max, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-        saveimage(mask, self.sample, "unbordered_bin_inv_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max),
-                  ext="tiff", path=path)
+    def thresholding_with_inv_otsu(
+        self, image, thresh_min=0, thresh_max=255, path: Path = None
+    ):
+        th, mask = cv2.threshold(
+            image, thresh_min, thresh_max, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+        )
+        saveimage(
+            mask,
+            self.sample,
+            "unbordered_bin_inv_otsu" + "_" + str(thresh_min) + "_" + str(thresh_max),
+            ext="tiff",
+            path=path,
+        )
         print(f"threshold at: {th}")
         return mask
 
     def contours(self, mask):
-        contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(
+            mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
         print("Number of Contours found = " + str(len(contours)))
         return contours
 
     def draw_contours(self, image_scan_unbordered, contours):
         image_3channels = draw_contours(image_scan_unbordered, contours)
-        saveimage(image_3channels, self.sample, "draw_contours_on_image2", path=self.output_path)
+        saveimage(
+            image_3channels,
+            self.sample,
+            "draw_contours_on_image2",
+            path=self.output_path,
+        )
 
         # white_mask = np.full(mask.shape[:2],255, np.uint8)
         white_mask = np.full(image_scan_unbordered.shape[:2], 255, np.uint8)
@@ -297,7 +379,9 @@ class zooprocessv10:
     #     saveimage(image_3channels, self.sample, "draw_contours_filtered", path=self.output_path)
     #     return image_3channels
 
-    def draw_contours_filtered(self, image_scan_unbordered, contours, organism_size=100):
+    def draw_contours_filtered(
+        self, image_scan_unbordered, contours, organism_size=100
+    ):
         # filtersize = 50
         # def f (contour):
         #     x,y,w,h = cv2.boundingRect(contour)
@@ -308,11 +392,11 @@ class zooprocessv10:
         # # c = filter(f, contours)
         # c = list(filter(f, contours))
 
-        # threshold_area = 10000     #threshold area 
-        # contours, hierarchy = cv2.findContours(threshold,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)   
-        # for cnt in contours:        
-        #     area = cv2.contourArea(cnt)         
-        #     if area > threshold_area:                   
+        # threshold_area = 10000     #threshold area
+        # contours, hierarchy = cv2.findContours(threshold,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+        # for cnt in contours:
+        #     area = cv2.contourArea(cnt)
+        #     if area > threshold_area:
         #         #Put your code in here
 
         # image_3channels = cv2.merge([image_scan_unbordered, image_scan_unbordered, image_scan_unbordered])
@@ -321,7 +405,8 @@ class zooprocessv10:
         c = []
 
         def filter(h, w) -> bool:
-            if h < organism_size and w < organism_size: return False
+            if h < organism_size and w < organism_size:
+                return False
             return True
 
         for i in range(0, len(contours)):
@@ -351,20 +436,32 @@ class zooprocessv10:
 
         def filter(contour) -> bool:
             x, y, w, h = cv2.boundingRect(contour)
-            if h < organism_size and w < organism_size: return False
+            if h < organism_size and w < organism_size:
+                return False
             return True
 
         image_3channels = draw_boxes_filtered(image_scan_unbordered, contours, filter)
-        saveimage(image_3channels, self.sample, "draw_boxes_filtered_on_image", path=self.output_path)
+        saveimage(
+            image_3channels,
+            self.sample,
+            "draw_boxes_filtered_on_image",
+            path=self.output_path,
+        )
 
         # white_mask = np.full(mask.shape[:2],255, np.uint8)
         white_mask = np.full(image_scan_unbordered.shape[:2], 255, np.uint8)
-        image_3channels = draw_boxes_filtered(white_mask, contours, filter, add_number=True)
-        saveimage(image_3channels, self.sample, "draw_boxes_filtered", path=self.output_path)
+        image_3channels = draw_boxes_filtered(
+            white_mask, contours, filter, add_number=True
+        )
+        saveimage(
+            image_3channels, self.sample, "draw_boxes_filtered", path=self.output_path
+        )
 
         vignettepath = Path(self.output_path, "vignettes")
         mkdir(vignettepath)
-        filelist = generate_vignettes(image_scan_unbordered, contours, filter, path=vignettepath)
+        filelist = generate_vignettes(
+            image_scan_unbordered, contours, filter, path=vignettepath
+        )
 
         print(f"Vignettes générées: {len(filelist)}")
         print(f"{filelist}")

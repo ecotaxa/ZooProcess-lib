@@ -160,7 +160,7 @@ def buildZooscanProject(
     # testFolder = TPtemp.testfolder.as_posix()
 
     TP = ZooscanProject(
-        piqvhome=piqvhome, project_name=project_name, testfolder=testFolder
+        piqvhome=piqvhome, project_name=project_name
     )
     # TPtemp = None
 

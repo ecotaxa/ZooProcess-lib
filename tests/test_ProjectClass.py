@@ -3,19 +3,25 @@ from pathlib import Path
 
 import pytest
 
-from ZooProcess_lib.ZooscanProject import ZooscanProject, buildProjectClass
+from ZooProcess_lib.ZooscanProject import ZooscanProject, buildZooscanProject, ArchivedZooscanProject
 from ZooProcess_lib.img_tools import mkdir
-
+from projects_for_test import ROND_CARRE
+from env_fixture import projects
 
 class ProjectClassFactory(): pass
 
 
 class Test_ProjectClass(unittest.TestCase):
 
+    @pytest.fixture(autouse=True)
+    def setup(self, projects):
+        self.projects = projects
+
     @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
     def test_temp_ProjectClass(self):
         project_name = "Zooscan_iado_wp2_2020_sn001"
-        TPtemp = ProjectClass(project_name=project_name)
+        TPtemp = ZooscanProject(project_name=project_name)
+        TP = ZooscanProject(projects, ROND_CARRE)
         testFolder = TPtemp.testfolder
 
         self.assertEqual(testFolder.as_posix(),
@@ -27,7 +33,7 @@ class Test_ProjectClass(unittest.TestCase):
         # TP = factory.build("Zooscan_iado_wp2_2020_sn001", remotePIQVHome = "/Volumes/sgalvagno/plankton/")
         # TP = factory.build("Zooscan_iado_wp2_2020_sn001",  "/Volumes/sgalvagno/plankton/",  None,  None)
         # TP = factory.build( # projectName=
-        TP = buildProjectClass(project_name=
+        TP = buildZooscanProject(project_name=
                                "Zooscan_iado_wp2_2020_sn001",
                                remotePIQVHome=
                                "/Volumes/sgalvagno/plankton/",
@@ -52,8 +58,7 @@ class Test_ProjectClass(unittest.TestCase):
 
     @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
     def test_logpattern(self):
-        project_folder = "Zooscan_sn001_rond_carre_zooprocess_separation_training"
-        TP = ProjectClass(project_folder)
+        TP = ZooscanProject(projects, ROND_CARRE)
         sample = "test_01_tot_1"
 
         background = TP.getBackgroundUsed(sample)
@@ -62,8 +67,7 @@ class Test_ProjectClass(unittest.TestCase):
 
     @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
     def test_BackgroundFile(self):
-        project_folder = "Zooscan_sn001_rond_carre_zooprocess_separation_training"
-        TP = ProjectClass(project_folder)
+        TP = ZooscanProject(projects, ROND_CARRE)
         sample = "test_01_tot"
 
         file1 = TP.getRawBackgroundFile(sample, 1)
@@ -75,7 +79,7 @@ class Test_ProjectClass(unittest.TestCase):
 
     @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
     def test_process_on_remote_piqv_project(self):
-        TP = buildProjectClass(
+        TP = buildZooscanProject(
             project_name="Zooscan_sn001_rond_carre_zooprocess_separation_training",
             remotePIQVHome="/Volumes/sgalvagno/plankton/",
             projectDir="zooscan_archives_lov"
@@ -96,8 +100,7 @@ class Test_ProjectClass(unittest.TestCase):
         #     projectDir = "zooscan_lov"
         # )
 
-        project_folder = "Zooscan_sn001_rond_carre_zooprocess_separation_training"
-        TP = ProjectClass(project_name=project_folder)
+        TP = ArchivedZooscanProject(self.projects, ROND_CARRE)
 
         samples = TP.listSamples()
         print(samples)

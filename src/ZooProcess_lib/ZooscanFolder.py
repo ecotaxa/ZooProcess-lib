@@ -45,6 +45,9 @@ class Zooscan_scan_Folder:
         assert "_raw" in raw_file_name
         return Path(self.path, raw_file_name.replace("_raw", ""))
 
+    def get_8bit_file(self, sample_name: str, index: int) -> Path:
+        return Path(self.path, sample_name + "_" + str(index) + ".tif")
+
 
 class BackgroundEntry(TypedDict):
     nb_scans: int
@@ -145,7 +148,7 @@ class Zooscan_scan_work_Folder:
             "_meas.txt": "meas",
             "_log.txt": "log",
             "_dat1.pid": "pid",
-            "_vis1.zip": "rawz",
+            "_vis1.zip": "combz",
         }
         files = {"jpg": []}
         for file in filelist:
@@ -177,9 +180,11 @@ class Zooscan_scan_raw_Folder:
     @staticmethod
     def extract_sample_name(file: Path) -> Tuple[str, int]:
         filename = file.name
+        # e.g. xxx _raw_1.tif
         split_name = filename.split("_raw_")
         name = split_name[0]
-        id_ = int(split_name[1].split(".")[0])
+        # e.g. 1.tif
+        id_ = int(split_name[1].split(".")[0][0])
         return name, id_
 
     def get_names(self) -> list[dict[str, Union[int, str]]]:

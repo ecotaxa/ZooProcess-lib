@@ -38,7 +38,7 @@ class test_zooprocess_from_piqv(unittest.TestCase):
         z.output_path = output
         z.process()
 
-    # @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  
+    @pytest.mark.skip(reason="No data")
     def test_on_remote_piqv_project_Zooscan_Lebanon_1999_2014_wp2_52(self):
         
         TP = buildZooscanProject(  

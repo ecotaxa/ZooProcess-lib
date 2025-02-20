@@ -29,11 +29,11 @@ def test_init(self, TP):
     print(f"file: {back_file}")
     back_image = loadimage(back_file.as_posix())
 
-    background = Background(back_image, back_name, output_path=TP.testfolder)
+    background = Background(back_image, back_name, output_path=tmp_path)
 
     print(f"{background}")
 
-    background.redim()
+    background.resized_for_sample_scan()
 
 
 @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
@@ -44,7 +44,7 @@ def test_mean(self, TP):
     print(f"file: {back_file}")
     back_image = loadimage(back_file.as_posix())
 
-    background = Background(back_image, back_name, output_path=TP.testfolder)
+    background = Background(back_image, back_name, output_path=tmp_path)
 
     print(f"{background}")
 
@@ -57,7 +57,7 @@ def test_resize_background_but_(self, TP):
     back_file = Path(TP.back, back_name)
     print(f"file: {back_file}")
     back_image = loadimage(back_file.as_posix())
-    output_path = TP.testfolder
+    output_path = tmp_path
     border = Border(back_image)
     border.output_path = output_path
     border.name = back_name
@@ -66,20 +66,19 @@ def test_resize_background_but_(self, TP):
     limitetop, limitbas, limitegauche, limitedroite = border.detect()
     image_unbordered = crop(back_image, left=limitetop, top=limitegauche, right=limitbas, bottom=limitedroite)
 
-    background = Background(image_unbordered, back_name, output_path=TP.testfolder)
+    background = Background(image_unbordered, back_name, output_path=tmp_path)
 
-    image_resized = background.redim()
+    image_resized = background.resized_for_sample_scan()
 
     background.mean()
 
 
-@pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
-def test_all(self, TP):
+def test_all(TP, tmp_path):
     back_name = "20240112_1518_back_large_1.tif"
     back_file = Path(TP.back, back_name)
     print(f"file: {back_file}")
     back_image = rotate90c(loadimage(back_file.as_posix()))
-    output_path = Path(TP.testfolder, "back")
+    output_path = Path(tmp_path, "back")
     border = Border(back_image)
     border.output_path = output_path
     border.name = back_name
@@ -92,7 +91,7 @@ def test_all(self, TP):
     saveimage(image_back_unbordered, back_name, "unbordered", ext="tiff", path=output_path)
 
     # a faire apres
-    # background = Background(image_back_unbordered, back_name, output_path=TP.testfolder)
+    # background = Background(image_back_unbordered, back_name, output_path=tmp_path)
     # image_resized = background.redim()
 
     sample = "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1"
@@ -144,7 +143,7 @@ def test_all(self, TP):
 def test_subtracted_to8bit(self, TP):
     from to8bit import convertion
 
-    output_path = Path(TP.testfolder, "back")
+    output_path = Path(tmp_path, "back")
 
     sample = "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1"
     substracted_file = Path(getPath(sample, "substracted2", ext="tiff", path=output_path))
@@ -156,7 +155,7 @@ def test_subtracted_to8bit(self, TP):
 
 @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
 def test_togray(self, TP):
-    output_path = Path(TP.testfolder, "back")
+    output_path = Path(tmp_path, "back")
 
     sample = "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1"
     substracted_file = Path(getPath(sample, "substracted2", ext="tiff", path=output_path))
@@ -177,7 +176,7 @@ def test_saturation(self, TP):
 
     Image.MAX_IMAGE_PIXELS = 375000000
 
-    output_path = Path(TP.testfolder, "back")
+    output_path = Path(tmp_path, "back")
     sample = "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1"
 
     print("test_saturation")
@@ -240,7 +239,7 @@ def test_saturation2(self, TP):
 
     Image.MAX_IMAGE_PIXELS = 375000000
 
-    output_path = Path(TP.testfolder, "back")
+    output_path = Path(tmp_path, "back")
     sample = "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1"
 
     print("test_saturation")
@@ -295,7 +294,7 @@ def test_saturation2(self, TP):
 
 @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
 def test_split_color(self, TP):
-    output_path = Path(TP.testfolder, "back")
+    output_path = Path(tmp_path, "back")
 
     sample = "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1"
     substracted_file = Path(getPath(sample, "substracted2", ext="tiff", path=output_path))

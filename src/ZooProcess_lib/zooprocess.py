@@ -3,17 +3,21 @@ from pathlib import Path
 
 import numpy as np
 
+from .ZooscanFolder import Zooscan_Project, Zooscan_sample_scan
 from .img_tools import (
-    loadimage, saveimage,
+    loadimage,
+    saveimage,
     rotateAndFlip,
-    picheral_median, minAndMax, convertShortToByte,
-    converthisto16to8, convertImage16to8bit,
+    picheral_median,
+    minAndMax,
+    convertShortToByte,
+    converthisto16to8,
+    convertImage16to8bit,
 )
 from .tools import timeit
-from .ZooscanFolder import Zooscan_Project, Zooscan_sample_scan
 
 
-class ZooProcess():
+class ZooProcess:
     """
     Properties:
         name: the name of the project
@@ -21,7 +25,9 @@ class ZooProcess():
         project: the access to the project path subfolders
     """
 
-    def __init__(self, project_path: Path, project_name: str, output_folder=None) -> None:
+    def __init__(
+        self, project_path: Path, project_name: str, output_folder=None
+    ) -> None:
         """
         project_name: the path containing the project
         project_name: the name of the project
@@ -33,10 +39,14 @@ class ZooProcess():
         self.output_folder = output_folder
 
     def check_folders(self) -> bool:
-        if not self.project.zooscan.path.is_dir(): return False
-        if not self.project.backfolder.path.is_dir(): return False
-        if not self.project.rawfolder.path.is_dir(): return False
-        if not self.project.workfolder.path.is_dir(): return False
+        if not self.project.zooscan.path.is_dir():
+            return False
+        if not self.project.backfolder.path.is_dir():
+            return False
+        if not self.project.rawfolder.path.is_dir():
+            return False
+        if not self.project.workfolder.path.is_dir():
+            return False
 
         return True
 
@@ -47,7 +57,6 @@ class ZooProcess():
         return image
 
     def load_normalize_rawscans(self):
-
         rawscans = self.project.getRawScan()
         for scan in rawscans:
             image = self.normalize_rawscan(scan)
@@ -65,7 +74,7 @@ class ZooProcess():
         """
         faster than method2
         """
-        print('method 4')
+        print("method 4")
         median, mean = picheral_median(image)
         min, max = minAndMax(median)
 
@@ -84,7 +93,7 @@ class ZooProcess():
         """
         faster than method2
         """
-        print('method 3')
+        print("method 3")
 
         median, mean = picheral_median(image)
         min, max = minAndMax(median)
@@ -145,7 +154,7 @@ class ZooProcess():
 
     #     # import re
 
-    #     date = "" 
+    #     date = ""
 
     #     name = b.getname('manual', date)
 
@@ -155,7 +164,6 @@ class ZooProcess():
     #     filename = saveimage(sum_image,name,path=output_path)
 
     def process_background(self):
-
         dates = self.project.backfolder.dates()
 
         if len(dates) > 0:
