@@ -3,7 +3,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .ImageJLike import circular_mean_blur
+from .ImageJLike import circular_mean_blur, bilinear_resize
 from .img_tools import crophw, crop, saveimage, draw_box
 
 
@@ -108,14 +108,12 @@ class Background:
         # macro: run("Mean...", "radius=3");
         image_mean = circular_mean_blur(image_cropped, 3)
 
-        img2 = np.resize(image_mean, (image_mean.shape[0] + 1, image_mean.shape[1]))
+        # img2 = np.resize(image_mean, (image_mean.shape[0] + 1, image_mean.shape[1]))
 
-        image_resized = cv2.resize(
-            image_mean, dsize=(self.L, self.H), interpolation=cv2.INTER_LINEAR
-        )
+        image_resized = bilinear_resize(image_mean, self.L, self.H)
 
-        saveimage(
-            image_resized, self.name, "resized", ext="tiff", path=self.output_path
-        )
+        # saveimage(
+        #     image_resized, self.name, "resized", ext="tiff", path=self.output_path
+        # )
 
         return image_cropped, image_mean, image_resized

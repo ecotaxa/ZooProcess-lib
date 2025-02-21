@@ -97,10 +97,15 @@ def test_raw_to_work(projects, tmp_path):
     saveimage(adjusted_bg, "/tmp/resized_bg.tif")
     ref_resized_bg = loadimage("/tmp/fond_apres_resize.tif")
     # diff_actual_with_ref_and_source(ref_resized_bg, adjusted_bg, ref_resized_bg)
-    # assert np.array_equal(ref_resized_bg, adjusted_bg)
-
-    ### TODO REMOVE REMOVE REMOVE
-    # adjusted_bg = ref_resized_bg
+    if not np.array_equal(ref_resized_bg, adjusted_bg):
+        nb_errors = diff_actual_with_ref_and_source(
+            ref_resized_bg,
+            adjusted_bg,
+            last_background_image,
+            tolerance=0,
+        )
+        if nb_errors > 0:
+            assert False
 
     # TODO: this _only_ corresponds to "if (method == "neutral") {" in legacy
     sample_minus_background_image = images_difference(

@@ -92,3 +92,183 @@ def draw_line(
     pt1_int = (int(pt1[0] + 0.5), int(pt1[1] + 0.5))
     pt2_int = (int(pt2[0] + 0.5), int(pt2[1] + 0.5))
     cv2.line(image, pt1_int, pt2_int, (color,), thickness, lineType=cv2.LINE_4)
+
+
+def bilinear_resize(image: np.ndarray, new_width: int, new_height: int) -> np.ndarray:
+    """ """
+    # NOK, probably due to some rounding, maybe https://www.crisluengo.net/archives/1140/
+    # ret = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+    # NOK either, no INTER_LINEAR_EXACT in warpAffine
+    # ret = _bilinear_resize_using_warpaffine(image, new_height, new_width)
+    # Still NOK, but best opencv solution, with a tolerance of 3 the results are similar to ImageJ
+    # ret = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_LINEAR_EXACT)
+    # Looks fixed (?) in Opencv 5.x: https://github.com/opencv/opencv/issues/25937, TODO: Try again when released
+    # Sill NOK, tolerance 3 -> OK-ish
+    # ret = _bilinear_using_pil(image, new_height, new_width)
+    # NOK
+    # ret = _bilinear_using_skimage(image, new_height, new_width)
+    ret = ij_resize(image, new_width, new_height)
+    return ret
+
+
+def _bilinear_using_skimage(image, new_height, new_width):
+    from skimage.transform import resize_local_mean
+
+    ret = resize_local_mean(image, (new_height, new_width), grid_mode=False) * 256
+    return ret
+
+
+def _bilinear_using_pil(image, new_height, new_width):
+    from PIL import Image
+    from PIL.Image import Resampling
+
+    pil_image = Image.fromarray(image)
+    rsz = pil_image.resize((new_width, new_height), resample=Resampling.BILINEAR)
+    ret = np.array(rsz)
+    return ret
+
+
+def _bilinear_resize_using_opencv_warpaffine(
+    image: np.ndarray, new_width: int, new_height: int
+):
+    height, width = image.shape[:2]
+    scale_x = new_height / height
+    scale_y = new_width / width
+    mat = np.float32([[scale_x, 0, 0], [0, scale_y, 0]])
+    ret = cv2.warpAffine(
+        image,
+        mat,
+        (int(width * scale_x), int(height * scale_y)),
+        flags=cv2.INTER_LINEAR,
+    )
+    return ret
+
+
+def ij_resize(image: np.ndarray, dst_width: int, dst_height: int) -> np.ndarray:
+    """Resizes the image to the given dimensions. Port of ij.process.ByteProcessor.resize
+        :param image: The source image.
+        :param dst_width: The destination width.
+        :param dst_height: The destination height.
+    Returns:
+        A new ImageProcessor object containing the resized image.
+    """
+    assert image.dtype == np.uint8
+    height, width = image.shape[:2]
+    src_center_x = width / 2.0
+    src_center_y = height / 2.0
+    dst_center_x = dst_width / 2.0
+    dst_center_y = dst_height / 2.0
+    x_scale = float(dst_width) / width
+    y_scale = float(dst_height) / height
+    dst_center_x += x_scale / 2.0
+    dst_center_y += y_scale / 2.0
+
+    # Some substract should not underflow
+    src_image = image.astype(np.int16)
+    src_image = np.pad(src_image, ((0, 0), (0, 1)))
+    # Add an extra column receiving copy of next line first pixel, to mimic a bug in ImageJ that
+    # 'offset + 1' is sometimes on next line.
+    for i in range(height - 1):
+        src_image[i][width] = src_image[i + 1][0]
+    # dst_image = np.zeros(dst_width * dst_height, dtype=image.dtype).reshape(
+    #     (dst_height, dst_width)
+    # )
+
+    x_limit = width - 1.0
+    x_limit2 = width - 1.001
+    # Pre-compute x fractions which are the same for all lines
+    dst_xs = []
+    for x in range(dst_width):
+        xs = (x - dst_center_x) / x_scale + src_center_x
+        if xs < 0:
+            xs = 0.0
+        if xs >= x_limit:
+            xs = x_limit2
+        dst_xs.append(xs)
+    x_dsts = np.array(dst_xs)
+    x_bases = x_dsts.astype(np.uint32)
+    x_fractions = x_dsts - x_bases
+
+    y_limit = height - 1.0
+    y_limit2 = height - 1.001
+
+    ret_lines = []
+    for y in range(dst_height):
+        ys = (y - dst_center_y) / y_scale + src_center_y
+        if ys < 0:
+            ys = 0.0
+        if ys >= y_limit:
+            ys = y_limit2
+        if False:
+            row = []
+            row_append = row.append
+            for x in range(dst_width):
+                xs = (x - dst_center_x) / x_scale + src_center_x
+                if xs < 0:
+                    xs = 0.0
+                if xs >= x_limit:
+                    xs = x_limit2
+                row_append(ij_get_interpolated_pixel(xs, ys, src_image, width) + 0.5)
+            dst_image[y] = row
+        else:
+            # dst_image[y] = ij_get_interpolated_row(x_bases, x_fractions, ys, src_image)
+            ret_lines.append(
+                ij_get_interpolated_row(x_bases, x_fractions, ys, src_image)
+            )
+
+        # if ys > 100:
+        #     break
+    # return dst_image
+    return np.stack(ret_lines)
+
+
+def ij_get_interpolated_pixel(
+    x: float, y: float, flat_image: np.ndarray, width: int
+) -> float:
+    """
+    Interpolates pixel value at given coordinates using bilinear interpolation.
+        :param x: x-coordinate (float).
+        :param y: y-coordinate (float).
+        :param flat_image: interpolation source data
+        :param width: width of the image
+    """
+    xbase = int(x)
+    ybase = int(y)
+    xfraction = x - xbase
+    yfraction = y - ybase
+    # offset = ybase * width + xbase
+    lower_left = flat_image[ybase, xbase]
+    lower_right = flat_image[ybase, xbase + 1]  # Is sometimes next line
+    upper_right = flat_image[ybase + 1, xbase + 1]  # Is sometimes next line
+    upper_left = flat_image[ybase + 1, xbase]
+    upper_average = upper_left + xfraction * (upper_right - upper_left)
+    lower_average = lower_left + xfraction * (lower_right - lower_left)
+    return lower_average + yfraction * (upper_average - lower_average)
+
+
+def ij_get_interpolated_row(
+    x_bases: np.ndarray, x_fractions: np.ndarray, y: float, src_image: np.ndarray
+) -> np.ndarray:
+    """
+    Interpolates all pixel values in given row using bilinear interpolation, the ImageJ way (with bugs).
+        :param x_bases: x coordinates inside destination image.
+        :param x_fractions: x-fractions for linear interpolation.
+        :param y: y coordinate inside destination image.
+        :param src_image: interpolation source data
+    """
+    y_base = int(y)
+    y_fraction = y - y_base
+
+    lower_row = src_image[y_base]
+    lower_left = lower_row.take(x_bases)
+    lower_right = lower_row[1:].take(x_bases)
+    upper_row = src_image[y_base + 1]
+    upper_left = upper_row.take(x_bases)
+    upper_right = upper_row[1:].take(x_bases)
+
+    upper_diff = upper_right - upper_left
+    upper_average = upper_left + x_fractions * upper_diff
+    lower_diff = lower_right - lower_left
+    lower_average = lower_left + x_fractions * lower_diff
+    ret = lower_average + y_fraction * (upper_average - lower_average) + 0.5
+    return ret.astype(src_image.dtype)
