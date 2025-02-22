@@ -190,7 +190,12 @@ def loadimage(
     #     new_filename = filename
     # if path: new_filename = path+"/"+new_filename
     print(f"Loading {new_filename}")
-    image = cv2.imread(new_filename, type)
+    if new_filename.name.endswith(".gif"):
+        # patent issue? opencv cannot read GIF
+        pil_image = PIL.Image.open(new_filename)
+        image = np.array(pil_image)
+    else:
+        image = cv2.imread(new_filename, type)
     # assert image is not None, f"file {new_filename} could not be read, check with os.path.exists()"
     # assert image is not None
     if image is None:
@@ -200,13 +205,13 @@ def loadimage(
 
 def load_zipped_image(file_path: Path) -> np.ndarray:
     assert file_path.name.lower().endswith(".zip")
+    print(f"Loading {file_path}")
     with ZipFile(file_path, "r") as img_zip:
         inside = img_zip.filelist
         assert len(inside) == 1
         the_file = inside[0]
         file_content = np.frombuffer(img_zip.read(the_file), np.uint8)
         return cv2.imdecode(file_content, flags=cv2.IMREAD_UNCHANGED)
-
 
 def properties(image, title=None, showMatrix=False) -> None:
     """

@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import pytest
 
 from ZooProcess_lib.Background import Background
 from ZooProcess_lib.Border import Border
@@ -16,8 +17,9 @@ from ZooProcess_lib.img_tools import (
 )
 from tests.env_fixture import projects
 from tests.projects_for_test import APERO2000
+
+
 # from tests.projects_for_test import APERO2000_REDUCED as APERO2000
-from tests.test_utils import diff_actual_with_ref_and_source
 
 
 def test_8bit_sample_border(projects, tmp_path):
@@ -43,12 +45,24 @@ def test_8bit_sample_border(projects, tmp_path):
     )
 
 
-def test_raw_to_work(projects, tmp_path):
+APERO2000_samples = [
+    "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1",
+    "apero2023_tha_bioness_sup2000_013_st46_d_n4_d2_1_sur_1",
+    "apero2023_tha_bioness_sup2000_016_st55_d_n9_d2_1_sur_1",
+    "apero2023_tha_bioness_sup2000_017_st66_d_n1_d1_1_sur_1",
+    "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_1_sur_4",
+    "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_2_sur_4",
+    "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_3_sur_4",
+    "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_4_sur_4",
+]
+
+
+@pytest.mark.parametrize("sample", APERO2000_samples)
+def test_raw_to_work(projects, tmp_path, sample):
     """Ensure we can mimic sample - background -> work vis1 equivalent"""
     folder = ZooscanFolder(projects, APERO2000)
-    sample = "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_3_sur_4"
-    sample = "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1"  # Bad ZIP?
-    sample = "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_1_sur_4"
+    # sample = "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1"  # Bad ZIP?
+
     index = 1  # TODO: should come from get_names() below
 
     # Load the last background used at time of scan operation
@@ -159,17 +173,35 @@ def test_raw_to_work(projects, tmp_path):
     expected_final_image = load_final_ref_image(folder, sample, index)
     assert sample_minus_background_image.shape == expected_final_image.shape
 
-    # saveimage(sample_minus_background_image, "/tmp/final_bg.tif")
+    # saveimage(sample_minus_background_image, "/tmp/final_with_bg.tif")
     # compare
     if not np.array_equal(expected_final_image, sample_minus_background_image):
-        nb_real_errors = diff_actual_with_ref_and_source(
-            expected_final_image,
-            sample_minus_background_image,
-            sample_minus_background_image,
-            tolerance=0,
+        # Try to add separator mask
+        work_files = folder.zooscan_scan.work.get_files(sample, index)
+        sep_file = work_files["sep"]
+        assert sep_file.exists()
+        sep_image = loadimage(sep_file, type=cv2.COLOR_BGR2GRAY)
+        assert sep_image.dtype == np.uint8
+        assert sep_image.shape == sample_minus_background_image.shape
+        # TODO: extract all this, checks on the mask, etc, etc.
+        sample_minus_background_image_plus_sep = (
+            sample_minus_background_image.astype(np.uint16) + sep_image
         )
-        if nb_real_errors > 0:
-            assert False
+        sample_minus_background_image = np.clip(
+            sample_minus_background_image_plus_sep, 0, 255
+        ).astype(np.uint8)
+        assert np.array_equal(expected_final_image, sample_minus_background_image)
+
+        # save_diff_image(expected_final_image, sample_minus_background_image, Path("/tmp/diff.jpg"))
+        # assert False
+        # nb_real_errors = diff_actual_with_ref_and_source(
+        #     expected_final_image,
+        #     sample_minus_background_image,
+        #     sample_minus_background_image,
+        #     tolerance=0,
+        # )
+        # if nb_real_errors > 0:
+        #     assert False
     # assert np.array_equal(sample_minus_background_image[0], expected_final_image[0])
 
     # assert expected_image.shape == actual_image.shape
@@ -184,3 +216,9 @@ def load_final_ref_image(folder, sample, index):
     assert zipped_combined.exists()
     reference_image = load_zipped_image(zipped_combined)
     return reference_image
+
+
+def test_segmentation(projects, tmp_path):
+    before_seg = loadimage("/tmp/final_bg.tif")
+    # macro: setThreshold(0, 129);
+    # run("Threshold", "thresholded remaining black");
