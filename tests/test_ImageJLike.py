@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 
 from ZooProcess_lib.ImageJLike import bilinear_resize
@@ -6,9 +8,9 @@ from tests.test_utils import diff_actual_with_ref_and_source
 
 
 def test_resize():
-    src_image = loadimage("/tmp/fond_apres_mean.tif")  # TODO: Add into repo (compressed)
+    src_image = loadimage(Path("/tmp/fond_apres_mean.tif"))  # TODO: Add into repo (compressed)
     dst_image = bilinear_resize(src_image, 25000, 14992)
-    ref_image = loadimage("/tmp/fond_apres_resize.tif")
+    ref_image = loadimage(Path("/tmp/fond_apres_resize.tif"))
     assert dst_image.shape == ref_image.shape
     # assert np.array_equal(ref_image, dst_image)
     # for i in range(dst_image.shape[0]):

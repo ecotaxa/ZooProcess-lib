@@ -1,6 +1,7 @@
 #
 # Algorithms which imitate legacy ImageJ behavior
 #
+from functools import lru_cache
 from typing import Tuple
 
 import cv2
@@ -107,7 +108,7 @@ def bilinear_resize(image: np.ndarray, new_width: int, new_height: int) -> np.nd
     # ret = _bilinear_using_pil(image, new_height, new_width)
     # NOK
     # ret = _bilinear_using_skimage(image, new_height, new_width)
-    ret = ij_resize(image, new_width, new_height)
+    ret = ImageJLikeResizer(image).resize(new_width, new_height)
     return ret
 
 
@@ -144,124 +145,115 @@ def _bilinear_resize_using_opencv_warpaffine(
     return ret
 
 
-def ij_resize(image: np.ndarray, dst_width: int, dst_height: int) -> np.ndarray:
-    """Resizes the image to the given dimensions. Vectorial port of ij.process.ByteProcessor.resize
-        :param image: The source image.
-        :param dst_width: The destination width.
-        :param dst_height: The destination height.
-    Returns:
-        A new ImageProcessor object containing the resized image.
-    """
-    assert image.dtype == np.uint8
+class ImageJLikeResizer(object):
+    def __init__(self, image: np.ndarray) -> None:
+        """
+        :param image: interpolation source data
+        """
+        self.image = image
+        self.x_bases = None  # x coordinates inside destination image
+        self.x_fractions = None  # fractions for linear interpolation on x dimension
 
-    height, width = image.shape[:2]
-    src_center_x = width / 2.0
-    src_center_y = height / 2.0
-    dst_center_x = dst_width / 2.0
-    dst_center_y = dst_height / 2.0
-    x_scale = float(dst_width) / width
-    y_scale = float(dst_height) / height
-    dst_center_x += x_scale / 2.0
-    dst_center_y += y_scale / 2.0
+    def resize(self, dst_width: int, dst_height: int) -> np.ndarray:
+        """Resizes self.image to the given dimensions. Vectorial port of ij.process.ByteProcessor.resize
+            :param dst_width: The destination width.
+            :param dst_height: The destination height.
+        Returns:
+            Resized image.
+        """
+        assert self.image.dtype == np.uint8
 
-    x_limit = width - 1.0
-    x_limit2 = width - 1.001
-    # Pre-compute x fractions which are the same for all lines
-    dst_xs = []
-    for x in range(dst_width):
-        xs = (x - dst_center_x) / x_scale + src_center_x
-        if xs < 0:
-            xs = 0.0
-        if xs >= x_limit:
-            xs = x_limit2
-        dst_xs.append(xs)
-    x_dsts = np.array(dst_xs)
-    x_bases = x_dsts.astype(np.uint32)
-    x_fractions = x_dsts - x_bases
+        height, width = self.image.shape[:2]
+        src_center_x = width / 2.0
+        src_center_y = height / 2.0
+        dst_center_x = dst_width / 2.0
+        dst_center_y = dst_height / 2.0
+        x_scale = float(dst_width) / width
+        y_scale = float(dst_height) / height
+        dst_center_x += x_scale / 2.0
+        dst_center_y += y_scale / 2.0
 
-    y_limit = height - 1.0
-    y_limit2 = height - 1.001
+        x_limit = width - 1.0
+        x_limit2 = width - 1.001
+        # Pre-compute x fractions which are the same for all lines
+        dst_xs = []
+        for x in range(dst_width):
+            xs = (x - dst_center_x) / x_scale + src_center_x
+            if xs < 0:
+                xs = 0.0
+            if xs >= x_limit:
+                xs = x_limit2
+            dst_xs.append(xs)
+        x_dsts = np.array(dst_xs)
+        self.x_bases = x_dsts.astype(np.uint32)
+        self.x_fractions = x_dsts - self.x_bases
 
-    ret_lines = []
-    for y in range(dst_height):
-        ys = (y - dst_center_y) / y_scale + src_center_y
-        if ys < 0:
-            ys = 0.0
-        if ys >= y_limit:
-            ys = y_limit2
-        # if False:
-        #     # Iterative code for reference
-        #     row = []
-        #     row_append = row.append
-        #     for x in range(dst_width):
-        #         xs = (x - dst_center_x) / x_scale + src_center_x
-        #         if xs < 0:
-        #             xs = 0.0
-        #         if xs >= x_limit:
-        #             xs = x_limit2
-        #         row_append(ij_get_interpolated_pixel(xs, ys, image, width) + 0.5)
-        #     dst_image[y] = row
-        ret_lines.append(
-            _get_interpolated_row(ys, x_bases, x_fractions, image)
-        )
+        y_limit = height - 1.0
+        y_limit2 = height - 1.001
 
-    return np.stack(ret_lines)
+        ret_rows = []
+        for y in range(dst_height):
+            ys = (y - dst_center_y) / y_scale + src_center_y
+            if ys < 0:
+                ys = 0.0
+            if ys >= y_limit:
+                ys = y_limit2
+            # if False:
+            #     # Iterative code for reference
+            #     row = []
+            #     row_append = row.append
+            #     for x in range(dst_width):
+            #         xs = (x - dst_center_x) / x_scale + src_center_x
+            #         if xs < 0:
+            #             xs = 0.0
+            #         if xs >= x_limit:
+            #             xs = x_limit2
+            #         row_append(ij_get_interpolated_pixel(xs, ys, image) + 0.5)
+            #     dst_image[y] = row
+            ret_rows.append(self._get_interpolated_row(ys))
 
+        return np.stack(ret_rows)
 
-def _get_interpolated_row(
-    y: float, x_bases: np.ndarray, x_fractions: np.ndarray, src_image: np.ndarray
-) -> np.ndarray:
-    """
-    Interpolates all pixel values in given row using bilinear interpolation, the ImageJ way (with bugs).
-        :param y: y coordinate inside destination image.
-        :param x_bases: x coordinates inside destination image.
-        :param x_fractions: fractions for linear interpolation on x side.
-        :param src_image: interpolation source data
-    """
-    y_base = int(y)
-    y_fraction = y - y_base
+    def _get_interpolated_row(self, y: float) -> np.ndarray:
+        """
+        Interpolates all pixel values in given row using bilinear interpolation, the ImageJ way (with bugs).
+            :param y: y coordinate inside destination image.
+        """
+        y_base = int(y)
+        y_fraction = y - y_base
 
-    lower_left, lower_right = _extract_and_expand_rows(src_image, y_base, x_bases)
-    upper_left, upper_right = _extract_and_expand_rows(
-        src_image, y_base + 1, x_bases
-    )
+        lower_left, lower_right = self._extract_and_expand_rows(y_base)
+        upper_left, upper_right = self._extract_and_expand_rows(y_base + 1)
 
-    upper_diff = upper_right.astype(np.int16) - upper_left
-    upper_average = upper_left + x_fractions * upper_diff
-    lower_diff = lower_right.astype(np.int16) - lower_left
-    lower_average = lower_left + x_fractions * lower_diff
-    ret = lower_average + y_fraction * (upper_average - lower_average) + 0.5
-    return ret.astype(src_image.dtype)
+        upper_diff = upper_right - upper_left
+        upper_average = upper_left + self.x_fractions * upper_diff
+        lower_diff = lower_right - lower_left
+        lower_average = lower_left + self.x_fractions * lower_diff
+        ret = lower_average + y_fraction * (upper_average - lower_average) + 0.5
+        return ret.astype(self.image.dtype)
 
+    @lru_cache(maxsize=2)  # y is slowly growing, keep last lines in cache
+    def _extract_and_expand_rows(self, y: int) -> Tuple[np.ndarray, np.ndarray]:
+        src_row = self.image[y]
+        left_row = src_row.take(self.x_bases).astype(np.int16)
+        right_row = src_row[1:].take(self.x_bases).astype(np.int16)
+        return left_row, right_row
 
-def _extract_and_expand_rows(
-    src_image: np.ndarray, y: int, x_bases: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray]:
-    src_row = src_image[y]
-    left_row = src_row.take(x_bases)
-    right_row = src_row[1:].take(x_bases)
-    return left_row, right_row
-
-
-def ij_get_interpolated_pixel(
-    x: float, y: float, flat_image: np.ndarray, width: int
-) -> np.float64:
-    """
-    Interpolates pixel value at given coordinates using bilinear interpolation.
-        :param x: x-coordinate (float).
-        :param y: y-coordinate (float).
-        :param flat_image: interpolation source data
-        :param width: width of the image
-    """
-    xbase = int(x)
-    ybase = int(y)
-    xfraction = x - xbase
-    yfraction = y - ybase
-    # offset = ybase * width + xbase
-    lower_left = flat_image[ybase, xbase]
-    lower_right = flat_image[ybase, xbase + 1]  # Is sometimes next line
-    upper_right = flat_image[ybase + 1, xbase + 1]  # Is sometimes next line
-    upper_left = flat_image[ybase + 1, xbase]
-    upper_average = upper_left + xfraction * (upper_right - upper_left)
-    lower_average = lower_left + xfraction * (lower_right - lower_left)
-    return lower_average + yfraction * (upper_average - lower_average)
+    def _ij_get_interpolated_pixel(self, x: float, y: float) -> np.float64:
+        """
+        Interpolates pixel value at given coordinates using bilinear interpolation.
+            :param x: x-coordinate (float).
+            :param y: y-coordinate (float).
+        """
+        xbase = int(x)
+        ybase = int(y)
+        xfraction = x - xbase
+        yfraction = y - ybase
+        # offset = ybase * width + xbase
+        lower_left = self.image[ybase, xbase]
+        lower_right = self.image[ybase, xbase + 1]  # Is sometimes next line
+        upper_right = self.image[ybase + 1, xbase + 1]  # Is sometimes next line
+        upper_left = self.image[ybase + 1, xbase]
+        upper_average = upper_left + xfraction * (upper_right - upper_left)
+        lower_average = lower_left + xfraction * (lower_right - lower_left)
+        return lower_average + yfraction * (upper_average - lower_average)

@@ -190,7 +190,7 @@ def test_raw_to_work(projects, tmp_path, sample):
         sample_minus_background_image = np.clip(
             sample_minus_background_image_plus_sep, 0, 255
         ).astype(np.uint8)
-        assert np.array_equal(expected_final_image, sample_minus_background_image)
+    assert np.array_equal(expected_final_image, sample_minus_background_image)
 
         # save_diff_image(expected_final_image, sample_minus_background_image, Path("/tmp/diff.jpg"))
         # assert False
