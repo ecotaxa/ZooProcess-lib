@@ -213,6 +213,7 @@ def load_zipped_image(file_path: Path) -> np.ndarray:
         file_content = np.frombuffer(img_zip.read(the_file), np.uint8)
         return cv2.imdecode(file_content, flags=cv2.IMREAD_UNCHANGED)
 
+
 def properties(image, title=None, showMatrix=False) -> None:
     """
     print image properties
@@ -334,7 +335,7 @@ def label(image, mask):
     plt.show()
 
 
-def crop(image: np.ndarray, top, left, bottom, right) -> np.ndarray:
+def crop(image: np.ndarray, top: int, left: int, bottom: int, right: int) -> np.ndarray:
     # cropped_image = img[80:280, 150:330]
     # start_row:end_row, start_col:end_col
     # print(top,left,bottom,right)
@@ -421,7 +422,10 @@ def cropnp(image: np.ndarray, top, left, bottom, right) -> np.ndarray:
     return cropped_image
 
 
-def crophw(image: np.ndarray, top, left, height, width) -> np.ndarray:
+def crophw(
+    image: np.ndarray, f_top: float, f_left: float, f_height: float, f_width: float
+) -> np.ndarray:
+    top, left, height, width = int(f_top), int(f_left), int(f_height), int(f_width)
     if top < 0 or left < 0:
         raise ValueError("Top and left must be positive")
     if height < 0 or width < 0:
@@ -1128,3 +1132,8 @@ def find_res(filename):
         # calculate width
         width = (a[0] << 8) + a[1]
     print("IMAGE RESOLUTION IS : ", width, "X", height)
+
+
+def mean_with_no_decimal(img: np.ndarray) -> float:
+    ret = np.mean(img, axis=None)
+    return ret.round(0)

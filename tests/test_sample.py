@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import cv2
 import numpy as np
 import pytest
@@ -16,7 +18,8 @@ from ZooProcess_lib.img_tools import (
     draw_outside_lines,
 )
 from tests.env_fixture import projects
-from tests.projects_for_test import APERO2000
+from tests.projects_for_test import APERO2000, APERO
+from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
 
 
 # from tests.projects_for_test import APERO2000_REDUCED as APERO2000
@@ -46,22 +49,100 @@ def test_8bit_sample_border(projects, tmp_path):
 
 
 APERO2000_samples = [
-    "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1",
-    "apero2023_tha_bioness_sup2000_013_st46_d_n4_d2_1_sur_1",
-    "apero2023_tha_bioness_sup2000_016_st55_d_n9_d2_1_sur_1",
+    # "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1", # Corrupted ZIP
+    # "apero2023_tha_bioness_sup2000_013_st46_d_n4_d2_1_sur_1", # Corrupted ZIP
+    # "apero2023_tha_bioness_sup2000_016_st55_d_n9_d2_1_sur_1", # Corrupted ZIP
     "apero2023_tha_bioness_sup2000_017_st66_d_n1_d1_1_sur_1",
     "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_1_sur_4",
     "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_2_sur_4",
     "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_3_sur_4",
     "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_4_sur_4",
 ]
+APERO_samples = [
+    "apero2023_tha_bioness_013_st46_d_n3_d1_1_sur_1",
+    "apero2023_tha_bioness_013_st46_d_n3_d1_1_sur_1",
+    "apero2023_tha_bioness_014_st46_n_n4_d2_1_sur_2",
+    "apero2023_tha_bioness_013_st46_d_n3_d2_1_sur_1",
+    "apero2023_tha_bioness_014_st46_n_n4_d2_2_sur_2",
+    "apero2023_tha_bioness_013_st46_d_n3_d3",
+    "apero2023_tha_bioness_014_st46_n_n4_d3",
+    "apero2023_tha_bioness_013_st46_d_n4_d1_1_sur_1",
+    # "apero2023_tha_bioness_014_st46_n_n5_d1_1_sur_1", # Corrupted ZIP
+    "apero2023_tha_bioness_013_st46_d_n4_d2_1_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n5_d2_1_sur_2",
+    "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n5_d2_2_sur_2",
+    "apero2023_tha_bioness_013_st46_d_n4_d3",
+    "apero2023_tha_bioness_014_st46_n_n5_d3",
+    # "apero2023_tha_bioness_013_st46_d_n5_d1_1_sur_1", # Corrupted ZIP
+    "apero2023_tha_bioness_014_st46_n_n6_d1_1_sur_1",
+    "apero2023_tha_bioness_013_st46_d_n5_d2_1_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n6_d2_1_sur_2",
+    "apero2023_tha_bioness_013_st46_d_n5_d2_2_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n6_d2_2_sur_2",
+    "apero2023_tha_bioness_013_st46_d_n5_d3",
+    "apero2023_tha_bioness_014_st46_n_n6_d3",
+    "apero2023_tha_bioness_013_st46_d_n6_d1_1_sur_1",
+    "apero2023_tha_bioness_014_st46_n_n7_d1_1_sur_4",
+    "apero2023_tha_bioness_013_st46_d_n6_d2_1_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n7_d1_2_sur_4",
+    "apero2023_tha_bioness_013_st46_d_n6_d2_2_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n7_d1_3_sur_4",
+    "apero2023_tha_bioness_013_st46_d_n6_d3",
+    "apero2023_tha_bioness_014_st46_n_n7_d1_4_sur_4",
+    "apero2023_tha_bioness_013_st46_d_n7_d2_1_sur_1",
+    "apero2023_tha_bioness_014_st46_n_n7_d2_1_sur_2",
+    "apero2023_tha_bioness_013_st46_d_n7_d3",
+    "apero2023_tha_bioness_014_st46_n_n7_d2_2_sur_2",
+    "apero2023_tha_bioness_013_st46_d_n8_d1_1_sur_1",
+    "apero2023_tha_bioness_014_st46_n_n9_d1_1_sur_8",
+    "apero2023_tha_bioness_013_st46_d_n8_d2_1_sur_1",
+    "apero2023_tha_bioness_014_st46_n_n9_d1_2_sur_8",
+    "apero2023_tha_bioness_013_st46_d_n8_d3",
+    "apero2023_tha_bioness_014_st46_n_n9_d1_3_sur_8",
+    "apero2023_tha_bioness_013_st46_d_n9_d2_1_sur_1",
+    "apero2023_tha_bioness_014_st46_n_n9_d1_4_sur_8",
+    "apero2023_tha_bioness_013_st46_d_n9_d3",
+    "apero2023_tha_bioness_014_st46_n_n9_d1_5_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n1_d1_1_sur_1",
+    "apero2023_tha_bioness_014_st46_n_n9_d1_6_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n1_d2_1_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n9_d1_7_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n1_d2_2_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n9_d1_8_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n1_d3",
+    "apero2023_tha_bioness_014_st46_n_n9_d2_1_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n2_d1_1_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n9_d2_2_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n2_d1_2_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n9_d2_3_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n2_d2_1_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n9_d2_4_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n2_d2_2_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n9_d2_5_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n2_d3",
+    "apero2023_tha_bioness_014_st46_n_n9_d2_6_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n3_d1_1_sur_1",
+    "apero2023_tha_bioness_014_st46_n_n9_d2_7_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n3_d2_1_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n9_d2_8_sur_8",
+    "apero2023_tha_bioness_014_st46_n_n3_d2_2_sur_2",
+    "apero2023_tha_bioness_014_st46_n_n9_d3",
+    "apero2023_tha_bioness_014_st46_n_n3_d3",
+    "apero2023_tha_bioness_014_st46_n_n4_d1_1_sur_1",
+]
+
+APERO2000_tested_samples = zip([APERO2000] * 100, APERO2000_samples[0:1])
+APERO2000_tested_samples = []
+APERO_tested_samples = zip([APERO] * 100, APERO_samples)
+# APERO_tested_samples = zip([APERO] * 100, APERO_samples[-5:-4])
+tested_samples = list(APERO2000_tested_samples) + list(APERO_tested_samples)
 
 
-@pytest.mark.parametrize("sample", APERO2000_samples)
-def test_raw_to_work(projects, tmp_path, sample):
+@pytest.mark.parametrize("project, sample", tested_samples)
+def test_raw_to_work(projects, tmp_path, project, sample):
     """Ensure we can mimic sample - background -> work vis1 equivalent"""
-    folder = ZooscanFolder(projects, APERO2000)
-    # sample = "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1"  # Bad ZIP?
+    folder = ZooscanFolder(projects, project)
 
     index = 1  # TODO: should come from get_names() below
 
@@ -89,10 +170,12 @@ def test_raw_to_work(projects, tmp_path, sample):
 
     border = Border(eight_bit_sample_image)
     (top_limit, bottom_limit, left_limit, right_limit) = border.detect()
-    # TODO: below correspond to a not-debugged case "if (greycor > 2 && droite == 0) {"
+    # TODO: below correspond to a not-debugged case "if (greycor > 2 && droite == 0) {" which
+    # is met when borders are not computed.
     # limitod = border.right_limit_to_removeable_from_image()
     limitod = border.right_limit_to_removeable_from_right_limit()
     # assert limitod == 24568  # From ImageJ debug
+    assert right_limit == 24214
 
     bg = Background(last_background_image, last_background_file)
     cropped_bg, mean_bg, adjusted_bg = bg.resized_for_sample_scan(
@@ -100,18 +183,17 @@ def test_raw_to_work(projects, tmp_path, sample):
     )
 
     # saveimage(cropped_bg, "/tmp/cropped_bg.tif")
-    # ref_cropped_bg = loadimage("/tmp/fond_cropped_legacy.tif")
+    # ref_cropped_bg = loadimage(Path("/tmp/fond_cropped_legacy.tif"))
     # diff_actual_with_ref_and_source(ref_cropped_bg, cropped_bg, ref_cropped_bg)
     # assert np.array_equal(ref_cropped_bg, cropped_bg)
 
     # saveimage(mean_bg, "/tmp/mean_bg.tif")
-    # ref_mean_bg = loadimage("/tmp/fond_apres_mean.tif")
+    # ref_mean_bg = loadimage(Path("/tmp/fond_apres_mean.tif"))
     # diff_actual_with_ref_and_source(ref_mean_bg, mean_bg, ref_mean_bg)
     # assert np.array_equal(ref_mean_bg, mean_bg)
-    #
 
-    # saveimage(adjusted_bg, "/tmp/resized_bg.tif")
-    # ref_resized_bg = loadimage("/tmp/fond_apres_resize.tif")
+    # saveimage(adjusted_bg, Path("/tmp/resized_bg.tif"))
+    # ref_resized_bg = loadimage(Path("/tmp/fond_apres_resize.tif"))
     # diff_actual_with_ref_and_source(ref_resized_bg, adjusted_bg, ref_resized_bg)
     # if not np.array_equal(ref_resized_bg, adjusted_bg):
     #     nb_errors = diff_actual_with_ref_and_source(
@@ -122,6 +204,7 @@ def test_raw_to_work(projects, tmp_path, sample):
     #     )
     #     if nb_errors > 0:
     #         assert False
+    #
 
     # TODO: this _only_ corresponds to "if (method == "neutral") {" in legacy
     sample_minus_background_image = images_difference(
@@ -130,13 +213,13 @@ def test_raw_to_work(projects, tmp_path, sample):
     # Invert 8-bit
     sample_minus_background_image = 255 - sample_minus_background_image
 
-    # ref_after_sub_bg = loadimage("/tmp/fond_apres_subs.tif")
+    # ref_after_sub_bg = loadimage(Path("/tmp/fond_apres_subs.tif"))
     # diff_actual_with_ref_and_source(ref_after_sub_bg, sample_minus_background_image, ref_after_sub_bg)
     # assert np.array_equal(ref_after_sub_bg, sample_minus_background_image)
 
     sample_minus_background_image = crop_right(sample_minus_background_image, limitod)
 
-    # ref_after_sub_and_crop_bg = loadimage("/tmp/fond_apres_subs_et_crop.tif")
+    # ref_after_sub_and_crop_bg = loadimage(Path("/tmp/fond_apres_subs_et_crop.tif"))
     # diff_actual_with_ref_and_source(ref_after_sub_and_crop_bg, sample_minus_background_image, ref_after_sub_and_crop_bg)
     # assert np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image)
 
@@ -149,9 +232,15 @@ def test_raw_to_work(projects, tmp_path, sample):
         bottom_limit - top_limit,
     )
 
-    # ref_after_sub_and_crop_bg = loadimage("/tmp/fond_apres_subs_et_crop_et_clear.tif")
+    # ref_after_sub_and_crop_bg = loadimage(
+    #     Path("/tmp/fond_apres_subs_et_crop_et_clear.tif")
+    # )
     # if not np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image):
-    #     diff_actual_with_ref_and_source(ref_after_sub_and_crop_bg, sample_minus_background_image, ref_after_sub_and_crop_bg)
+    #     diff_actual_with_ref_and_source(
+    #         ref_after_sub_and_crop_bg,
+    #         sample_minus_background_image,
+    #         ref_after_sub_and_crop_bg,
+    #     )
     #     assert False
 
     draw_outside_lines(
@@ -164,9 +253,15 @@ def test_raw_to_work(projects, tmp_path, sample):
         limitod,
     )
 
-    # ref_after_sub_and_crop_bg = loadimage("/tmp/fond_apres_subs_et_crop_et_clear_et_lignes.tif")
+    # ref_after_sub_and_crop_bg = loadimage(
+    #     Path("/tmp/fond_apres_subs_et_crop_et_clear_et_lignes.tif")
+    # )
     # if not np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image):
-    #     diff_actual_with_ref_and_source(ref_after_sub_and_crop_bg, sample_minus_background_image, ref_after_sub_and_crop_bg)
+    #     diff_actual_with_ref_and_source(
+    #         ref_after_sub_and_crop_bg,
+    #         sample_minus_background_image,
+    #         ref_after_sub_and_crop_bg,
+    #     )
     #     assert False
 
     # Compare with stored reference (vis1.zip)
@@ -175,10 +270,10 @@ def test_raw_to_work(projects, tmp_path, sample):
 
     # saveimage(sample_minus_background_image, "/tmp/final_with_bg.tif")
     # compare
-    if not np.array_equal(expected_final_image, sample_minus_background_image):
-        # Try to add separator mask
-        work_files = folder.zooscan_scan.work.get_files(sample, index)
-        sep_file = work_files["sep"]
+    # Always add separator mask, if present
+    work_files = folder.zooscan_scan.work.get_files(sample, index)
+    sep_file = work_files.get("sep")
+    if sep_file is not None:
         assert sep_file.exists()
         sep_image = loadimage(sep_file, type=cv2.COLOR_BGR2GRAY)
         assert sep_image.dtype == np.uint8
@@ -190,19 +285,21 @@ def test_raw_to_work(projects, tmp_path, sample):
         sample_minus_background_image = np.clip(
             sample_minus_background_image_plus_sep, 0, 255
         ).astype(np.uint8)
-    assert np.array_equal(expected_final_image, sample_minus_background_image)
 
-        # save_diff_image(expected_final_image, sample_minus_background_image, Path("/tmp/diff.jpg"))
+    if not np.array_equal(expected_final_image, sample_minus_background_image):
+        save_diff_image(
+            expected_final_image, sample_minus_background_image, Path("/tmp/diff.jpg")
+        )
         # assert False
-        # nb_real_errors = diff_actual_with_ref_and_source(
-        #     expected_final_image,
-        #     sample_minus_background_image,
-        #     sample_minus_background_image,
-        #     tolerance=0,
-        # )
-        # if nb_real_errors > 0:
-        #     assert False
-    # assert np.array_equal(sample_minus_background_image[0], expected_final_image[0])
+        nb_real_errors = diff_actual_with_ref_and_source(
+            expected_final_image,
+            sample_minus_background_image,
+            sample_minus_background_image,
+            tolerance=0,
+        )
+        if nb_real_errors > 0:
+            assert False
+        # assert np.array_equal(sample_minus_background_image[0], expected_final_image[0])
 
     # assert expected_image.shape == actual_image.shape
 

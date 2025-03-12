@@ -110,7 +110,7 @@ def test_bord_gauche(TP):
         print(f"dim: {k}, {height / 2 - height * 0.125}, {step}, {height * 0.25}")
 
     img = crophw(
-        image, top=k, left=height / 2 - height * 0.125, height=step, width=height * 0.25
+        image, f_top=k, f_left=height / 2 - height * 0.125, f_height=step, f_width=height * 0.25
     )
 
     draw_img = cv2.merge([image, image, image])
@@ -146,10 +146,10 @@ def test_bord_gauche(TP):
         # img = crophw(image, top=k, left=height/2 - height*0.125, width=step, height=height*0.25)
         img = crophw(
             image,
-            top=k,
-            left=height / 2 - height * 0.125,
-            height=step,
-            width=height * 0.25,
+            f_top=k,
+            f_left=height / 2 - height * 0.125,
+            f_height=step,
+            f_width=height * 0.25,
         )
         # print(f"shape of cropped image: {img.shape}")
         mean = np.mean(img, axis=None)
@@ -293,7 +293,7 @@ def test_bord_bas(TP, tmp_path):
     limitbas = limit
     k = height * 0.95
     print(f"k: {k}")
-    img = crophw(image, top=width / 6, left=k, height=width * 0.15, width=step)
+    img = crophw(image, f_top=width / 6, f_left=k, f_height=width * 0.15, f_width=step)
     print(f"shape of cropped image: {img.shape}")
     mean = np.mean(img, axis=None)
     print(f"Mean of cropped image: {mean}")
@@ -371,7 +371,7 @@ def test_bord_haut(TP, tmp_path):
     # img = crophw(image, left=width / 2 - width * .25, top=k, width=width * 0.2, height=10 * step)
     # img = crophw(image, top=width / 2 - width * .25, left=k, height=width * 0.2, width=10 * step)
     img = crophw(
-        image, top=width / 2 - width * 0.25, left=k, height=width * 0.2, width=10 * step
+        image, f_top=width / 2 - width * 0.25, f_left=k, f_height=width * 0.2, f_width=10 * step
     )
     # img = crophw(image, top=height / 2 - height * .25, left=k, width=height * 0.2, height=10 * step)
     print(f"shape of cropped image: {img.shape}")
@@ -403,7 +403,7 @@ def test_bord_haut(TP, tmp_path):
     while k > 0:
         # img = crophw(image, left=width / 2 - width * .25, top=k, width=width * 0.2, height=step)
         img = crophw(
-            image, top=width / 2 - width * 0.25, left=k, height=width * 0.2, width=step
+            image, f_top=width / 2 - width * 0.25, f_left=k, f_height=width * 0.2, f_width=step
         )
         # img = crophw(image, top=height / 2 - height * .25, left=k, width=height * 0.2, height=step)
 

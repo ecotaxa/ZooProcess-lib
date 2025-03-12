@@ -99,7 +99,7 @@ class Background:
         haut = sample_scan_cropy / self.backratio
         fondx0 = self.lf - larg
         fondy0 = self.hf - haut
-        # TODO: What happen on ImageJ side?
+        # TODO: What happens on ImageJ side?
         fondy0 = max(fondy0, 0)
 
         print(f"fond: {fondx0},{fondy0} {haut},{larg}")

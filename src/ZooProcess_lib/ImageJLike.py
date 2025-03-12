@@ -257,3 +257,7 @@ class ImageJLikeResizer(object):
         upper_average = upper_left + xfraction * (upper_right - upper_left)
         lower_average = lower_left + xfraction * (lower_right - lower_left)
         return lower_average + yfraction * (upper_average - lower_average)
+
+
+def parseInt(num: float) -> int:
+    return int(num + 0.5)
