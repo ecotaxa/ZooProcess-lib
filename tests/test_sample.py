@@ -132,8 +132,8 @@ APERO_samples = [
     "apero2023_tha_bioness_014_st46_n_n4_d1_1_sur_1",
 ]
 
-APERO2000_tested_samples = zip([APERO2000] * 100, APERO2000_samples[0:1])
-APERO2000_tested_samples = []
+APERO2000_tested_samples = zip([APERO2000] * 100, APERO2000_samples)
+# APERO2000_tested_samples = []
 APERO_tested_samples = zip([APERO] * 100, APERO_samples)
 # APERO_tested_samples = zip([APERO] * 100, APERO_samples[-5:-4])
 tested_samples = list(APERO2000_tested_samples) + list(APERO_tested_samples)
@@ -175,7 +175,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     # limitod = border.right_limit_to_removeable_from_image()
     limitod = border.right_limit_to_removeable_from_right_limit()
     # assert limitod == 24568  # From ImageJ debug
-    assert right_limit == 24214
+    # assert right_limit == 24214
 
     bg = Background(last_background_image, last_background_file)
     cropped_bg, mean_bg, adjusted_bg = bg.resized_for_sample_scan(

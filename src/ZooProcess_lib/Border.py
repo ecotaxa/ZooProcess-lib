@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from .ImageJLike import parseInt
-from .img_tools import crophw, saveimage, draw_box, mean_with_no_decimal
+from .img_tools import crophw, saveimage, mean_with_4_decimals
 
 
 # TODO: Separate code from tests and debug
@@ -67,18 +67,18 @@ class Border:
             f_top=k,
             f_left=self.height / 2 - self.height * 0.125,
             f_width=self.height * 0.25,
-            f_height=self.step,
+            f_height=10 * self.step,
         )
         # print(f"shape of cropped image: {img.shape}")
-        mean = mean_with_no_decimal(img)
+        img_mean = mean_with_4_decimals(img)
         # print(f"Mean of cropped image: {mean}")
         # saveimage(img, self.name, "crop_left" + "_" + str(int(k)) + "_" + str(parseInt(mean)), ext="tiff", path=self.crop_output_path)
         # self.draw_image = draw_box(self.draw_image,x=k,y=self.height / 2 - self.height * 0.125,h=self.height * 0.25,w=self.step,color=(255, 0, 0),)
 
-        greyvalb = parseInt(mean * self.greytaux)
-        print(f"greyvalb: {greyvalb}")
+        greyvalg: int = parseInt(img_mean * self.greytaux)
+        print(f"greyvalg: {greyvalg}")
 
-        while k > 0:
+        while k >= 0:
             img = crophw(
                 self.image,
                 f_top=k,
@@ -90,12 +90,12 @@ class Border:
             # print(
             #     f"dim: {k}, {self.height / 2 - self.height * 0.125}, {self.step}, {self.height * 0.25} mean:{mean} <? {greyvalb}"
             # )
-            mean = mean_with_no_decimal(img)
+            mean = mean_with_4_decimals(img)
             # saveimage(img, self.name, "crop_left" + "_" + str(int(k)) + "_" + str(parseInt(mean)), ext="tiff", path=self.crop_output_path)
             # self.draw_image = draw_box(self.draw_image,x=k,y=self.height / 2 - self.height * 0.125,h=self.height * 0.25,w=self.step,color=(255, 0, 0),)
 
             # print(f"Mean of cropped image: {mean}")
-            if mean < greyvalb:
+            if mean < greyvalg:
                 # limit = k
                 limit = k + self.step
                 # limitgauche = int(limit)
@@ -125,12 +125,12 @@ class Border:
             f_height=10 * self.step,
         )
         # print(f"shape of cropped image: {img.shape}")
-        mean = mean_with_no_decimal(img)
+        mean = mean_with_4_decimals(img)
         print(f"Mean of cropped image: {mean}")
         # saveimage(img, self.name, "crop_right" + "_" + str(int(k)) + "_" + str(parseInt(mean)), ext="tiff", path=self.crop_output_path)
         # self.draw_image = draw_box(self.draw_image,x=k,y=self.height / 4,h=self.height * 0.25,w=10 * self.step,color=(255, 255, 0),)
 
-        greyvald = parseInt(mean * self.greytaux)
+        greyvald: int = parseInt(mean * self.greytaux)
 
         while k <= self.width:
             img = crophw(
@@ -141,7 +141,7 @@ class Border:
                 f_height=self.step,
             )
             # print(f"shape of cropped image: {img.shape}")
-            mean = mean_with_no_decimal(img)
+            mean = mean_with_4_decimals(img)
             # saveimage(img, self.name, "crop_right" + "_" + str(int(k)) + "_" + str(parseInt(mean)), ext="tiff", path=self.crop_output_path)
             # self.draw_image = draw_box(self.draw_image,x=k,y=self.height / 4,h=self.height * 0.25,w=self.step,color=(255, 255, 0),)
             # print(f"Mean of cropped image: {mean}")
@@ -172,7 +172,7 @@ class Border:
             f_width=10 * self.step,
         )
         # print(f"shape of cropped image: {img.shape}")
-        mean = mean_with_no_decimal(img)
+        mean = mean_with_4_decimals(img)
         # print(f"Mean of cropped image: {mean}")
         # if mean is not int : print ("NNNNNNNNNNNaaaaaaaaaaNNNNNNNNNNN") ; return
 
@@ -191,7 +191,7 @@ class Border:
                 f_width=self.step,
             )
             # print(f"shape of cropped image: {img.shape}")
-            mean = mean_with_no_decimal(img)
+            mean = mean_with_4_decimals(img)
             # saveimage(img, self.name, "crop_bottom" + "_" + str(int(k)) + "_" + str(parseInt(mean)), ext="tiff", path=self.crop_output_path)
             # self.draw_image = draw_box(self.draw_image,x=self.width / 6,y=k,w=self.width * 0.15,h=self.step,color=(255, 0, 0),)
             # print(f"Mean of cropped image: {mean}")
@@ -217,20 +217,13 @@ class Border:
         )
 
         # print(f"shape of cropped image: {img.shape}")
-        img_mean = mean_with_no_decimal(img)
-        greyvalh = int(img_mean * self.greytaux)
+        img_mean = mean_with_4_decimals(img)
+        greyvalh: int = parseInt(img_mean * self.greytaux)
         # print(f"top_limit mean: {mean}")
         # print(f"Mean of cropped image: {mean}")
         # saveimage(img, self.name, "crop_top" + "_" + str(int(k)) + "_" + str(parseInt(mean)), ext="tiff", path=self.crop_output_path)
         # self.draw_image = draw_box(self.draw_image, x=self.width / 4, y=k, h=self.width*0.2, w=self.step, color=(255,0,0))
-        self.draw_image = draw_box(
-            self.draw_image,
-            y=k,
-            x=self.width / 2 - self.width * 0.125,
-            w=self.width * 0.25,
-            h=self.step,
-            color=(255, 0, 0),
-        )
+        # self.draw_image = draw_box(self.draw_image,y=k,x=self.width / 2 - self.width * 0.125,w=self.width * 0.25,h=self.step,color=(255, 0, 0),)
 
         while k > 0:
             img = crophw(
@@ -242,7 +235,7 @@ class Border:
             )
 
             # print(f"shape of cropped image: {img.shape}")
-            mean = mean_with_no_decimal(img)
+            mean = mean_with_4_decimals(img)
             # print(f"top_limit mean: {mean}")
             # saveimage(img, self.name, "crop_top" + "_" + str(int(k)) + "_" + str(parseInt(mean)), ext="tiff", path=self.crop_output_path)
             # self.draw_image = draw_box(self.draw_image, x=self.width / 4, y=k, h=self.width*0.2, w=self.step, color=(255,0,0))
@@ -271,8 +264,7 @@ class Border:
             f_height=10 * self.step,
         )
 
-        mean = mean_with_no_decimal(img)
-
+        mean = mean_with_4_decimals(img)
         greyval = parseInt(mean * self.greytaux)
 
         while k <= self.width:
@@ -283,7 +275,7 @@ class Border:
                 f_width=self.height * 0.25,
                 f_height=self.step,
             )
-            mean = mean_with_no_decimal(img)
+            mean = mean_with_4_decimals(img)
             if mean < greyval or mean == 255:  # On arrête
                 limit = k
                 limit += (self.width - limit) / 10
