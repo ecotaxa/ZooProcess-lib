@@ -854,6 +854,8 @@ def image_info(image_path: Path) -> ImageInfo:
 
 def get_date_time_digitized(img_info: Dict[str, str]) -> Optional[datetime]:
     val = img_info.get("DateTimeDigitized")  # e.g. '2024:01:16 10:46:21'
+    if val is None:
+        return None
     return datetime.strptime(val, "%Y:%m:%d %H:%M:%S")
 
 

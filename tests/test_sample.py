@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 import cv2
@@ -18,7 +19,7 @@ from ZooProcess_lib.img_tools import (
     draw_outside_lines,
 )
 from tests.env_fixture import projects
-from tests.projects_for_test import APERO2000, APERO
+from tests.projects_for_test import APERO2000, APERO, IADO
 from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
 
 
@@ -132,11 +133,44 @@ APERO_samples = [
     "apero2023_tha_bioness_014_st46_n_n4_d1_1_sur_1",
 ]
 
+IADO_samples = [
+    "s_17_1_tot",
+    "s_17_2_tot",
+    "s_17_3_tot",
+    "s_17_4_tot",
+    "s_17_5_tot",
+    "s_17_6_tot",
+    "s_21_a_tot",
+    "s_21_c_tot",
+    "t_17_10_tot",
+    "t_17_1_tot",
+    "t_17_3_tot",
+    "t_17_7_tot",
+    "t_18_4b_tot",
+    "t_18_5_tot",
+    "t_22_10_tot",
+    "t_22_12_5_tot",
+    "t_22_1_tot",
+    "t_22_2_tot",
+    "t_22_3_tot",
+    "t_22_4_tot",
+    "t_22_5_tot",
+    "t_22_6_tot",
+    "t_22_7_tot",
+    "t_22_8_tot",
+    "t_22_9_tot",
+]
+
 APERO2000_tested_samples = zip([APERO2000] * 100, APERO2000_samples)
 # APERO2000_tested_samples = []
 APERO_tested_samples = zip([APERO] * 100, APERO_samples)
 # APERO_tested_samples = zip([APERO] * 100, APERO_samples[-5:-4])
-tested_samples = list(APERO2000_tested_samples) + list(APERO_tested_samples)
+IADO_tested_samples = zip([IADO] * 100, IADO_samples)
+tested_samples = (
+    list(APERO2000_tested_samples)
+    + list(APERO_tested_samples)
+    + list(IADO_tested_samples)
+)
 
 
 @pytest.mark.parametrize("project, sample", tested_samples)
@@ -154,6 +188,10 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     raw_sample_file = folder.zooscan_scan.raw.get_file(sample, index)
     img_info = image_info(raw_sample_file)
     digitized_at = get_date_time_digitized(img_info)
+    if digitized_at is None:
+        file_stats = raw_sample_file.stat()  # TODO: Encapsulate this
+        digitized_at = datetime.fromtimestamp(file_stats.st_mtime)
+    assert digitized_at is not None
 
     # Read 8bit sample scan
     eight_bit_sample_file = folder.zooscan_scan.get_file_produced_from(
