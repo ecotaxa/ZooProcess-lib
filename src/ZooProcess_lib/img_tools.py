@@ -335,19 +335,40 @@ def label(image, mask):
     plt.show()
 
 
-def crop(image: np.ndarray, top: int, left: int, bottom: int, right: int) -> np.ndarray:
-    # cropped_image = img[80:280, 150:330]
-    # start_row:end_row, start_col:end_col
-    # print(top,left,bottom,right)
-    # if type(top) != int : print("top not int")
-    # if type(left) != int : print("left not int")
-    # if type(bottom) != int : print("bottom not int")
-    # if type(right) != int : print("right not int")
-    # print(f"L:R {left}:{right}, T:B {top}:{bottom}")
-    # try:
-    cropped_image = image[int(left) : int(right), int(top) : int(bottom)]
-    # except OSError as error:
-    #   raise error
+def crop(image: np.ndarray, top: float, left: float, bottom: float, right: float) -> np.ndarray:
+    """Crop a numpy array image.
+
+    Args:
+        image: Input image as numpy array
+        top: Top coordinate (row start)
+        left: Left coordinate (column start)
+        bottom: Bottom coordinate (row end)
+        right: Right coordinate (column end)
+
+    Returns:
+        Cropped image as numpy array
+
+    Raises:
+        IndexError: If crop coordinates are outside image boundaries
+        ValueError: If coordinates result in invalid crop dimensions
+    """
+    height, width = image.shape[:2]
+
+    # Convert coordinates to int
+    top_i = int(top)
+    left_i = int(left)
+    bottom_i = int(bottom)
+    right_i = int(right)
+
+    # Validate coordinates
+    if top_i < 0 or left_i < 0 or bottom_i > height or right_i > width:
+        raise IndexError("Crop coordinates out of image bounds")
+    if bottom_i <= top_i or right_i <= left_i:
+        raise ValueError(
+            "Invalid crop dimensions: ensure bottom > top and right > left"
+        )
+
+    cropped_image = image[top_i:bottom_i, left_i:right_i]
     return cropped_image
 
 
@@ -423,7 +444,7 @@ def cropnp(image: np.ndarray, top, left, bottom, right) -> np.ndarray:
 
 
 def crophw(
-    image: np.ndarray, f_top: float, f_left: float, f_height: float, f_width: float
+    image: np.ndarray, f_left: float, f_top: float, f_width: float, f_height: float
 ) -> np.ndarray:
     top, left, height, width = int(f_top), int(f_left), int(f_height), int(f_width)
     if top < 0 or left < 0:
@@ -441,7 +462,7 @@ def crophw(
     if top > bottom or left > right:
         raise ValueError("Cropped region is not within image boundaries")
 
-    return crop(image, top, left, bottom, right)
+    return crop(image, top=top, left=left, bottom=bottom, right=right)
 
     # cropped_image = crop(image,top=top,left=left,bottom=top+height,right=left+width)
     # # if cropped_image is None:
@@ -459,7 +480,7 @@ def crop_scan(image) -> np.ndarray:
     bottom = end_point[0]
     right = end_point[1]
 
-    image = crop(image, top, left, bottom, right)
+    image = crop(image, top=top, left=left, bottom=bottom, right=right)
     return image
 
 
@@ -630,7 +651,7 @@ def generate_vignettes(image, contours, filter, path):
             x, y, w, h = cv2.boundingRect(contours[i])
             print(f"x: {x} - y: {y} - h: {h} - w: {w}")
             if h != 0 and w != 0:
-                cropped_image = crophw(image_3channels, x, y, w, h)
+                cropped_image = crophw(image_3channels, y, x, h, w)
                 if True:
                     filename = f"vignette_{i}.tif"
                     print(f"vignette filename: {filename}")
@@ -651,7 +672,7 @@ def generate_vignettes3(image: np.ndarray, contours, filter, path):
         if filter(contours[i]):
             # image_3channels = draw_box(image_3channels,x,y,w,h)
             x, y, w, h = cv2.boundingRect(contours[i])
-            cropped_image = crophw(image, x, y, w, h)
+            cropped_image = crophw(image, y, x, h, w)
             filename = f"vignette_{i}.tif"
             filepath = saveimage(cropped_image, filename, path=path)
             filelist.append(filepath)
@@ -737,7 +758,7 @@ def picheral_median(image: np.ndarray):
         W = int(W)
         step = int(step)
         # print(f"crop ({BX},{By})x({W},{step})")
-        img = crophw(image, BX, By, W, step)
+        img = crophw(image, By, BX, step, W)
 
         # median,mean = mesure(img)
 
@@ -903,7 +924,7 @@ def map_uint16_to_uint8(img, lower_bound=None, upper_bound=None):
 def generate_cropped_image(
     image: np.ndarray, x, y, w, h, name=None, extraname=None, path=None
 ):
-    crop = crophw(image, x, y, w, h)
+    crop = crophw(image, y, x, h, w)
     if name:
         s = f"_{x}_{y}_{w}_{h}"
         # print(s)

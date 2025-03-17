@@ -109,9 +109,7 @@ def test_bord_gauche(TP):
     if debug:
         print(f"dim: {k}, {height / 2 - height * 0.125}, {step}, {height * 0.25}")
 
-    img = crophw(
-        image, f_top=k, f_left=height / 2 - height * 0.125, f_height=step, f_width=height * 0.25
-    )
+    img = crophw(image, f_left=height / 2 - height * 0.125, f_top=k, f_width=height * 0.25, f_height=step)
 
     draw_img = cv2.merge([image, image, image])
     draw_image = draw_box(
@@ -293,7 +291,7 @@ def test_bord_bas(TP, tmp_path):
     limitbas = limit
     k = height * 0.95
     print(f"k: {k}")
-    img = crophw(image, f_top=width / 6, f_left=k, f_height=width * 0.15, f_width=step)
+    img = crophw(image, f_left=k, f_top=width / 6, f_width=step, f_height=width * 0.15)
     print(f"shape of cropped image: {img.shape}")
     mean = np.mean(img, axis=None)
     print(f"Mean of cropped image: {mean}")
@@ -315,7 +313,7 @@ def test_bord_bas(TP, tmp_path):
     print(f"greyvalb: {greyvalb}")
 
     while k <= height:
-        img = crophw(image, width / 6, k, width * 0.15, step)
+        img = crophw(image, k, width / 6, step, width * 0.15)
         print(f"shape of cropped image: {img.shape}")
         mean = np.mean(img, axis=None)
         print(f"Mean of cropped image: {mean}")

@@ -19,7 +19,7 @@ from ZooProcess_lib.img_tools import (
     draw_outside_lines,
 )
 from tests.env_fixture import projects
-from tests.projects_for_test import APERO2000, APERO, IADO
+from tests.projects_for_test import APERO2000, APERO, IADO, TRIATLAS
 from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
 
 
@@ -132,7 +132,6 @@ APERO_samples = [
     "apero2023_tha_bioness_014_st46_n_n3_d3",
     "apero2023_tha_bioness_014_st46_n_n4_d1_1_sur_1",
 ]
-
 IADO_samples = [
     "s_17_1_tot",
     "s_17_2_tot",
@@ -160,16 +159,133 @@ IADO_samples = [
     "t_22_8_tot",
     "t_22_9_tot",
 ]
+TRIATLAS_samples = [
+    "m158_mn03_n1_d2",
+    "m158_mn03_n1_d3",
+    "m158_mn03_n2_d2",
+    "m158_mn03_n2_d3",
+    "m158_mn03_n3_d1",
+    "m158_mn03_n3_d3",
+    "m158_mn03_n4_d1",
+    "m158_mn03_n4_d2",
+    "m158_mn03_n4_d3",
+    "m158_mn03_n5_d1_1_sur_4",
+    "m158_mn03_n5_d1_2_sur_4",
+    "m158_mn03_n5_d1_3_sur_4",
+    "m158_mn03_n5_d1_4_sur_4",
+    "m158_mn03_n5_d2",
+    "m158_mn04_n1_d1",
+    "m158_mn04_n1_d2",
+    "m158_mn04_n2_d1",
+    "m158_mn04_n2_d2",
+    "m158_mn04_n2_d3",
+    "m158_mn04_n3_d1",
+    "m158_mn04_n3_d2",
+    "m158_mn04_n4_d2",
+    "m158_mn04_n4_d3",
+    "m158_mn04_n5_d1_1_sur_4",
+    "m158_mn04_n5_d1_2_sur_4",
+    "m158_mn04_n5_d1_3_sur_4",
+    "m158_mn04_n5_d1_4_sur_4",
+    "m158_mn05_n1_d1",
+    "m158_mn05_n1_d3",
+    "m158_mn05_n2_d1",
+    "m158_mn05_n2_d2",
+    "m158_mn05_n3_d2",
+    "m158_mn05_n3_d3",
+    "m158_mn05_n4_d2",
+    "m158_mn05_n5_d1_1_sur_4",
+    "m158_mn05_n5_d1_2_sur_4",
+    "m158_mn05_n5_d1_3_sur_4",
+    "m158_mn06_n2_d1_1_sur_2",
+    "m158_mn06_n2_d1_2_sur_2",
+    "m158_mn06_n2_d2",
+    "m158_mn06_n3_d1",
+    "m158_mn06_n3_d3",
+    "m158_mn06_n4_d3",
+    "m158_mn06_n5_d1_1_sur_8",
+    "m158_mn06_n5_d2",
+    "m158_mn06_n5_d3",
+    "m158_mn10_n1_d1",
+    "m158_mn10_n1_d2",
+    "m158_mn10_n1_d3",
+    "m158_mn10_n2_d1",
+    "m158_mn10_n2_d3",
+    "m158_mn10_n3_d1",
+    "m158_mn10_n3_d2",
+    "m158_mn10_n3_d3",
+    "m158_mn10_n4_d2",
+    "m158_mn10_n4_d3",
+    "m158_mn10_n5_d1_1_sur_2",
+    "m158_mn10_n5_d3",
+    "m158_mn11_n1_d1",
+    "m158_mn11_n1_d3",
+    "m158_mn11_n2_d1",
+    "m158_mn11_n2_d2",
+    "m158_mn11_n2_d3",
+    "m158_mn11_n3_d1",
+    "m158_mn11_n3_d2",
+    "m158_mn11_n4_d1",
+    "m158_mn11_n4_d2",
+    "m158_mn11_n4_d3",
+    "m158_mn11_n5_d1",
+    "m158_mn11_n5_d3",
+    "m158_mn14_n1_d1",
+    "m158_mn14_n1_d2",
+    "m158_mn14_n1_d3",
+    "m158_mn14_n2_d1",
+    "m158_mn14_n2_d3",
+    "m158_mn14_n3_d2",
+    "m158_mn14_n4_d1",
+    "m158_mn14_n5_d1",
+    "m158_mn14_n5_d2",
+    "m158_mn15_n1_d1",
+    "m158_mn15_n1_d3",
+    "m158_mn15_n2_d1",
+    "m158_mn15_n2_d2",
+    "m158_mn15_n3_d2",
+    "m158_mn15_n3_d3",
+    "m158_mn15_n4_d1",
+    "m158_mn15_n4_d2",
+    "m158_mn18_n1_d1",
+    "m158_mn18_n1_d2",
+    "m158_mn18_n1_d3",
+    "m158_mn18_n2_d1_3_sur_4",
+    "m158_mn18_n2_d1_4_sur_4",
+    "m158_mn18_n2_d2",
+    "m158_mn18_n3_d1",
+    "m158_mn18_n3_d2",
+    "m158_mn18_n3_d3",
+    "m158_mn18_n4_d1",
+    "m158_mn18_n4_d2",
+    "m158_mn18_n4_d3",
+    "m158_mn18_n5_d2",
+    "m158_mn18_n5_d3",
+    "m158_mn19_n1_d1",
+    "m158_mn19_n1_d2",
+    "m158_mn19_n1_d3",
+    "m158_mn19_n2_d1_1_sur_2",
+    "m158_mn19_n2_d1_2_sur_2",
+    "m158_mn19_n2_d2",
+    "m158_mn19_n2_d3",
+    "m158_mn19_n5_d1_1_sur_5",
+    "m158_mn19_n5_d1_4_sur_5",
+    "m158_mn19_n5_d1_5_sur_5",
+    "m158_mn19_n5_d2",
+    "m158_mn19_n5_d3",
+]
 
 APERO2000_tested_samples = zip([APERO2000] * 100, APERO2000_samples)
 # APERO2000_tested_samples = []
 APERO_tested_samples = zip([APERO] * 100, APERO_samples)
 # APERO_tested_samples = zip([APERO] * 100, APERO_samples[-5:-4])
 IADO_tested_samples = zip([IADO] * 100, IADO_samples)
+TRIATLAS_tested_samples = zip([TRIATLAS] * 150, TRIATLAS_samples)
 tested_samples = (
     list(APERO2000_tested_samples)
     + list(APERO_tested_samples)
     + list(IADO_tested_samples)
+    + list(TRIATLAS_tested_samples)
 )
 
 
@@ -206,7 +322,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     last_background_image = loadimage(last_background_file, type=cv2.IMREAD_UNCHANGED)
     assert last_background_image.dtype == np.uint8
 
-    border = Border(eight_bit_sample_image)
+    border = Border(eight_bit_sample_image, "select" if "triatlas" in project else "")
     (top_limit, bottom_limit, left_limit, right_limit) = border.detect()
     # TODO: below correspond to a not-debugged case "if (greycor > 2 && droite == 0) {" which
     # is met when borders are not computed.

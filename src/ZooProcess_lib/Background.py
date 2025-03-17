@@ -60,7 +60,7 @@ class Background:
             lf: {self.lf:8}   hf: {self.hf:8}
             LM: {self.LM:8}   HM: {self.HM:8}
             Lm: {self.Lm:8}   Hm: {self.Hm:8}
-        
+
             ratio: {self.backratio}
         """
 
@@ -73,7 +73,7 @@ class Background:
         h = y2 - y1
         w = 10
 
-        image_cropped = crop(self.image, x1, y1, x2, y2)
+        image_cropped = crop(self.image, left=x1, top=y1, right=x2, bottom=y2)
 
         image_drew = draw_box(self.image, x=x1, y=y1, w=w, h=h)
         saveimage(image_drew, self.name, "drew", path=self.output_path)
@@ -101,6 +101,7 @@ class Background:
         fondy0 = self.hf - haut
         # TODO: What happens on ImageJ side?
         fondy0 = max(fondy0, 0)
+        haut = min(haut, self.image.shape[0])
 
         print(f"fond: {fondx0},{fondy0} {haut},{larg}")
 

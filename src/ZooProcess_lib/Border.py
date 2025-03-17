@@ -1,19 +1,24 @@
+import math
 import os
 
 import numpy as np
 
 from .ImageJLike import parseInt
-from .img_tools import crophw, saveimage, mean_with_4_decimals
+from .img_tools import crophw, saveimage, mean_with_4_decimals, crop
 
 
 # TODO: Separate code from tests and debug
 class Border:
-    def __init__(self, image: np.ndarray) -> None:
+    def __init__(self, image: np.ndarray, background_process: str = "") -> None:
         assert image.dtype == np.uint8
         self.image = image
 
-        self.height = image.shape[0]
-        self.width = image.shape[1]
+        self.height, self.width = image.shape[:2]
+        if background_process in ("select", "last"):
+            cropx = 8 * math.floor(self.width / 8)
+            cropy = 8 * math.floor(self.height / 8)
+            self.image = crop(image, top=0, left=0, bottom=cropy, right=cropx)
+            self.height, self.width = cropy, cropx
 
         self.resolution = 2400
         self.step = parseInt(self.resolution / 240.0)
@@ -64,10 +69,10 @@ class Border:
         print(f"k: {k}")
         img = crophw(
             self.image,
-            f_top=k,
-            f_left=self.height / 2 - self.height * 0.125,
-            f_width=self.height * 0.25,
-            f_height=10 * self.step,
+            f_left=k,
+            f_top=self.height / 2 - self.height * 0.125,
+            f_width=10 * self.step,
+            f_height=self.height * 0.25,
         )
         # print(f"shape of cropped image: {img.shape}")
         img_mean = mean_with_4_decimals(img)
@@ -81,10 +86,10 @@ class Border:
         while k >= 0:
             img = crophw(
                 self.image,
-                f_top=k,
-                f_left=self.height / 2 - self.height * 0.125,
-                f_width=self.height * 0.25,
-                f_height=self.step,
+                f_left=k,
+                f_top=self.height / 2 - self.height * 0.125,
+                f_width=self.step,
+                f_height=self.height * 0.25,
             )
             # print(f"shape of cropped image: {img.shape}")
             # print(
@@ -119,10 +124,10 @@ class Border:
         # print(f"k: {k}")
         img = crophw(
             self.image,
-            f_top=k,
-            f_left=self.height / 4,
-            f_width=self.height * 0.25,
-            f_height=10 * self.step,
+            f_left=k,
+            f_top=self.height / 4,
+            f_width=10 * self.step,
+            f_height=self.height * 0.25,
         )
         # print(f"shape of cropped image: {img.shape}")
         mean = mean_with_4_decimals(img)
@@ -135,10 +140,10 @@ class Border:
         while k <= self.width:
             img = crophw(
                 self.image,
-                f_top=k,
-                f_left=self.height / 4,
-                f_width=self.height * 0.25,
-                f_height=self.step,
+                f_left=k,
+                f_top=self.height / 4,
+                f_width=self.step,
+                f_height=self.height * 0.25,
             )
             # print(f"shape of cropped image: {img.shape}")
             mean = mean_with_4_decimals(img)
@@ -166,10 +171,10 @@ class Border:
         print(f"image shape : {self.image.shape}")
         img = crophw(
             self.image,
-            f_top=self.width / 6,
-            f_left=k,
-            f_height=self.width * 0.15,
-            f_width=10 * self.step,
+            f_left=self.width / 6,
+            f_top=k,
+            f_width=self.width * 0.15,
+            f_height=10 * self.step,
         )
         # print(f"shape of cropped image: {img.shape}")
         mean = mean_with_4_decimals(img)
@@ -185,10 +190,10 @@ class Border:
             # img = crophw(self.image, top=self.width / 6, left=k, width=self.width*0.15, height=self.step)
             img = crophw(
                 self.image,
-                f_top=self.width / 6,
-                f_left=k,
-                f_height=self.width * 0.15,
-                f_width=self.step,
+                f_left=self.width / 6,
+                f_top=k,
+                f_width=self.width * 0.15,
+                f_height=self.step,
             )
             # print(f"shape of cropped image: {img.shape}")
             mean = mean_with_4_decimals(img)
@@ -210,10 +215,10 @@ class Border:
 
         img = crophw(
             self.image,
-            f_top=self.width / 2 - self.width * 0.25,
-            f_left=k,
-            f_height=self.width * 0.2,
-            f_width=10 * self.step,
+            f_left=self.width / 2 - self.width * 0.25,
+            f_top=k,
+            f_width=self.width * 0.2,
+            f_height=10 * self.step,
         )
 
         # print(f"shape of cropped image: {img.shape}")
@@ -228,10 +233,10 @@ class Border:
         while k > 0:
             img = crophw(
                 self.image,
-                f_top=self.width / 2 - self.width * 0.25,
-                f_left=k,
-                f_height=self.width * 0.2,
-                f_width=self.step,
+                f_left=self.width / 2 - self.width * 0.25,
+                f_top=k,
+                f_width=self.width * 0.2,
+                f_height=self.step,
             )
 
             # print(f"shape of cropped image: {img.shape}")
@@ -258,8 +263,8 @@ class Border:
 
         img = crophw(
             self.image,
-            f_top=k,
             f_left=self.height / 4,
+            f_top=k,
             f_width=self.height * 0.25,
             f_height=10 * self.step,
         )
@@ -270,8 +275,8 @@ class Border:
         while k <= self.width:
             img = crophw(
                 self.image,
-                f_top=k,
                 f_left=self.height / 4,
+                f_top=k,
                 f_width=self.height * 0.25,
                 f_height=self.step,
             )

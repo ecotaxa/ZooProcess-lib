@@ -20,7 +20,7 @@ class pieceImage:
 
     def crop(self, image):
         print(f"crop {self.top}:{self.left} - {self.bottom}:{self.right}")
-        return crop(image, self.top, self.left, self.bottom, self.right)
+        return crop(image, top=self.top, left=self.left, bottom=self.bottom, right=self.right)
 
     def get_image(self):
         return self.image

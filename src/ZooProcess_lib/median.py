@@ -41,7 +41,7 @@ def picheral_median(image:np.ndarray):
         W = int(W)
         step = int(step)
         # print(f"crop ({BX},{By})x({W},{step})")
-        img = crophw(image, BX, By, W, step)
+        img = crophw(image, By, BX, step, W)
 
         # saveimage(img, "test", str(k), ext="tiff")
 
