@@ -763,8 +763,8 @@ class TestBackground:
     def test_applied_back_filter_on_scan(self):
         from ZooProcess_lib.to8bit import resized_like, filters
 
-        scan_image = loadimage(self.sample, path=self.TP.rawscan)
-        back_image = loadimage(self.back_name, path=self.TP.back)
+        scan_image = loadimage(self.sample, path=Path(self.TP.rawscan))
+        back_image = loadimage(self.back_name, path=Path(self.TP.back))
 
         imin, imax, min, max = filters(scan_image)
         print(f"imin: {imin}, imax: {imax} - min: {min}, max: {max}")
@@ -813,7 +813,7 @@ class TestBackground:
             path=self.output_path,
         )
 
-        # ajouter un flip horizontal pour que l'utilsateur voit l'image comme son scan
+        # ajouter un flip horizontal pour que l'utilisateur voie l'image comme son scan
 
         border = Border(image_back_rotated)
         border.output_path = self.output_path

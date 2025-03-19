@@ -1,6 +1,7 @@
 APERO = "Zooscan_apero_tha_bioness_2_sn033"
+APERO_REDUCED = "Zooscan_apero_tha_bioness_2_sn033_1SAMPLE"
 APERO2000 = "Zooscan_apero_tha_bioness_sup2000_sn033"
-ROND_CARRE = "Zooscan_sn001_rond_carre_zooprocess_separation_training"
 APERO2000_REDUCED = "Zooscan_apero_tha_bioness_sup2000_sn033_1SAMPLE"
+ROND_CARRE = "Zooscan_sn001_rond_carre_zooprocess_separation_training"
 TRIATLAS = "Zooscan_triatlas_m158_2019_mtn_200microns_sn001"
 IADO = "Zooscan_iado_wp2_2021_sn002"

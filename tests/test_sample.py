@@ -8,6 +8,7 @@ import pytest
 from ZooProcess_lib.Background import Background
 from ZooProcess_lib.Border import Border
 from ZooProcess_lib.ImageJLike import images_difference
+from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
     load_zipped_image,
@@ -19,7 +20,7 @@ from ZooProcess_lib.img_tools import (
     draw_outside_lines,
 )
 from tests.env_fixture import projects
-from tests.projects_for_test import APERO2000, APERO, IADO, TRIATLAS
+from tests.projects_for_test import APERO2000, APERO, IADO, TRIATLAS, APERO2000_REDUCED, APERO_REDUCED
 from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
 
 
@@ -469,7 +470,11 @@ def load_final_ref_image(folder, sample, index):
     return reference_image
 
 
-def test_segmentation(projects, tmp_path):
-    before_seg = loadimage("/tmp/final_bg.tif")
+@pytest.mark.parametrize("project, sample", [(APERO_REDUCED, "apero2023_tha_bioness_014_st46_n_n9_d2_8_sur_8")])
+def test_segmentation(projects, tmp_path, project, sample):
+    folder = ZooscanFolder(projects, project)
+    index = 1  # TODO: should come from get_names() below
+    vis1 = load_final_ref_image(folder, sample, index)
     # macro: setThreshold(0, 129);
     # run("Threshold", "thresholded remaining black");
+    Segmenter(vis1).process()
