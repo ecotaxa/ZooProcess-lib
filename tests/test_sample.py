@@ -477,4 +477,7 @@ def test_segmentation(projects, tmp_path, project, sample):
     vis1 = load_final_ref_image(folder, sample, index)
     # macro: setThreshold(0, 129);
     # run("Threshold", "thresholded remaining black");
-    Segmenter(vis1).process()
+    # TODO: below from Zooscan_config/process_install_both_config.txt
+    minsizeesd_mm = 1.5
+    maxsizeesd_mm = 100
+    Segmenter(vis1, minsizeesd_mm, maxsizeesd_mm).process()
