@@ -1,4 +1,6 @@
+import csv
 from pathlib import Path
+from typing import List, Dict, Any, Type
 
 import cv2
 import numpy as np
@@ -34,7 +36,7 @@ def save_diff_image(
     abs_diff = np.abs(expected_image.astype(np.int16) - actual_image)
     # expand differences in luminance domain
     abs_diff *= 100
-    abs_diff = 255-(np.clip(abs_diff, 0, 255).astype(np.uint8))
+    abs_diff = 255 - (np.clip(abs_diff, 0, 255).astype(np.uint8))
     # if abs_diff.shape[2] == 4:  # Hard-code the alpha channel to fully solid
     #     abs_diff[:, :, 3] = 255
     saveimage(abs_diff, path)
@@ -60,4 +62,17 @@ def print_diff(array_e, array_a, line_num, comp_img, tolerance) -> int:
             if ret > 20:
                 print("Stop for line")
                 break
+    return ret
+
+
+def read_result_csv(csv_file: Path, typings: Dict[str, Type]) -> List[Dict]:
+    ret = []
+    with open(csv_file, "r") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        for a_line in reader:
+            to_add = {}
+            for k, v in typings.items():
+                if k in a_line:
+                    to_add[k] = typings[k](a_line[k])
+            ret.append(to_add)
     return ret
