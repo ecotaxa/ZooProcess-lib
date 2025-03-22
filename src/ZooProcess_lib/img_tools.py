@@ -335,7 +335,9 @@ def label(image, mask):
     plt.show()
 
 
-def crop(image: np.ndarray, top: float, left: float, bottom: float, right: float) -> np.ndarray:
+def crop(
+    image: np.ndarray, top: float, left: float, bottom: float, right: float
+) -> np.ndarray:
     """Crop a numpy array image.
 
     Args:
@@ -424,7 +426,9 @@ def crop_if_larger(image: np.ndarray, right: int, bottom: int) -> np.ndarray:
     return image
 
 
-def cropnp(image: np.ndarray, top, left, bottom, right) -> np.ndarray:
+def cropnp(
+    image: np.ndarray, top: int, left: int, bottom: int, right: int
+) -> np.ndarray:
     # cropped_image = img[80:280, 150:330]
     # start_row:end_row, start_col:end_col
     # print(top,left,bottom,right)
@@ -437,7 +441,7 @@ def cropnp(image: np.ndarray, top, left, bottom, right) -> np.ndarray:
     # cropped_image = image[int(left):int(right), int(top):int(bottom)]
     # cropped_image = image[int(right):int(left), int(bottom):int(top)]
     # symetrie à 45°
-    cropped_image = image[int(top) : int(bottom), int(left) : int(right)]
+    cropped_image = image[top:bottom, left:right]
     # except OSError as error:
     #   raise error
     return cropped_image

@@ -497,10 +497,20 @@ def test_segmentation(projects, tmp_path, project, sample):
     maxsizeesd_mm = 100
     ref = read_result_csv(
         Path("/tmp/Results.xls"),
-        {"BX": int, "BY": int, "Width": int, "Height": int, "Area": float},
+        {
+            "BX": int,
+            "BY": int,
+            "Width": int,
+            "Height": int,
+            "Area": int,
+            "XStart": int,
+            "YStart": int,
+        },
     )
     sort_by_dist(ref)
-    found = Segmenter(vis1, minsizeesd_mm, maxsizeesd_mm).process()
+    segmenter = Segmenter(vis1, minsizeesd_mm, maxsizeesd_mm)
+    found = segmenter.find_blobs()
+    segmenter.split_by_blobs()
     sort_by_dist(found)
     assert found[1:] == ref  # TODO: There is a full image border in openCV output
 
