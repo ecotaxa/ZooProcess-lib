@@ -91,16 +91,16 @@ class Segmenter(object):
             x, y, w, h = cv2.boundingRect(a_contour)
             if w * h < self.s_p_min:
                 # Even if contour was around a filled rectangle it would not meet min criterion
-                # -> don't bother computing exact area
+                # -> don't bother drawing the contour, which is expensive
                 continue
             contour_mask = self.draw_contour(a_contour, x, y, w, h)
-            # First pixel in shape seems OK for this measurement
-            x_start = x + int(np.argmax(contour_mask == 255))
             area = np.count_nonzero(contour_mask)
             if area < self.s_p_min:
                 continue
             if area > self.s_p_max:
                 continue
+            # First pixel in shape seems OK for this measurement
+            x_start = x + int(np.argmax(contour_mask == 255))
             ret.append(
                 {
                     "BX": x,
