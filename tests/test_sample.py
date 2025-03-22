@@ -501,9 +501,8 @@ def test_segmentation(projects, tmp_path, project, sample):
     )
     sort_by_dist(ref)
     found = Segmenter(vis1, minsizeesd_mm, maxsizeesd_mm).process()
-    # found = Segmenter(vis1, minsizeesd_mm, maxsizeesd_mm).process2()
     sort_by_dist(found)
-    assert found[1:] == ref  # TODO: There is a full image border in openCV
+    assert found[1:] == ref  # TODO: There is a full image border in openCV output
 
 
 def sort_by_dist(features: List[Dict]):

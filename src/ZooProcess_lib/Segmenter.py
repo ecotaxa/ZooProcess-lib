@@ -1,4 +1,3 @@
-import math
 from typing import List, Dict
 
 import cv2
@@ -13,60 +12,47 @@ class Segmenter(object):
 
     THRESH_MAX = 243
     RESOLUTION = 2400
-    Wlimit = 20000
-    Hlimit = 6500
-    overlap = 0.6
+    # Constants for 2-image processing. Historical.
+    # Wlimit = 20000
+    # Hlimit = 6500
+    # overlap = 0.6
+
+    METH_CONTOUR = 1
+    METH_CONNECTED_COMPONENTS = 2
 
     def __init__(self, image: ndarray, minsize: float, maxsize: float):
         assert image.dtype == np.uint8
         self.image = image
         self.height, self.width = image.shape[:2]
         pixel = 25.4 / self.RESOLUTION
-        Smmin = (3.1416 / 4) * pow(minsize, 2)
-        Smmax = (3.1416 / 4) * pow(maxsize, 2)
+        sm_min = (3.1416 / 4) * pow(minsize, 2)
+        sm_max = (3.1416 / 4) * pow(maxsize, 2)
         # s_p_* are in pixel^2
-        self.s_p_min = round(Smmin / (pow(pixel, 2)))
-        self.s_p_max = round(Smmax / (pow(pixel, 2)))
+        self.s_p_min = round(sm_min / (pow(pixel, 2)))
+        self.s_p_max = round(sm_max / (pow(pixel, 2)))
 
-    def process(self):
+    def process(self, method: int = METH_CONTOUR):
         # Threshold the source image to have a b&w mask
-        # thresh_min = 0 # implied in opencv call
         thresh_max = self.THRESH_MAX
         _th, msk1 = cv2.threshold(self.image, thresh_max, 255, cv2.THRESH_BINARY)
         self.sanity_check(msk1)
-        if self.width > self.Wlimit and self.height > self.Hlimit:
+        # if self.width > self.Wlimit and self.height > self.Hlimit:
             # Process image in 2 parts: TODO: see if useful at all.
             # O = parseInt(self.width * self.overlap)
             # M = self.width - O
             # msk1 = crophw(msk1, 0, 0, O, self.height)
             # saveimage(msk1, Path("/tmp/temp0_msk1.tif"))
-            # Required measurements:
-            #       area bounding area_fraction limit decimal=2
-            # Result:
-            #       Area	BX	BY	Width	Height	%Area	XStart	YStart
-            return self.find_particles(msk1)
-        else:
-            assert False, "Single image KO"
-
-    def process2(self):
-        # Threshold the source image to have a b&w mask
-        # thresh_min = 0 # implied in opencv call
-        thresh_max = self.THRESH_MAX
-        _th, msk1 = cv2.threshold(self.image, thresh_max, 255, cv2.THRESH_BINARY)
-        self.sanity_check(msk1)
-        # saveimage(msk1, Path("/tmp/temp0_msk1.tif"))
         # Required measurements:
         #       area bounding area_fraction limit decimal=2
         # Result:
         #       Area	BX	BY	Width	Height	%Area	XStart	YStart
-        return self.find_particles_via_cc(msk1)
+        if method == self.METH_CONNECTED_COMPONENTS:
+            # Faster, but areas don't match with ImageJ. Left for future investigations
+            return self.find_particles_via_cc(msk1)
+        else:
+            return self.find_particles(msk1)
 
     def find_particles_via_cc(self, mask: ndarray) -> List[Dict]:
-        # ImageJ calls args are similar to:
-        # analysis1 = "minimum=" + Spmin + " maximum=" + Spmax + " circularity=0.00-1.00 bins=20 show=Outlines include exclude flood record";
-        # 'include' is 'Include holes'
-        # 'exclude' is 'Exclude on hedges'
-        # -> circularity is never used as a filter
         mask = 255 - mask  # Opencv looks for white objects on black background
         (
             retval,
@@ -105,13 +91,14 @@ class Segmenter(object):
         print("Number of Contours found = " + str(len(contours)))
         ret = []
         filtered_contours = []
+        single_point_contour_shape = (1, 1, 2)
         for a_contour in contours:
-            if a_contour.shape == (1, 1, 2):  # Single-point "contour"
+            if a_contour.shape == single_point_contour_shape:  # Single-point "contour"
                 continue
             x, y, w, h = cv2.boundingRect(a_contour)
             if w * h < self.s_p_min:
-                # Even if contour was around a filled rectangle it would not meet min
-                # Don't bother computing exact area
+                # Even if contour was around a filled rectangle it would not meet min criterion
+                # -> don't bother computing exact area
                 continue
             area = self.pixels_inside_contour(a_contour, x, y, w, h)
             if area < self.s_p_min:
