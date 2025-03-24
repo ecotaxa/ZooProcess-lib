@@ -503,8 +503,12 @@ def test_segmentation(projects, tmp_path, project, sample):
             "Width": int,
             "Height": int,
             "Area": int,
+            "%Area": float,
             "XStart": int,
             "YStart": int,
+            "Major": float,
+            "Minor": float,
+            "Angle": float,
         },
     )
     sort_by_dist(ref)

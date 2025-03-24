@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from numpy import ndarray
 
+from ZooProcess_lib.EllipseFitter import EllipseFitter
 from ZooProcess_lib.img_tools import cropnp, saveimage
 
 
@@ -19,6 +20,13 @@ class Blob(TypedDict):
     # of particles found by the particle analyzer.
     XStart: int
     YStart: int
+    # Area fraction : For thresholded images is the percentage of pixels in the image or selection
+    # that have been highlighted in red using Image▷Adjust▷Threshold… [T]↑.
+    # For non-thresholded images is the percentage of non-zero pixels. Uses the heading %Area.
+    # %Area: int
+    Major: float
+    Minor: float
+    Angle: float
 
 
 class Segmenter(object):
@@ -46,6 +54,7 @@ class Segmenter(object):
         # s_p_* are in pixel^2
         self.s_p_min = round(sm_min / (pow(pixel, 2)))
         self.s_p_max = round(sm_max / (pow(pixel, 2)))
+        self.contours: List[ndarray] = []
         self.blobs: List[Blob] = []
         self.contour_masks: List[ndarray] = []
 
@@ -77,13 +86,12 @@ class Segmenter(object):
         # 'include' is 'Include holes'
         # 'exclude' is 'Exclude on hedges'
         # -> circularity is never used as a filter
-        mask = 255 - mask  # Opencv looks for white objects on black background
+        inv_mask = 255 - mask  # Opencv looks for white objects on black background
         contours, hierarchy = cv2.findContours(
-            mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+            inv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
         )
         print("Number of Contours found = " + str(len(contours)))
         ret: List[Blob] = []
-        filtered_contours = []
         single_point_contour_shape = (1, 1, 2)
         for a_contour in contours:
             if a_contour.shape == single_point_contour_shape:  # Single-point "contour"
@@ -99,8 +107,6 @@ class Segmenter(object):
                 continue
             if area > self.s_p_max:
                 continue
-            # First pixel in shape seems OK for this measurement
-            x_start = x + int(np.argmax(contour_mask == 255))
             ret.append(
                 {
                     "BX": x,
@@ -108,12 +114,10 @@ class Segmenter(object):
                     "Width": w,
                     "Height": h,
                     "Area": area,
-                    "XStart": x_start,
-                    "YStart": y,
                 }
             )
             self.contour_masks.append(contour_mask)
-            filtered_contours.append(a_contour)
+            self.contours.append(a_contour)
         # image_3channels = draw_contours(self.image, filtered_contours)
         # saveimage(image_3channels, Path("/tmp/contours.tif"))
         return ret
@@ -171,17 +175,54 @@ class Segmenter(object):
 
     def split_by_blobs(self):
         assert self.blobs, "No blobs"
-        for ndx, (a_blob, its_mask) in enumerate(zip(self.blobs, self.contour_masks)):
+        for ndx, (a_blob, its_mask, its_contour) in enumerate(
+            zip(self.blobs, self.contour_masks, self.contours)
+        ):
             width = a_blob["Width"]
             height = a_blob["Height"]
             bx = a_blob["BX"]
             by = a_blob["BY"]
-            xstart = a_blob["XStart"]
-            ystart = a_blob["YStart"]
             # For filtering out horizontal lines
             ratiobxby = width / height
+            print("ratiobxby", ratiobxby)
             vignette = cropnp(
                 self.image, top=by, left=bx, bottom=by + height, right=bx + width
             )
             vignette = np.bitwise_or(vignette, 255 - its_mask)
+            # Compute more features
+            # Xstart
+            # First pixel in shape seems OK for this measurement
+            x_start = a_blob["BX"] + int(np.argmax(its_mask == 255))
+            a_blob["XStart"] = x_start
+            a_blob["YStart"] = a_blob["BY"]
+            # %Area
+            pct_area = (
+                100
+                - (np.count_nonzero(vignette <= self.THRESH_MAX) * 100) / a_blob["Area"]
+            )
+            a_blob["%Area"] = round(pct_area, 3)
+            # major, minor, angle
+            if False:
+                # Very different from ref. and drawing them gives strange results sometimes
+                vignette_contour = its_contour - (a_blob["BX"], a_blob["BY"])
+                min_ellipse = cv2.fitEllipse(vignette_contour)
+                cv2.ellipse(vignette, min_ellipse, 0)
+                cv2.drawContours(vignette, [vignette_contour], 0, 0)
+            else:
+                fitter = EllipseFitter()
+                fitter.fit(its_mask)
+                a_blob["Major"] = round(fitter.major, 3)
+                a_blob["Minor"] = round(fitter.minor, 3)
+                a_blob["Angle"] = round(fitter.angle, 3)
+                # fitter.draw_ellipse(vignette)
+                vignette = cv2.ellipse(
+                    img=vignette,
+                    center=(int(fitter.x_center), int(fitter.y_center)),
+                    axes=(int(fitter.minor / 2), int(fitter.major / 2)),
+                    angle=90 - fitter.angle,
+                    startAngle=0,
+                    endAngle=360,
+                    color=(0,),
+                )
+
             saveimage(vignette, "/tmp/vignette_%s.png" % ndx)
