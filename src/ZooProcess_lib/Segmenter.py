@@ -1,7 +1,9 @@
+import math
 from typing import List, Dict, TypedDict
 
 import cv2
 import numpy as np
+import skimage
 from numpy import ndarray
 
 from ZooProcess_lib.EllipseFitter import EllipseFitter
@@ -208,7 +210,7 @@ class Segmenter(object):
                 min_ellipse = cv2.fitEllipse(vignette_contour)
                 cv2.ellipse(vignette, min_ellipse, 0)
                 cv2.drawContours(vignette, [vignette_contour], 0, 0)
-            else:
+            if True:
                 fitter = EllipseFitter()
                 fitter.fit(its_mask)
                 a_blob["Major"] = round(fitter.major, 3)
@@ -223,6 +225,25 @@ class Segmenter(object):
                     startAngle=0,
                     endAngle=360,
                     color=(0,),
+                    thickness=2,
+                )
+            if True:
+                props = skimage.measure.regionprops(its_mask, cache=False)[0]
+                a_blob["Major"] = round(props.axis_major_length, 3)
+                a_blob["Minor"] = round(props.axis_minor_length, 3)
+                a_blob["Angle"] = round(math.degrees(props.orientation) + 90, 3)
+                vignette = cv2.ellipse(
+                    img=vignette,
+                    center=(int(props.centroid[0]), int(props.centroid[1])),
+                    axes=(
+                        int(props.axis_minor_length / 2),
+                        int(props.axis_major_length / 2),
+                    ),
+                    angle=90 - (math.degrees(props.orientation) + 90),
+                    startAngle=0,
+                    endAngle=360,
+                    color=(0,),
+                    thickness=1,
                 )
 
             saveimage(vignette, "/tmp/vignette_%s.png" % ndx)

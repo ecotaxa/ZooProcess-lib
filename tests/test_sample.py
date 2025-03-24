@@ -21,15 +21,15 @@ from ZooProcess_lib.img_tools import (
     clear_outside,
     draw_outside_lines,
 )
-from tests.env_fixture import projects
-from tests.projects_for_test import (
+from .env_fixture import projects
+from .projects_for_test import (
     APERO2000,
     APERO,
     IADO,
     TRIATLAS,
     APERO_REDUCED,
 )
-from tests.test_utils import (
+from .test_utils import (
     save_diff_image,
     diff_actual_with_ref_and_source,
     read_result_csv,
