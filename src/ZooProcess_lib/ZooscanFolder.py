@@ -1,4 +1,6 @@
+import dataclasses
 import re
+from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Union, Dict, TypedDict, Optional
@@ -10,6 +12,7 @@ class ZooscanFolder:
         self.path = Path(home, project)  # noqa: E501
         self.zooscan_scan = Zooscan_scan_Folder(self.path)
         self.zooscan_back = Zooscan_back_Folder(self.path)
+        self.zooscan_config = Zooscan_config_Folder(self.path)
         self._debug_folders()
 
     def _debug_folders(self):
@@ -31,6 +34,71 @@ class ZooscanFolder:
 
     def sample_path(sample: str, mesure: int):
         raw = sample + "_" + str(mesure)
+
+
+# For future use:
+# background_process= last
+# enhance_thumbnail= no
+# calibration= created_20241212_1022
+# jpeg= 100
+# zip= 0
+# greycor= 4
+# resolution= 2400
+# greytaux= 0.9
+# yminref= 0
+# doyofset= 150
+# doxpos= 2
+# xdimref_inch= 0.025
+# ydimref_inch= 0.25
+# dostd= 2.0
+# doecart= 20.0
+# subimgx= 0
+# method= neutral
+# upper= 243
+# greyref= 174
+# voxelwidth= 1
+# voxelheigth= 1
+# voveldepth= 1
+# voxelunit= pixel
+# backval= 100.0
+# longline_mm= 1.0
+# doxabspos_inch= 0.34
+# doyabspos_inch= 4.04
+# bleft= 16.0
+# broll= 8
+# bright= 4.0
+# contrast_pourcent= 1.3
+# doubloonxy_inch= 0.05
+# doubloonarea_pourcent= 0.1
+# greylimit= 10
+# frame= both
+
+
+@dataclasses.dataclass(frozen=True)
+class ZooscanConfig:
+    minsizeesd_mm: float
+    maxsizeesd_mm: float
+
+
+class Zooscan_config_Folder:
+    SUDIR_PATH = "Zooscan_config"
+    INSTALL_CONFIG = "process_install_both_config.txt"
+    NEEDED_KEYS = ["minsizeesd_mm", "maxsizeesd_mm"]
+
+    def __init__(self, zooscan_folder: Path) -> None:
+        self.path = Path(zooscan_folder, self.SUDIR_PATH)
+        self.read()
+
+    def read(self) -> ZooscanConfig:
+        install_conf = Path(self.path, self.INSTALL_CONFIG)
+        parser = ConfigParser()
+        with open(install_conf, "r") as strm:
+            parser.read_string("[conf]\n" + strm.read())
+            args = []
+            for a_field in dataclasses.fields(ZooscanConfig):
+                value = a_field.type(parser.get("conf", a_field.name))
+                args.append(value)
+            return ZooscanConfig(*args)
 
 
 class Zooscan_scan_Folder:

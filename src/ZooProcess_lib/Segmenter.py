@@ -1,13 +1,12 @@
 import math
-from typing import List, Dict, TypedDict
+from typing import List, Dict, TypedDict, Tuple
 
 import cv2
 import numpy as np
-import skimage
 from numpy import ndarray
 
-from ZooProcess_lib.EllipseFitter import EllipseFitter
-from ZooProcess_lib.img_tools import cropnp, saveimage
+from .EllipseFitter import EllipseFitter
+from .img_tools import cropnp, saveimage
 
 
 class Blob(TypedDict):
@@ -89,6 +88,9 @@ class Segmenter(object):
         # 'exclude' is 'Exclude on hedges'
         # -> circularity is never used as a filter
         inv_mask = 255 - mask  # Opencv looks for white objects on black background
+        # ImageJ can ignore around borders but the side lines prevent proper detection using openCV
+        y_limit1, x_limit1, y_limit2, x_limit2 = self.undo_border_lines(inv_mask)
+        # print(x_limit1, y_limit1, x_limit2, y_limit2)
         contours, hierarchy = cv2.findContours(
             inv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
         )
@@ -102,6 +104,14 @@ class Segmenter(object):
             if w * h < self.s_p_min:
                 # Even if contour was around a filled rectangle it would not meet min criterion
                 # -> don't bother drawing the contour, which is expensive
+                continue
+            # Eliminate if touching the border
+            if (
+                x == x_limit1 + 1
+                or y == y_limit1 + 1
+                or x + w == x_limit2
+                or y + h == y_limit2
+            ):
                 continue
             contour_mask = self.draw_contour(a_contour, x, y, w, h)
             area = np.count_nonzero(contour_mask)
@@ -123,6 +133,41 @@ class Segmenter(object):
         # image_3channels = draw_contours(self.image, filtered_contours)
         # saveimage(image_3channels, Path("/tmp/contours.tif"))
         return ret
+
+    def undo_border_lines(self, inv_mask: ndarray) -> Tuple[int, int, int, int]:
+        # Find the 2 border dots in each dimension
+        (left, right) = np.where(inv_mask[0] == 255)[0]
+        (top, bottom) = np.where(inv_mask[:, 0] == 255)[0]
+        # Clear them
+        cv2.line(
+            img=inv_mask,
+            pt1=(0, top),
+            pt2=(self.width - 1, top),
+            color=(0,),
+            thickness=1,
+        )
+        cv2.line(
+            img=inv_mask,
+            pt1=(0, bottom),
+            pt2=(self.width - 1, bottom),
+            color=(0,),
+            thickness=1,
+        )
+        cv2.line(
+            img=inv_mask,
+            pt1=(left, 0),
+            pt2=(left, self.height - 1),
+            color=(0,),
+            thickness=1,
+        )
+        cv2.line(
+            img=inv_mask,
+            pt1=(right, 0),
+            pt2=(right, self.height - 1),
+            color=(0,),
+            thickness=1,
+        )
+        return top, left, bottom, right
 
     @staticmethod
     def sanity_check(mask: ndarray):
@@ -186,7 +231,7 @@ class Segmenter(object):
             by = a_blob["BY"]
             # For filtering out horizontal lines
             ratiobxby = width / height
-            print("ratiobxby", ratiobxby)
+            # print("ratiobxby", ratiobxby)
             vignette = cropnp(
                 self.image, top=by, left=bx, bottom=by + height, right=bx + width
             )
@@ -206,28 +251,16 @@ class Segmenter(object):
             # major, minor, angle
             if False:
                 # Very different from ref. and drawing them gives strange results sometimes
+                # From some docs, we must not expect anything reasonable if the shape is not close from an ellipse
                 vignette_contour = its_contour - (a_blob["BX"], a_blob["BY"])
                 min_ellipse = cv2.fitEllipse(vignette_contour)
                 cv2.ellipse(vignette, min_ellipse, 0)
                 cv2.drawContours(vignette, [vignette_contour], 0, 0)
-            if True:
-                fitter = EllipseFitter()
-                fitter.fit(its_mask)
-                a_blob["Major"] = round(fitter.major, 3)
-                a_blob["Minor"] = round(fitter.minor, 3)
-                a_blob["Angle"] = round(fitter.angle, 3)
-                # fitter.draw_ellipse(vignette)
-                vignette = cv2.ellipse(
-                    img=vignette,
-                    center=(int(fitter.x_center), int(fitter.y_center)),
-                    axes=(int(fitter.minor / 2), int(fitter.major / 2)),
-                    angle=90 - fitter.angle,
-                    startAngle=0,
-                    endAngle=360,
-                    color=(0,),
-                    thickness=2,
-                )
-            if True:
+            if False:
+                # Angle matches with ref, but for some reason the axis are sometimes very different, and
+                # visual check shows sometimes the ellipse extremely shifted. Maybe a centroid issue.
+                import skimage
+
                 props = skimage.measure.regionprops(its_mask, cache=False)[0]
                 a_blob["Major"] = round(props.axis_major_length, 3)
                 a_blob["Minor"] = round(props.axis_minor_length, 3)
@@ -245,5 +278,22 @@ class Segmenter(object):
                     color=(0,),
                     thickness=1,
                 )
+            # Port of ImageJ algo
+            fitter = EllipseFitter()
+            fitter.fit(its_mask)
+            a_blob["Major"] = round(fitter.major, 3)
+            a_blob["Minor"] = round(fitter.minor, 3)
+            a_blob["Angle"] = round(fitter.angle, 3)
+            # fitter.draw_ellipse(vignette)
+            # vignette = cv2.ellipse(
+            #     img=vignette,
+            #     center=(int(fitter.x_center), int(fitter.y_center)),
+            #     axes=(int(fitter.minor / 2), int(fitter.major / 2)),
+            #     angle=90 - fitter.angle,
+            #     startAngle=0,
+            #     endAngle=360,
+            #     color=(0,),
+            #     thickness=2,
+            # )
 
-            saveimage(vignette, "/tmp/vignette_%s.png" % ndx)
+            # saveimage(vignette, "/tmp/vignette_%s.png" % ndx)
