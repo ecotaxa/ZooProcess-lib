@@ -1,5 +1,6 @@
 APERO = "Zooscan_apero_tha_bioness_2_sn033"
 APERO_REDUCED = "Zooscan_apero_tha_bioness_2_sn033_1SAMPLE"
+APERO_REDUCED2 = "Zooscan_apero_tha_bioness_2_sn033_1SAMPLE-2"
 APERO2000 = "Zooscan_apero_tha_bioness_sup2000_sn033"
 APERO2000_REDUCED = "Zooscan_apero_tha_bioness_sup2000_sn033_1SAMPLE"
 ROND_CARRE = "Zooscan_sn001_rond_carre_zooprocess_separation_training"

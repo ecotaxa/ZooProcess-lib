@@ -19,7 +19,6 @@ from ZooProcess_lib.img_tools import (
     crop_right,
     clear_outside,
     draw_outside_lines,
-    cropnp,
     saveimage,
 )
 from .env_fixture import projects
@@ -28,6 +27,7 @@ from .projects_for_test import (
     APERO,
     IADO,
     TRIATLAS,
+    APERO_REDUCED2,
 )
 from .test_utils import (
     save_diff_image,
@@ -485,6 +485,7 @@ def load_final_ref_image(folder, sample, index):
 @pytest.mark.parametrize(
     "project, sample",
     # [(APERO_REDUCED, "apero2023_tha_bioness_014_st46_n_n9_d2_8_sur_8")],
+    # [(APERO_REDUCED2, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2")],
     tested_samples,
 )
 def test_segmentation(projects, tmp_path, project, sample):
@@ -494,56 +495,84 @@ def test_segmentation(projects, tmp_path, project, sample):
     conf = folder.zooscan_config.read()
     work_files = folder.zooscan_scan.work.get_files(sample, index)
     measures = work_files["meas"]
-    ref = read_result_csv(
-        measures,
-        {
-            "BX": int,
-            "BY": int,
-            "Width": int,
-            "Height": int,
-            "Area": int,
-            "%Area": float,
-            "XStart": int,
-            "YStart": int,
-            "Major": float,
-            "Minor": float,
-            "Angle": float,
-        },
-    )
+    measures_types = {
+        "BX": int,
+        "BY": int,
+        "Width": int,
+        "Height": int,
+        "Area": int,
+        "%Area": float,
+        "XStart": int,
+        "YStart": int,
+        "Major": float,
+        "Minor": float,
+        "Angle": float,
+    }
+    ref = read_result_csv(measures, measures_types)
     sort_by_coords(ref)
-    for a_ref in ref:
-        a_ref["%Area"] = round(
-            a_ref["%Area"], 3
-        )  # Sometimes there are more decimals in measurements
+    if "%Area" in measures_types:
+        for a_ref in ref:
+            a_ref["%Area"] = round(
+                a_ref["%Area"], 3
+            )  # Sometimes there are more decimals in measurements
     # TODO: Add threshold (AKA 'upper= 243' in config) here
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
-    found = segmenter.find_blobs()
-    segmenter.split_by_blobs()
+    # found = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
+    found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
+    segmenter.split_by_blobs(found_rois)
+
+    found = [a_roi.features for a_roi in found_rois]
     sort_by_coords(found)
     # assert found == ref
     different, not_in_ref, not_in_act = diff_dict_lists(
         ref, found, lambda f: (f["BX"], f["BY"])
     )
-    if len(not_in_ref) > 0:
-        for num, an_act in enumerate(not_in_ref):
-            vig = cropnp(
-                image=vis1,
-                top=an_act["BY"],
-                left=an_act["BX"],
-                bottom=an_act["BY"] + an_act["Height"],
-                right=an_act["BX"] + an_act["Width"],
-            )
-            print(f"extra {num}:{an_act}")
-            # saveimage(vig, f"/tmp/diff_{num}.png")
-            cv2.rectangle(
-                vis1,
-                (an_act["BX"], an_act["BY"]),
-                (an_act["BX"] + an_act["Width"], an_act["BY"] + an_act["Height"]),
-                (0,),
-                1,
-            )
-        saveimage(vis1, "/tmp/diff.tif")
-    assert found == ref
+    # for a_diff in different:
+    #     a_ref, an_act = a_diff
+    #     print(a_ref)
+    #     print("->", an_act)
+    # if len(not_in_ref) > 0:
+    #     for num, an_act in enumerate(not_in_ref):
+    #         # vig = cropnp(
+    #         #     image=vis1,
+    #         #     top=an_act["BY"],
+    #         #     left=an_act["BX"],
+    #         #     bottom=an_act["BY"] + an_act["Height"],
+    #         #     right=an_act["BX"] + an_act["Width"],
+    #         # )
+    #         print(f"extra {num}:{an_act}")
+    #         # saveimage(vig, f"/tmp/diff_{num}.png")
+    #         cv2.rectangle(
+    #             vis1,
+    #             (an_act["BX"], an_act["BY"]),
+    #             (an_act["BX"] + an_act["Width"], an_act["BY"] + an_act["Height"]),
+    #             (0,),
+    #             1,
+    #         )
+    #     saveimage(vis1, "/tmp/diff.tif")
+    # if len(not_in_act) > 0:
+    # for num, a_ref in enumerate(ref):
+    #     cv2.rectangle(
+    #         vis1,
+    #         (a_ref["BX"], a_ref["BY"]),
+    #         (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
+    #         (0,),
+    #         1,
+    #     )
+    # for num, a_ref in enumerate(not_in_act):
+    #     print(f"missing ref {num}:{a_ref}")
+    #     cv2.rectangle(
+    #         vis1,
+    #         (a_ref["BX"], a_ref["BY"]),
+    #         (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
+    #         (0,),
+    #         4,
+    #     )
+    #     saveimage(vis1, "/tmp/diff.tif")
+    # assert found == ref
+    assert different == []
+    assert not_in_act == []
+    assert not_in_ref == []
 
 
 def sort_by_coords(features: List[Dict]):
