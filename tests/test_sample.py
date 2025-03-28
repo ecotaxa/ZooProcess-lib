@@ -9,7 +9,7 @@ import pytest
 from ZooProcess_lib.Background import Background
 from ZooProcess_lib.Border import Border
 from ZooProcess_lib.ImageJLike import images_difference
-from ZooProcess_lib.Segmenter import Segmenter
+from ZooProcess_lib.Segmenter import Segmenter, feature_unq
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
     load_zipped_image,
@@ -19,7 +19,6 @@ from ZooProcess_lib.img_tools import (
     crop_right,
     clear_outside,
     draw_outside_lines,
-    saveimage,
 )
 from .env_fixture import projects
 from .projects_for_test import (
@@ -27,7 +26,6 @@ from .projects_for_test import (
     APERO,
     IADO,
     TRIATLAS,
-    APERO_REDUCED2,
 )
 from .test_utils import (
     save_diff_image,
@@ -515,6 +513,11 @@ def test_segmentation(projects, tmp_path, project, sample):
             a_ref["%Area"] = round(
                 a_ref["%Area"], 3
             )  # Sometimes there are more decimals in measurements
+    if "Angle" in measures_types:
+        for a_ref in ref:
+            a_ref["Angle"] = round(
+                a_ref["Angle"], 3
+            )  # Sometimes there are more decimals in measurements
     # TODO: Add threshold (AKA 'upper= 243' in config) here
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
     # found = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
@@ -525,7 +528,7 @@ def test_segmentation(projects, tmp_path, project, sample):
     sort_by_coords(found)
     # assert found == ref
     different, not_in_ref, not_in_act = diff_dict_lists(
-        ref, found, lambda f: (f["BX"], f["BY"])
+        ref, found, feature_unq
     )
     # for a_diff in different:
     #     a_ref, an_act = a_diff
@@ -569,19 +572,19 @@ def test_segmentation(projects, tmp_path, project, sample):
     #         4,
     #     )
     #     saveimage(vis1, "/tmp/diff.tif")
-    # assert found == ref
+    assert found == ref
     assert different == []
     assert not_in_act == []
     assert not_in_ref == []
 
 
 def sort_by_coords(features: List[Dict]):
-    features.sort(key=lambda f: (f["BX"], f["BY"]))
+    features.sort(key=feature_unq)
 
 
 def diff_dict_lists(
     ref: List[Dict], act: List[Dict], key_func: Callable[[Dict], Any]
-) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+) -> Tuple[List[Tuple[Dict, Dict]], List[Dict], List[Dict]]:
     different = []
     not_in_act = []
     refs_by_key = {key_func(a_ref): a_ref for a_ref in ref}

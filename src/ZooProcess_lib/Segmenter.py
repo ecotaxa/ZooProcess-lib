@@ -1,5 +1,6 @@
 import dataclasses
 import math
+from decimal import Decimal
 from typing import List, TypedDict, Tuple, Optional
 
 import cv2
@@ -31,14 +32,19 @@ class Features(TypedDict):
     Angle: float
 
 
-@dataclasses.dataclass(frozen=True)
+feature_unq = lambda f: (f["BX"], f["BY"], f["Width"], f["Height"])
+
+
+@dataclasses.dataclass(
+    frozen=False
+)  # TODO: Should be 'True', temp until ROI merge is clean
 class ROI(object):
     features: Features
     mask: ndarray
     contour: Optional[ndarray] = None
 
 
-def features_are_equal(features: Features, another_blob: Features):
+def features_are_at_same_coord(features: Features, another_blob: Features):
     return features["BX"] == another_blob["BX"] and features["BY"] == another_blob["BY"]
 
 
@@ -91,16 +97,23 @@ class Segmenter(object):
                     right=self.width,
                 )
                 right_rois = self.find_particles(right_mask, self.s_p_min, self.s_p_max)
-                for features in right_rois:
-                    features.features["BX"] += self.width - overlap_size
-                to_add = []
-                for a_roi in right_rois:
-                    for another_roi in left_rois:
-                        if features_are_equal(a_roi.features, another_roi.features):
-                            break
-                    else:
-                        to_add.append(a_roi)
-                return left_rois + to_add
+                # Fix coordinates from right pane
+                for right_roi in right_rois:
+                    right_roi.features["BX"] += self.width - overlap_size
+                # Merge ROI lists
+                key_func = lambda r: feature_unq(r.features)
+                right_by_key = {key_func(ri): ri for ri in right_rois}
+                left_by_key = {key_func(le): le for le in left_rois}
+                assert len(left_by_key) == len(left_rois)
+                assert len(right_by_key) == len(right_rois)
+                for right_key, right_roi in right_by_key.items():
+                    if right_key in left_by_key:
+                        left_roi = left_by_key[right_key]
+                # Add different
+                for left_key, left_roi in left_by_key.items():
+                    if left_key not in right_by_key:
+                        right_by_key[left_key] = left_roi
+                return list(right_by_key.values())
         # Required measurements:
         #       area bounding area_fraction limit decimal=2
         # Result:
@@ -330,7 +343,7 @@ class Segmenter(object):
             by = features["BY"]
             # For filtering out horizontal lines
             ratiobxby = width / height
-            print("ratiobxby", ratiobxby)
+            # print("ratiobxby", ratiobxby)
             # assert ratiobxby < 40
             vignette = cropnp(
                 self.image, top=by, left=bx, bottom=by + height, right=bx + width
@@ -343,12 +356,11 @@ class Segmenter(object):
             features["XStart"] = x_start
             features["YStart"] = features["BY"]
             # %Area
+            nb_holes = np.count_nonzero(vignette <= self.THRESH_MAX)
             pct_area = (
-                100
-                - (np.count_nonzero(vignette <= self.THRESH_MAX) * 100)
-                / features["Area"]
-            )
-            features["%Area"] = round(pct_area, 3)
+                100 - Decimal(nb_holes * 100) / features["Area"]
+            )  # Need exact arithmetic due to some Java<->python rounding diff
+            features["%Area"] = float(round(pct_area, 3))
             # major, minor, angle
             if False:
                 # Very different from ref. and drawing them gives strange results sometimes
