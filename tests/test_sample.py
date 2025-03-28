@@ -20,7 +20,7 @@ from ZooProcess_lib.img_tools import (
     clear_outside,
     draw_outside_lines,
 )
-from .env_fixture import projects
+from .env_fixture import projects, read_home
 from .projects_for_test import (
     APERO2000,
     APERO,
@@ -60,247 +60,38 @@ def test_8bit_sample_border(projects, tmp_path):
     )
 
 
-APERO2000_samples = [
-    # "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1", # Corrupted ZIP
-    # "apero2023_tha_bioness_sup2000_013_st46_d_n4_d2_1_sur_1", # Corrupted ZIP
-    # "apero2023_tha_bioness_sup2000_016_st55_d_n9_d2_1_sur_1", # Corrupted ZIP
-    "apero2023_tha_bioness_sup2000_017_st66_d_n1_d1_1_sur_1",
-    "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_1_sur_4",
-    "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_2_sur_4",
-    "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_3_sur_4",
-    "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_4_sur_4",
-]
-APERO_samples = [
-    "apero2023_tha_bioness_013_st46_d_n3_d1_1_sur_1",
-    "apero2023_tha_bioness_013_st46_d_n3_d1_1_sur_1",
-    "apero2023_tha_bioness_014_st46_n_n4_d2_1_sur_2",
-    "apero2023_tha_bioness_013_st46_d_n3_d2_1_sur_1",
-    "apero2023_tha_bioness_014_st46_n_n4_d2_2_sur_2",
-    "apero2023_tha_bioness_013_st46_d_n3_d3",
-    "apero2023_tha_bioness_014_st46_n_n4_d3",
-    "apero2023_tha_bioness_013_st46_d_n4_d1_1_sur_1",
-    # "apero2023_tha_bioness_014_st46_n_n5_d1_1_sur_1", # Corrupted ZIP
-    "apero2023_tha_bioness_013_st46_d_n4_d2_1_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n5_d2_1_sur_2",
-    "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n5_d2_2_sur_2",
-    "apero2023_tha_bioness_013_st46_d_n4_d3",
-    "apero2023_tha_bioness_014_st46_n_n5_d3",
-    # "apero2023_tha_bioness_013_st46_d_n5_d1_1_sur_1", # Corrupted ZIP
-    "apero2023_tha_bioness_014_st46_n_n6_d1_1_sur_1",
-    "apero2023_tha_bioness_013_st46_d_n5_d2_1_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n6_d2_1_sur_2",
-    "apero2023_tha_bioness_013_st46_d_n5_d2_2_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n6_d2_2_sur_2",
-    "apero2023_tha_bioness_013_st46_d_n5_d3",
-    "apero2023_tha_bioness_014_st46_n_n6_d3",
-    "apero2023_tha_bioness_013_st46_d_n6_d1_1_sur_1",
-    "apero2023_tha_bioness_014_st46_n_n7_d1_1_sur_4",
-    "apero2023_tha_bioness_013_st46_d_n6_d2_1_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n7_d1_2_sur_4",
-    "apero2023_tha_bioness_013_st46_d_n6_d2_2_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n7_d1_3_sur_4",
-    "apero2023_tha_bioness_013_st46_d_n6_d3",
-    "apero2023_tha_bioness_014_st46_n_n7_d1_4_sur_4",
-    "apero2023_tha_bioness_013_st46_d_n7_d2_1_sur_1",
-    "apero2023_tha_bioness_014_st46_n_n7_d2_1_sur_2",
-    "apero2023_tha_bioness_013_st46_d_n7_d3",
-    "apero2023_tha_bioness_014_st46_n_n7_d2_2_sur_2",
-    "apero2023_tha_bioness_013_st46_d_n8_d1_1_sur_1",
-    "apero2023_tha_bioness_014_st46_n_n9_d1_1_sur_8",
-    "apero2023_tha_bioness_013_st46_d_n8_d2_1_sur_1",
-    "apero2023_tha_bioness_014_st46_n_n9_d1_2_sur_8",
-    "apero2023_tha_bioness_013_st46_d_n8_d3",
-    "apero2023_tha_bioness_014_st46_n_n9_d1_3_sur_8",
-    "apero2023_tha_bioness_013_st46_d_n9_d2_1_sur_1",
-    "apero2023_tha_bioness_014_st46_n_n9_d1_4_sur_8",
-    "apero2023_tha_bioness_013_st46_d_n9_d3",
-    "apero2023_tha_bioness_014_st46_n_n9_d1_5_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n1_d1_1_sur_1",
-    "apero2023_tha_bioness_014_st46_n_n9_d1_6_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n1_d2_1_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n9_d1_7_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n1_d2_2_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n9_d1_8_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n1_d3",
-    "apero2023_tha_bioness_014_st46_n_n9_d2_1_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n2_d1_1_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n9_d2_2_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n2_d1_2_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n9_d2_3_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n2_d2_1_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n9_d2_4_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n2_d2_2_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n9_d2_5_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n2_d3",
-    "apero2023_tha_bioness_014_st46_n_n9_d2_6_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n3_d1_1_sur_1",
-    "apero2023_tha_bioness_014_st46_n_n9_d2_7_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n3_d2_1_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n9_d2_8_sur_8",
-    "apero2023_tha_bioness_014_st46_n_n3_d2_2_sur_2",
-    "apero2023_tha_bioness_014_st46_n_n9_d3",
-    "apero2023_tha_bioness_014_st46_n_n3_d3",
-    "apero2023_tha_bioness_014_st46_n_n4_d1_1_sur_1",
-]
-IADO_samples = [
-    "s_17_1_tot",
-    "s_17_2_tot",
-    "s_17_3_tot",
-    "s_17_4_tot",
-    "s_17_5_tot",
-    "s_17_6_tot",
-    "s_21_a_tot",
-    "s_21_c_tot",
-    "t_17_10_tot",
-    "t_17_1_tot",
-    "t_17_3_tot",
-    "t_17_7_tot",
-    "t_18_4b_tot",
-    "t_18_5_tot",
-    "t_22_10_tot",
-    "t_22_12_5_tot",
-    "t_22_1_tot",
-    "t_22_2_tot",
-    "t_22_3_tot",
-    "t_22_4_tot",
-    "t_22_5_tot",
-    "t_22_6_tot",
-    "t_22_7_tot",
-    "t_22_8_tot",
-    "t_22_9_tot",
-]
-TRIATLAS_samples = [
-    "m158_mn03_n1_d2",
-    "m158_mn03_n1_d3",
-    "m158_mn03_n2_d2",
-    "m158_mn03_n2_d3",
-    "m158_mn03_n3_d1",
-    "m158_mn03_n3_d3",
-    "m158_mn03_n4_d1",
-    "m158_mn03_n4_d2",
-    "m158_mn03_n4_d3",
-    "m158_mn03_n5_d1_1_sur_4",
-    "m158_mn03_n5_d1_2_sur_4",
-    "m158_mn03_n5_d1_3_sur_4",
-    "m158_mn03_n5_d1_4_sur_4",
-    "m158_mn03_n5_d2",
-    "m158_mn04_n1_d1",
-    "m158_mn04_n1_d2",
-    "m158_mn04_n2_d1",
-    "m158_mn04_n2_d2",
-    "m158_mn04_n2_d3",
-    "m158_mn04_n3_d1",
-    "m158_mn04_n3_d2",
-    "m158_mn04_n4_d2",
-    "m158_mn04_n4_d3",
-    "m158_mn04_n5_d1_1_sur_4",
-    "m158_mn04_n5_d1_2_sur_4",
-    "m158_mn04_n5_d1_3_sur_4",
-    "m158_mn04_n5_d1_4_sur_4",
-    "m158_mn05_n1_d1",
-    "m158_mn05_n1_d3",
-    "m158_mn05_n2_d1",
-    "m158_mn05_n2_d2",
-    "m158_mn05_n3_d2",
-    "m158_mn05_n3_d3",
-    "m158_mn05_n4_d2",
-    "m158_mn05_n5_d1_1_sur_4",
-    "m158_mn05_n5_d1_2_sur_4",
-    "m158_mn05_n5_d1_3_sur_4",
-    "m158_mn06_n2_d1_1_sur_2",
-    "m158_mn06_n2_d1_2_sur_2",
-    "m158_mn06_n2_d2",
-    "m158_mn06_n3_d1",
-    "m158_mn06_n3_d3",
-    "m158_mn06_n4_d3",
-    "m158_mn06_n5_d1_1_sur_8",
-    "m158_mn06_n5_d2",
-    "m158_mn06_n5_d3",
-    "m158_mn10_n1_d1",
-    "m158_mn10_n1_d2",
-    "m158_mn10_n1_d3",
-    "m158_mn10_n2_d1",
-    "m158_mn10_n2_d3",
-    "m158_mn10_n3_d1",
-    "m158_mn10_n3_d2",
-    "m158_mn10_n3_d3",
-    "m158_mn10_n4_d2",
-    "m158_mn10_n4_d3",
-    "m158_mn10_n5_d1_1_sur_2",
-    "m158_mn10_n5_d3",
-    "m158_mn11_n1_d1",
-    "m158_mn11_n1_d3",
-    "m158_mn11_n2_d1",
-    "m158_mn11_n2_d2",
-    "m158_mn11_n2_d3",
-    "m158_mn11_n3_d1",
-    "m158_mn11_n3_d2",
-    "m158_mn11_n4_d1",
-    "m158_mn11_n4_d2",
-    "m158_mn11_n4_d3",
-    "m158_mn11_n5_d1",
-    "m158_mn11_n5_d3",
-    "m158_mn14_n1_d1",
-    "m158_mn14_n1_d2",
-    "m158_mn14_n1_d3",
-    "m158_mn14_n2_d1",
-    "m158_mn14_n2_d3",
-    "m158_mn14_n3_d2",
-    "m158_mn14_n4_d1",
-    "m158_mn14_n5_d1",
-    "m158_mn14_n5_d2",
-    "m158_mn15_n1_d1",
-    "m158_mn15_n1_d3",
-    "m158_mn15_n2_d1",
-    "m158_mn15_n2_d2",
-    "m158_mn15_n3_d2",
-    "m158_mn15_n3_d3",
-    "m158_mn15_n4_d1",
-    "m158_mn15_n4_d2",
-    "m158_mn18_n1_d1",
-    "m158_mn18_n1_d2",
-    "m158_mn18_n1_d3",
-    "m158_mn18_n2_d1_3_sur_4",
-    "m158_mn18_n2_d1_4_sur_4",
-    "m158_mn18_n2_d2",
-    "m158_mn18_n3_d1",
-    "m158_mn18_n3_d2",
-    "m158_mn18_n3_d3",
-    "m158_mn18_n4_d1",
-    "m158_mn18_n4_d2",
-    "m158_mn18_n4_d3",
-    "m158_mn18_n5_d2",
-    "m158_mn18_n5_d3",
-    "m158_mn19_n1_d1",
-    "m158_mn19_n1_d2",
-    "m158_mn19_n1_d3",
-    "m158_mn19_n2_d1_1_sur_2",
-    "m158_mn19_n2_d1_2_sur_2",
-    "m158_mn19_n2_d2",
-    "m158_mn19_n2_d3",
-    "m158_mn19_n5_d1_1_sur_5",
-    "m158_mn19_n5_d1_4_sur_5",
-    "m158_mn19_n5_d1_5_sur_5",
-    "m158_mn19_n5_d2",
-    "m158_mn19_n5_d3",
-]
+def all_samples_in(project: str, but_not=()) -> list[tuple[str, str]]:
+    folder = ZooscanFolder(read_home(), project)
+    scans = folder.zooscan_scan.list_samples()
+    return [(project, a_scan) for a_scan in scans if a_scan not in but_not]
 
-APERO2000_tested_samples = zip([APERO2000] * 100, APERO2000_samples)
-# APERO2000_tested_samples = []
-APERO_tested_samples = zip([APERO] * 100, APERO_samples)
-# APERO_tested_samples = zip([APERO] * 100, APERO_samples[-5:-4])
-IADO_tested_samples = zip([IADO] * 100, IADO_samples)
-TRIATLAS_tested_samples = zip([TRIATLAS] * 150, TRIATLAS_samples)
+
 tested_samples = (
-    list(APERO2000_tested_samples)
-    + list(APERO_tested_samples)
-    + list(IADO_tested_samples)
-    + list(TRIATLAS_tested_samples)
+    all_samples_in(
+        APERO2000,
+        [
+            "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1",  # Corrupted ZIP
+            "apero2023_tha_bioness_sup2000_013_st46_d_n4_d2_1_sur_1",  # Corrupted ZIP
+            "apero2023_tha_bioness_sup2000_016_st55_d_n9_d2_1_sur_1",  # Corrupted ZIP
+        ],
+    )
+    + all_samples_in(
+        APERO,
+        [
+            "apero2023_tha_bioness_014_st46_n_n5_d1_1_sur_1",  # Corrupted ZIP
+            "apero2023_tha_bioness_013_st46_d_n5_d1_1_sur_1",  # Corrupted ZIP
+        ],
+    )
+    + all_samples_in(IADO)
+    + all_samples_in(TRIATLAS)
 )
 
 
-@pytest.mark.parametrize("project, sample", tested_samples)
+@pytest.mark.parametrize(
+    "project, sample",
+    tested_samples,
+    ids=[sample for (prj, sample) in tested_samples],
+)
 def test_raw_to_work(projects, tmp_path, project, sample):
     """Ensure we can mimic sample - background -> work vis1 equivalent"""
     folder = ZooscanFolder(projects, project)
@@ -485,6 +276,7 @@ def load_final_ref_image(folder, sample, index):
     # [(APERO_REDUCED, "apero2023_tha_bioness_014_st46_n_n9_d2_8_sur_8")],
     # [(APERO_REDUCED2, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2")],
     tested_samples,
+    ids=[sample for (prj, sample) in tested_samples],
 )
 def test_segmentation(projects, tmp_path, project, sample):
     folder = ZooscanFolder(projects, project)
@@ -527,9 +319,7 @@ def test_segmentation(projects, tmp_path, project, sample):
     found = [a_roi.features for a_roi in found_rois]
     sort_by_coords(found)
     # assert found == ref
-    different, not_in_ref, not_in_act = diff_dict_lists(
-        ref, found, feature_unq
-    )
+    different, not_in_ref, not_in_act = diff_dict_lists(ref, found, feature_unq)
     # for a_diff in different:
     #     a_ref, an_act = a_diff
     #     print(a_ref)

@@ -3,7 +3,7 @@ import re
 from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple, Union, Dict, TypedDict, Optional
+from typing import List, Tuple, Union, Dict, TypedDict, Optional, Generator
 
 
 class ZooscanFolder:
@@ -115,6 +115,11 @@ class Zooscan_scan_Folder:
 
     def get_8bit_file(self, sample_name: str, index: int) -> Path:
         return Path(self.path, sample_name + "_" + str(index) + ".tif")
+
+    def list_samples(self) -> Generator[str, None, None]:
+        for a_file in self.path.iterdir():
+            if a_file.suffix == ".tif":
+                yield a_file.name[:-6]
 
 
 class BackgroundEntry(TypedDict):
