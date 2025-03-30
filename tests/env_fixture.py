@@ -14,17 +14,22 @@ HERE = Path(__file__).parent
 @pytest.fixture(scope="session")
 def projects() -> Generator[Path, Any, None]:
     # Setup
+    path = read_home()
+    yield path
+    # Teardown
+
+
+def read_home():
     _loadenv()
     env = getenv(ZOOSCAN_HOME)
     assert env is not None, f"This test needs {ZOOSCAN_HOME} environment variable set, you might provide a foo.env file."
     path = Path(env)
     assert path.exists(), f"{path} read from {ZOOSCAN_HOME} environment variable does not exist"
-    yield path
-    # Teardown
+    return path
 
 
 def _loadenv() -> None:
-    """ Import all env files in present directory ino process environment"""
+    """ Import all env files in present directory into process environment"""
     for an_env in glob(f"*.env", root_dir=HERE):
         path = Path(an_env)
         with open(path, "r") as f:

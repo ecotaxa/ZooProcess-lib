@@ -26,6 +26,7 @@ from .projects_for_test import (
     APERO,
     IADO,
     TRIATLAS,
+    APERO1,
 )
 from .test_utils import (
     save_diff_image,
@@ -63,7 +64,7 @@ def test_8bit_sample_border(projects, tmp_path):
 def all_samples_in(project: str, but_not=()) -> list[tuple[str, str]]:
     folder = ZooscanFolder(read_home(), project)
     scans = folder.zooscan_scan.list_samples()
-    return [(project, a_scan) for a_scan in scans if a_scan not in but_not]
+    return [(project, a_scan) for a_scan in sorted(scans) if a_scan not in but_not]
 
 
 tested_samples = (
@@ -84,6 +85,23 @@ tested_samples = (
     )
     + all_samples_in(IADO)
     + all_samples_in(TRIATLAS)
+)
+APERO_tested_samples = all_samples_in(APERO1)
+APERO_tested_samples_raw_to_work = all_samples_in(
+    APERO1,
+    [
+        "apero2023_tha_bioness_005_st20_d_n7_d1_1_sur_1",  # output diff
+        "apero2023_tha_bioness_005_st20_d_n7_d2_3_sur_4",  # output diff
+        "apero2023_tha_bioness_013_st46_d_n1_d1_1_sur_2",  # output diff
+        "apero2023_tha_bioness_013_st46_d_n1_d1_2_sur_2",  # output diff
+        "apero2023_tha_bioness_013_st46_d_n1_d2_1_sur_1",  # output diff
+        "apero2023_tha_bioness_013_st46_d_n1_d3",  # output diff
+        "apero2023_tha_bioness_017_st66_d_n1_d2_1_sur_4",  # tiff problem?
+        "apero2023_tha_bioness_018_st66_n_n1_d1_1_sur_2",  # AttributeError
+        "apero2023_tha_bioness_018_st66_n_n1_d1_2_sur_2",  # AttributeError
+        "apero2023_tha_bioness_018_st66_n_n3_d2_1_sur_1",  # AttributeError
+        "apero2023_tha_bioness_018_st66_n_n3_d3",  # AttributeError
+    ],
 )
 
 
@@ -276,7 +294,7 @@ def load_final_ref_image(folder, sample, index):
     # [(APERO_REDUCED, "apero2023_tha_bioness_014_st46_n_n9_d2_8_sur_8")],
     # [(APERO_REDUCED2, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2")],
     tested_samples,
-    ids=[sample for (prj, sample) in tested_samples],
+    ids=[sample for (_prj, sample) in tested_samples],
 )
 def test_segmentation(projects, tmp_path, project, sample):
     folder = ZooscanFolder(projects, project)

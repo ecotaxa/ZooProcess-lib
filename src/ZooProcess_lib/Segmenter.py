@@ -108,7 +108,7 @@ class Segmenter(object):
                 assert len(right_by_key) == len(right_rois)
                 for right_key, right_roi in right_by_key.items():
                     if right_key in left_by_key:
-                        left_roi = left_by_key[right_key]
+                        _left_roi = left_by_key[right_key]  # Unused so far
                 # Add different
                 for left_key, left_roi in left_by_key.items():
                     if left_key not in right_by_key:
@@ -179,6 +179,9 @@ class Segmenter(object):
                 continue
             if area > s_p_max:
                 continue
+            ratiobxby = w / h
+            if ratiobxby > 40:
+                continue
             ret.append(
                 ROI(
                     features={
@@ -196,7 +199,9 @@ class Segmenter(object):
             # saveimage(image_3channels, Path("/tmp/contours.tif"))
         return ret
 
-    def undo_border_lines(self, inv_mask: ndarray) -> Tuple[int, int, int, int]:
+    @staticmethod
+    def undo_border_lines(inv_mask: ndarray) -> Tuple[int, int, int, int]:
+        height, width = inv_mask.shape[:2]
         # Find the 2 border dots in each dimension
         (left, right) = np.where(inv_mask[0] == 255)[0]
         (top, bottom) = np.where(inv_mask[:, 0] == 255)[0]
@@ -204,28 +209,28 @@ class Segmenter(object):
         cv2.line(
             img=inv_mask,
             pt1=(0, top),
-            pt2=(self.width - 1, top),
+            pt2=(width - 1, top),
             color=(0,),
             thickness=1,
         )
         cv2.line(
             img=inv_mask,
             pt1=(0, bottom),
-            pt2=(self.width - 1, bottom),
+            pt2=(width - 1, bottom),
             color=(0,),
             thickness=1,
         )
         cv2.line(
             img=inv_mask,
             pt1=(left, 0),
-            pt2=(left, self.height - 1),
+            pt2=(left, height - 1),
             color=(0,),
             thickness=1,
         )
         cv2.line(
             img=inv_mask,
             pt1=(right, 0),
-            pt2=(right, self.height - 1),
+            pt2=(right, height - 1),
             color=(0,),
             thickness=1,
         )
