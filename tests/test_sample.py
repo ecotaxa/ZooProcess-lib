@@ -9,7 +9,7 @@ import pytest
 from ZooProcess_lib.Background import Background
 from ZooProcess_lib.Border import Border
 from ZooProcess_lib.ImageJLike import images_difference
-from ZooProcess_lib.Segmenter import Segmenter, feature_unq
+from ZooProcess_lib.Segmenter import Segmenter, feature_unq, Features
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
     load_zipped_image,
@@ -85,6 +85,7 @@ tested_samples = (
     )
     + all_samples_in(IADO)
     + all_samples_in(TRIATLAS)
+    + all_samples_in(APERO1)
 )
 APERO_tested_samples = all_samples_in(APERO1)
 APERO_tested_samples_raw_to_work = all_samples_in(
@@ -317,6 +318,12 @@ def test_segmentation(projects, tmp_path, project, sample):
         "Angle": float,
     }
     ref = read_result_csv(measures, measures_types)
+    # This filter is _after_ measurements in ImageJ
+    ref = [
+        a_ref
+        for a_ref in ref
+        if a_ref["Width"] / a_ref["Height"] < Segmenter.max_w_to_h_ratio
+    ]
     sort_by_coords(ref)
     if "%Area" in measures_types:
         for a_ref in ref:

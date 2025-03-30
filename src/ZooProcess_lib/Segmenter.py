@@ -59,6 +59,8 @@ class Segmenter(object):
     Wlimit = 20000
     Hlimit = 6500
     overlap = 0.6
+    # For filtering horizontal lines
+    max_w_to_h_ratio = 40
 
     METH_CONTOUR = 1
     METH_CONNECTED_COMPONENTS = 2
@@ -180,7 +182,7 @@ class Segmenter(object):
             if area > s_p_max:
                 continue
             ratiobxby = w / h
-            if ratiobxby > 40:
+            if ratiobxby > Segmenter.max_w_to_h_ratio:
                 continue
             ret.append(
                 ROI(
