@@ -116,8 +116,14 @@ class EllipseFitter:
         if tmp == 0.0:
             tmp = 0.000001
         z = a12 * math.cos(self.theta) / tmp
-        self.major = math.sqrt(1.0 / abs(a22 + z))
-        self.minor = math.sqrt(1.0 / abs(a11 - z))
+        try:
+            self.major = math.sqrt(1.0 / abs(a22 + z))
+        except ZeroDivisionError:
+            self.major = 0.00001
+        try:
+            self.minor = math.sqrt(1.0 / abs(a11 - z))
+        except ZeroDivisionError:
+            self.minor = 0.00001
         scale = math.sqrt(
             self._bit_count / (math.pi * self.major * self.minor)
         )  # equalize areas

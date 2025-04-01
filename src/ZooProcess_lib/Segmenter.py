@@ -152,7 +152,9 @@ class Segmenter(object):
         # -> circularity is never used as a filter
         height, width = inv_mask.shape[:2]
         contours, _ = cv2.findContours(
-            inv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+            inv_mask,
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE,  # same as cv2.RETR_EXTERNAL but returns less data
         )
         if len(contours) == 1:
             print("1 contour!")
@@ -473,12 +475,14 @@ class Segmenter(object):
                 filtering_stats[2] += 1
                 continue
             # The cc bounding rect is the whole image minus borders, filter it but don't exclude inside
+            # TODO: 2 sub-cases: either the whole area is included,
+            #  or there is a band around the whole image
             if (
                 x == 0
                 and y == 0
                 and x + w == width
                 and y + h == height
-                and area_excl_holes > w * h / 2  # TODO: Not accurate
+                # and area_excl_holes > w * h / 2  # TODO: Not accurate
             ):
                 filtering_stats[3] += 1
                 continue
@@ -535,14 +539,15 @@ class Segmenter(object):
     ) -> Tuple[ndarray, ndarray, ndarray]:
         # Compute filled area
         sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
-        sub_mask = (sub_labels == cc_id).astype(
+        obj_mask = (sub_labels == cc_id).astype(
             dtype=np.uint8
         ) * 255  # 0=not in shape (either around shape or inside), 255=shape
         if True:
-            contours, _ = cv2.findContours(
-                sub_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+            contours, (hierarchy,) = cv2.findContours(
+                obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
             )
-            sub_mask3 = np.zeros_like(sub_mask)
+            # contours, (hierarchy,) = cv2.findContoursLinkRuns(obj_mask)
+            sub_mask3 = np.zeros_like(obj_mask)
             cv2.drawContours(
                 image=sub_mask3,
                 contours=contours,
@@ -550,28 +555,59 @@ class Segmenter(object):
                 color=(255,),
                 thickness=cv2.FILLED,
             )  # 0=not in filled shape, 255=filled shape
-            holes2 = np.bitwise_xor(sub_mask, sub_mask3) == 255
+            holes3 = np.zeros_like(obj_mask)
+            cv2.drawContours(
+                image=holes3,
+                contours=contours[1:],
+                contourIdx=-1,
+                color=(255,),
+                thickness=cv2.FILLED,  # filled -> inside + contour
+            )  # 0=not in filled shape, 255=filled shape
+            cv2.drawContours(
+                image=holes3,
+                contours=contours[1:],
+                contourIdx=-1,
+                color=(0,),
+                thickness=1,  # fix the "contour' part of cv2.FILLED above
+            )  # 0=not in filled shape, 255=filled shape
+            holes3 = holes3 == 255
+            # if x == 0 and y == 0:
+            #     saveimage(sub_mask3, "/tmp/contour_sub.tif")
+            # holes2 = np.bitwise_xor(sub_mask, sub_mask3) == 255
             # holes_id = np.unique(np.where(sub_labels > cc_id)).tolist()
-            return sub_labels, holes2, sub_mask3  # , holes_id
+            return sub_labels, holes3, sub_mask3  # , holes_id
         if False:
-            sub_mask2 = cv2.copyMakeBorder(
-                sub_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
+            contours, _ = cv2.findContours(
+                obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+            )
+            sub_mask2 = np.zeros_like(obj_mask)
+            cv2.drawContours(
+                image=sub_mask2,
+                contours=contours,
+                contourIdx=0,
+                color=(255,),
+                thickness=cv2.FILLED,
+            )  # 0=not in filled shape, 255=filled shape
+            holes2 = np.bitwise_xor(obj_mask, sub_mask2) == 255
+            return sub_labels, holes2, sub_mask2  # , holes_id
+        if False:
+            obj_mask2 = cv2.copyMakeBorder(
+                obj_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
             )
             cv2.floodFill(
-                image=sub_mask2,
+                image=obj_mask2,
                 mask=None,
                 seedPoint=(0, 0),
                 newVal=(128,),
                 flags=4,  # 4-pixel connectivity, don't cross a cc border
             )  # 0=not part of shape but inside it i.e. holes, 255=shape, 128=outside border
-            orig_mask = cropnp(
-                image=sub_mask2, top=1, left=1, bottom=h + 1, right=w + 1
-            )
-            holes = orig_mask == 0  # False:non-hole True:hole
-            orig_mask[holes] = 255
-            orig_mask[orig_mask == 128] = 0
+            sub_mask = cropnp(image=obj_mask2, top=1, left=1, bottom=h + 1, right=w + 1)
+            holes = sub_mask == 0  # False:non-hole True:hole
+            sub_mask[holes] = 255
+            sub_mask[sub_mask == 128] = 0
 
         return sub_labels, holes, orig_mask
+        return sub_labels, holes, sub_mask
 
     @staticmethod
     def forbid_inside_objects(other: ndarray, contour_id: int, embedded: Set[int]):
