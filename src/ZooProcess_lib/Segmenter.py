@@ -472,8 +472,14 @@ class Segmenter(object):
             if w * h < s_p_min:
                 filtering_stats[2] += 1
                 continue
-            # The cc bounding rect is the whole image, filter it but don't exclude inside
-            if x == 0 and y == 0 and x + w == width and y + h == height:
+            # The cc bounding rect is the whole image minus borders, filter it but don't exclude inside
+            if (
+                x == 0
+                and y == 0
+                and x + w == width
+                and y + h == height
+                and area_excl_holes > w * h / 2  # TODO: Not accurate
+            ):
                 filtering_stats[3] += 1
                 continue
             # Proceed to more expensive filtering
@@ -531,23 +537,39 @@ class Segmenter(object):
         sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
         sub_mask = (sub_labels == cc_id).astype(
             dtype=np.uint8
-        ) * 255  # 0=not in shape, 255=shape
-        sub_mask2 = cv2.copyMakeBorder(
-            sub_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
-        )
-        cv2.floodFill(
-            image=sub_mask2,
-            mask=None,
-            seedPoint=(0, 0),
-            newVal=(128,),
-            flags=4,  # 4-pixel connectivity, don't cross a cc border
-        )  # 0=not part of shape but inside it i.e. holes, 255=shape, 128=outside border
-        orig_mask = cropnp(image=sub_mask2, top=1, left=1, bottom=h + 1, right=w + 1)
-        holes = (orig_mask == 0).astype(
-            np.uint8
-        )  # 0:non-hole 1:hole # TODO:Keep as bool?
-        orig_mask[orig_mask == 0] = 255
-        orig_mask[orig_mask == 128] = 0
+        ) * 255  # 0=not in shape (either around shape or inside), 255=shape
+        if True:
+            contours, _ = cv2.findContours(
+                sub_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+            )
+            sub_mask3 = np.zeros_like(sub_mask)
+            cv2.drawContours(
+                image=sub_mask3,
+                contours=contours,
+                contourIdx=0,
+                color=(255,),
+                thickness=cv2.FILLED,
+            )  # 0=not in filled shape, 255=filled shape
+            holes2 = np.bitwise_xor(sub_mask, sub_mask3) == 255
+            # holes_id = np.unique(np.where(sub_labels > cc_id)).tolist()
+            return sub_labels, holes2, sub_mask3  # , holes_id
+        if False:
+            sub_mask2 = cv2.copyMakeBorder(
+                sub_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
+            )
+            cv2.floodFill(
+                image=sub_mask2,
+                mask=None,
+                seedPoint=(0, 0),
+                newVal=(128,),
+                flags=4,  # 4-pixel connectivity, don't cross a cc border
+            )  # 0=not part of shape but inside it i.e. holes, 255=shape, 128=outside border
+            orig_mask = cropnp(
+                image=sub_mask2, top=1, left=1, bottom=h + 1, right=w + 1
+            )
+            holes = orig_mask == 0  # False:non-hole True:hole
+            orig_mask[holes] = 255
+            orig_mask[orig_mask == 128] = 0
 
         return sub_labels, holes, orig_mask
 

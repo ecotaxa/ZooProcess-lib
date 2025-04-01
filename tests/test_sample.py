@@ -18,7 +18,7 @@ from ZooProcess_lib.img_tools import (
     get_date_time_digitized,
     crop_right,
     clear_outside,
-    draw_outside_lines,
+    draw_outside_lines, saveimage,
 )
 from .env_fixture import projects, read_home
 from .projects_for_test import (
@@ -349,31 +349,160 @@ def test_segmentation(projects, tmp_path, project, sample):
 
     found = [a_roi.features for a_roi in found_rois]
     sort_by_coords(found)
-    # assert found == ref
-    different, not_in_ref, not_in_act = diff_dict_lists(ref, found, feature_unq)
-    # for a_diff in different:
-    #     a_ref, an_act = a_diff
-    #     print(a_ref)
-    #     print("->", an_act)
-    # if len(not_in_ref) > 0:
-    #     for num, an_act in enumerate(not_in_ref):
-    #         # vig = cropnp(
-    #         #     image=vis1,
-    #         #     top=an_act["BY"],
-    #         #     left=an_act["BX"],
-    #         #     bottom=an_act["BY"] + an_act["Height"],
-    #         #     right=an_act["BX"] + an_act["Width"],
-    #         # )
-    #         print(f"extra {num}:{an_act}")
-    #         # saveimage(vig, f"/tmp/diff_{num}.png")
-    #         cv2.rectangle(
-    #             vis1,
-    #             (an_act["BX"], an_act["BY"]),
-    #             (an_act["BX"] + an_act["Width"], an_act["BY"] + an_act["Height"]),
-    #             (0,),
-    #             1,
-    #         )
-    #     saveimage(vis1, "/tmp/diff.tif")
+    if found != ref:
+        different, not_in_act, not_in_ref = visual_diffs(found, ref, sample, vis1)
+    assert found == ref
+
+
+one_contour = [
+    (APERO, "apero2023_tha_bioness_013_st46_d_n4_d1_1_sur_1"),
+    (APERO, "apero2023_tha_bioness_013_st46_d_n4_d2_1_sur_2"),
+    # (APERO, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2"), # also missing
+    (APERO, "apero2023_tha_bioness_013_st46_d_n5_d2_2_sur_2"),
+    (APERO, "apero2023_tha_bioness_013_st46_d_n6_d2_1_sur_2"),
+    (APERO, "apero2023_tha_bioness_013_st46_d_n6_d3"),
+    (APERO, "apero2023_tha_bioness_013_st46_d_n7_d2_1_sur_1"),
+    (APERO, "apero2023_tha_bioness_013_st46_d_n7_d3"),
+    (APERO, "apero2023_tha_bioness_013_st46_d_n8_d2_1_sur_1"),
+    (APERO, "apero2023_tha_bioness_013_st46_d_n8_d3"),
+    (APERO, "apero2023_tha_bioness_013_st46_d_n9_d3"),
+    (APERO, "apero2023_tha_bioness_014_st46_n_n1_d1_1_sur_1"),
+    (APERO, "apero2023_tha_bioness_014_st46_n_n2_d1_2_sur_2"),
+    (APERO, "apero2023_tha_bioness_014_st46_n_n4_d1_1_sur_1"),
+    (APERO, "apero2023_tha_bioness_014_st46_n_n4_d2_1_sur_2"),
+    (APERO, "apero2023_tha_bioness_014_st46_n_n7_d1_1_sur_4"),
+    (APERO, "apero2023_tha_bioness_014_st46_n_n7_d1_4_sur_4"),
+    (TRIATLAS, "m158_mn05_n1_d2"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n1_d2_1_sur_2"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n1_d2_2_sur_2"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n3_d3"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n4_d3"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n5_d2_1_sur_8"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n5_d3"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n7_d2_1_sur_4"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n8_d1_1_sur_1"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n8_d2_1_sur_1"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n9_d1_1_sur_1"),
+    (APERO1, "apero2023_tha_bioness_006_st20_n_n2_d2_3_sur_4"),
+    (APERO1, "apero2023_tha_bioness_006_st20_n_n2_d3"),
+    (APERO1, "apero2023_tha_bioness_006_st20_n_n3_d3"),
+    (APERO1, "apero2023_tha_bioness_006_st20_n_n5_d1_1_sur_1"),
+    # (APERO1, "apero2023_tha_bioness_006_st20_n_n7_d1_2_sur_2"), # also big diff
+    (APERO1, "apero2023_tha_bioness_006_st20_n_n7_d2_4_sur_4"),
+    (APERO1, "apero2023_tha_bioness_006_st20_n_n8_d2_3_sur_4"),
+    # (APERO1, "apero2023_tha_bioness_006_st20_n_n9_d2_1_sur_4"), # TODO: Check the image, 3,7M of contours
+    (APERO1, "apero2023_tha_bioness_006_st20_n_n9_d2_2_sur_4"),
+    (APERO1, "apero2023_tha_bioness_006_st20_n_n9_d2_4_sur_4"),
+    (APERO1, "apero2023_tha_bioness_017_st66_d_n1_d1_1_sur_1"),
+    (APERO1, "apero2023_tha_bioness_017_st66_d_n1_d2_4_sur_4"),
+    (APERO1, "apero2023_tha_bioness_017_st66_d_n1_d3"),
+    (APERO1, "apero2023_tha_bioness_017_st66_d_n2_d2_1_sur_1"),
+    # (APERO1, "apero2023_tha_bioness_017_st66_d_n3_d2_1_sur_1"), # Also in missing
+    (APERO1, "apero2023_tha_bioness_017_st66_d_n5_d2_1_sur_2"),
+    (APERO1, "apero2023_tha_bioness_017_st66_d_n5_d2_2_sur_2"),
+    (APERO1, "apero2023_tha_bioness_017_st66_d_n6_d2_1_sur_2"),
+    (APERO1, "apero2023_tha_bioness_017_st66_d_n9_d2_1_sur_2"),
+    (APERO1, "apero2023_tha_bioness_018_st66_n_n2_d1_1_sur_2"),
+    (APERO1, "apero2023_tha_bioness_018_st66_n_n6_d2_1_sur_2"),
+    (APERO1, "apero2023_tha_bioness_018_st66_n_n8_d2_2_sur_2"),
+    (APERO1, "apero2023_tha_bioness_018_st66_n_n9_d2_1_sur_2"),
+    (APERO1, "apero2023_tha_bioness_018_st66_n_n9_d2_2_sur_2"),
+    (APERO1, "apero2023_tha_bioness_018_st66_n_n9_d3"),
+]
+
+extra_big = [
+    (APERO, "apero2023_tha_bioness_014_st46_n_n6_d1_1_sur_1"),
+    (APERO, "apero2023_tha_bioness_014_st46_n_n7_d1_2_sur_4"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n2_d1_2_sur_2"),
+    (APERO1, "apero2023_tha_bioness_006_st20_n_n7_d1_2_sur_2"),
+    (TRIATLAS, "m158_mn18_n2_d1_1_sur_4"),
+]
+
+missingd = [
+    (APERO, "apero2023_tha_bioness_014_st46_n_n7_d2_1_sur_2"),
+    (APERO, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n1_d1_1_sur_2"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n1_d1_2_sur_2"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n3_d1_3_sur_4"),
+    (APERO1, "apero2023_tha_bioness_017_st66_d_n3_d2_1_sur_1"),
+]
+
+wrong_mask_maybe_gives_no_roi_when_legacy_has = [
+    (APERO1, "apero2023_tha_bioness_013_st46_d_n1_d2_1_sur_1"),
+]
+
+more_than25 = [(APERO1, "apero2023_tha_bioness_018_st66_n_n8_d3")]
+
+
+@pytest.mark.parametrize(
+    "project, sample",
+    one_contour,
+    ids=[sample for (_prj, sample) in one_contour],
+    # [
+    #     (APERO1, "apero2023_tha_bioness_005_st20_d_n2_d1_2_sur_2"),
+    #     (APERO, "apero2023_tha_bioness_013_st46_d_n7_d3"), # Single contour
+    # (APERO, "apero2023_tha_bioness_014_st46_n_n6_d1_1_sur_1"),
+    # (TRIATLAS, "m158_mn18_n2_d1_1_sur_4"),
+    # (APERO, "apero2023_tha_bioness_014_st46_n_n7_d1_2_sur_4"), # 1 missing object
+    # (APERO, "apero2023_tha_bioness_014_st46_n_n7_d2_1_sur_2"), # 1 missing object
+    # ],
+    # project = 'Zooscan_apero_tha_bioness_sup2000_sn033'
+    # sample = 'apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_3_sur_4'
+)
+def test_algo_diff(projects, tmp_path, project, sample):
+    folder = ZooscanFolder(projects, project)
+    index = 1  # TODO: should come from get_names() below
+    vis1 = load_final_ref_image(folder, sample, index)
+    conf = folder.zooscan_config.read()
+
+    # TODO: Add threshold (AKA 'upper= 243' in config) here
+    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
+
+    # found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
+    found_rois_new = segmenter.find_blobs()
+    found_feats_new = [a_roi.features for a_roi in found_rois_new]
+    sort_by_coords(found_feats_new)
+
+    found_rois_compat = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
+    found_feats_compat = [a_roi.features for a_roi in found_rois_compat]
+    sort_by_coords(found_feats_compat)
+
+    if found_feats_compat != found_feats_new:
+        different, not_in_compat, not_in_new = diff_dict_lists(
+            found_feats_compat, found_feats_new, feature_unq
+        )
+        assert different == []
+        # for a_diff in different:
+        #     a_ref, an_act = a_diff
+        #     print(a_ref)
+        #     print("->", an_act)
+        if len(not_in_compat) > 0:
+            for num, a_new in enumerate(not_in_compat):
+                # vig = cropnp(
+                #     image=vis1,
+                #     top=an_act["BY"],
+                #     left=an_act["BX"],
+                #     bottom=an_act["BY"] + an_act["Height"],
+                #     right=an_act["BX"] + an_act["Width"],
+                # )
+                print(f"in new only {num}:{a_new}")
+                # saveimage(vig, f"/tmp/diff_{num}.png")
+                draw_roi(vis1, a_new, 4)
+        # if len(not_in_new) > 0:
+        #     for num, a_compat in enumerate(not_in_new):
+        #         # vig = cropnp(
+        #         #     image=vis1,
+        #         #     top=an_act["BY"],
+        #         #     left=an_act["BX"],
+        #         #     bottom=an_act["BY"] + an_act["Height"],
+        #         #     right=an_act["BX"] + an_act["Width"],
+        #         # )
+        #         print(f"in compat only {num}:{a_compat}")
+        #         # saveimage(vig, f"/tmp/diff_{num}.png")
+        #         draw_roi(vis1, a_compat, 8)
+        # if len(not_in_compat) + len(not_in_new) > 0:
+        #     saveimage(vis1, f"/tmp/dif_on_{sample}.tif")
+        # assert not_in_compat == [], "Extra NEW"
     # if len(not_in_act) > 0:
     # for num, a_ref in enumerate(ref):
     #     cv2.rectangle(
@@ -393,18 +522,22 @@ def test_segmentation(projects, tmp_path, project, sample):
     #         4,
     #     )
     #     saveimage(vis1, "/tmp/diff.tif")
-    assert found == ref
-    assert different == []
-    assert not_in_act == []
-    assert not_in_ref == []
+    assert found_feats_new == found_feats_compat
+    # assert different == []
+    # assert not_in_act == []
+    # assert not_in_ref == []
 
 
+def draw_roi(image: np.ndarray, features: Features, thickness: int = 1):
+    cv2.rectangle(
+        image,
+        (features["BX"], features["BY"]),
+        (features["BX"] + features["Width"], features["BY"] + features["Height"]),
+        (0,),
+        thickness,
+    )
 
-wrong_mask_maybe_gives_no_roi_when_legacy_has = [
-    (APERO1, "apero2023_tha_bioness_013_st46_d_n1_d2_1_sur_1"),
-]
 
-more_than25 = [(APERO1, "apero2023_tha_bioness_018_st66_n_n8_d3")]
 def sort_by_coords(features: List[Dict]):
     features.sort(key=feature_unq)
 
@@ -437,50 +570,48 @@ def test_nothing_found(projects, tmp_path, project, sample):
     assert found == ref
 
 
-def visual_diffs(actual, expected, sample, vis1):
+def visual_diffs(actual, expected, sample, tgt_img):
     different, not_in_ref, not_in_act = diff_dict_lists(expected, actual, feature_unq)
     for a_diff in different:
         a_ref, an_act = a_diff
         print(a_ref)
         print("->", an_act)
-    if len(not_in_ref) > 0:
-        for num, an_act in enumerate(not_in_ref):
-            # vig = cropnp(
-            #     image=vis1,
-            #     top=an_act["BY"],
-            #     left=an_act["BX"],
-            #     bottom=an_act["BY"] + an_act["Height"],
-            #     right=an_act["BX"] + an_act["Width"],
-            # )
-            print(f"extra {num}:{an_act}")
-            # saveimage(vig, f"/tmp/diff_{num}.png")
-    cv2.rectangle(
-        vis1,
-        (an_act["BX"], an_act["BY"]),
-        (an_act["BX"] + an_act["Width"], an_act["BY"] + an_act["Height"]),
-        (0,),
-        1,
-    )
-    saveimage(vis1, f"/tmp/dif_on_{sample}.tif")
-    if len(not_in_act) > 0:
-        for num, a_ref in enumerate(expected):
-            cv2.rectangle(
-                vis1,
-                (a_ref["BX"], a_ref["BY"]),
-                (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
-                (0,),
-                1,
-            )
+    for num, an_act in enumerate(not_in_ref):
+        # vig = cropnp(
+        #     image=vis1,
+        #     top=an_act["BY"],
+        #     left=an_act["BX"],
+        #     bottom=an_act["BY"] + an_act["Height"],
+        #     right=an_act["BX"] + an_act["Width"],
+        # )
+        print(f"extra {num}:{an_act}")
+        # saveimage(vig, f"/tmp/diff_{num}.png")
+        cv2.rectangle(
+            tgt_img,
+            (an_act["BX"], an_act["BY"]),
+            (an_act["BX"] + an_act["Width"], an_act["BY"] + an_act["Height"]),
+            (0,),
+            1,
+        )
+    # for num, a_ref in enumerate(expected):
+    #     cv2.rectangle(
+    #         tgt_img,
+    #         (a_ref["BX"], a_ref["BY"]),
+    #         (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
+    #         (0,),
+    #         1,
+    #     )
     for num, a_ref in enumerate(not_in_act):
         print(f"missing ref {num}:{a_ref}")
         cv2.rectangle(
-            vis1,
+            tgt_img,
             (a_ref["BX"], a_ref["BY"]),
             (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
             (0,),
             4,
         )
-        saveimage(vis1, "/tmp/diff.tif")
+    if len(different) or len(not_in_act) or len(not_in_ref):
+        saveimage(tgt_img, f"/tmp/dif_on_{sample}.tif")
     return different, not_in_act, not_in_ref
 
 
