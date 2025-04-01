@@ -1,14 +1,14 @@
 import dataclasses
 import math
 from decimal import Decimal
-from typing import List, TypedDict, Tuple, Optional
+from typing import List, TypedDict, Tuple, Optional, Set
 
 import cv2
 import numpy as np
 from numpy import ndarray
 
 from .EllipseFitter import EllipseFitter
-from .img_tools import cropnp
+from .img_tools import cropnp, saveimage
 
 
 class Features(TypedDict):
@@ -64,7 +64,8 @@ class Segmenter(object):
 
     METH_CONTOUR = 1
     METH_CONNECTED_COMPONENTS = 2
-    LEGACY_COMPATIBLE = 8
+    METH_RETR_TREE = 4
+    LEGACY_COMPATIBLE = 16
 
     def __init__(self, image: ndarray, minsize: float, maxsize: float):
         assert image.dtype == np.uint8
@@ -80,26 +81,28 @@ class Segmenter(object):
     def find_blobs(self, method: int = METH_CONTOUR) -> List[ROI]:
         # Threshold the source image to have a b&w mask
         thresh_max = self.THRESH_MAX
-        # msk1 is white objects on black background
-        _th, msk1 = cv2.threshold(self.image, thresh_max, 255, cv2.THRESH_BINARY_INV)
-        self.sanity_check(msk1)
+        # mask is white objects on black background
+        _th, inv_mask = cv2.threshold(
+            self.image, thresh_max, 255, cv2.THRESH_BINARY_INV
+        )
+        self.sanity_check(inv_mask)
         if method & self.LEGACY_COMPATIBLE:
             # Process image in 2 overlapping parts, split vertically.
-            # There is a side effect in that objects in the middle 10% band can appear or disappear if too large.
+            # There is a side effect in that objects in the middle 20% band can appear if embedded or disappear if too large.
             if self.width > self.Wlimit and self.height > self.Hlimit:
                 overlap_size = int(self.width * self.overlap)
                 left_mask = cropnp(
-                    msk1, top=0, left=0, bottom=self.height, right=overlap_size
+                    inv_mask, top=0, left=0, bottom=self.height, right=overlap_size
                 )
-                left_rois = self.find_particles(left_mask, self.s_p_min, self.s_p_max)
+                left_rois = self.find_particles_with_method(method, left_mask)
                 right_mask = cropnp(
-                    msk1,
+                    inv_mask,
                     top=0,
                     left=self.width - overlap_size,
                     bottom=self.height,
                     right=self.width,
                 )
-                right_rois = self.find_particles(right_mask, self.s_p_min, self.s_p_max)
+                right_rois = self.find_particles_with_method(method, right_mask)
                 # Fix coordinates from right pane
                 for right_roi in right_rois:
                     right_roi.features["BX"] += self.width - overlap_size
@@ -117,17 +120,27 @@ class Segmenter(object):
                     if left_key not in right_by_key:
                         right_by_key[left_key] = left_roi
                 return list(right_by_key.values())
+        return self.find_particles_with_method(method, inv_mask)
+
+    def find_particles_with_method(self, method: int, inv_mask: ndarray) -> List[ROI]:
         # Required measurements:
         #       area bounding area_fraction limit decimal=2
         # Result:
         #       Area	BX	BY	Width	Height	%Area	XStart	YStart
         if method & self.METH_CONNECTED_COMPONENTS:
-            # Faster, but areas don't match with ImageJ. Left for future investigations
-            return self.find_particles_via_cc(msk1, self.s_p_min, self.s_p_max)
+            # Most reliable from execution/complexity points of view
+            return self.find_particles_via_cc(inv_mask, self.s_p_min, self.s_p_max)
+        elif method & self.METH_RETR_TREE:
+            # Universal, but very slow on noisy images, collapses from second to ten of minutes
+            # saveimage(inv_mask, "/tmp/bef_denoised.tif")
+            #
+            # self.denoise_particles_via_cc(inv_mask, self.s_p_min)
+            # saveimage(inv_mask, "/tmp/aft_denoised.tif")
+            return self.find_particles_contour_tree(
+                inv_mask, self.s_p_min, self.s_p_max
+            )
         else:
-            return self.find_particles(msk1, self.s_p_min, self.s_p_max)
-            # Problem: with noisy images, millions of contours
-            # return self.find_particles_contour_tree(msk1, self.s_p_min, self.s_p_max)
+            return self.find_particles(inv_mask, self.s_p_min, self.s_p_max)
 
     @staticmethod
     def find_particles(inv_mask: ndarray, s_p_min: int, s_p_max: int) -> List[ROI]:
@@ -141,9 +154,10 @@ class Segmenter(object):
             inv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
         )
         if len(contours) == 1:
-            return Segmenter.find_particles_contour_tree(inv_mask, s_p_min, s_p_max)
+            print("1 contour!")
+            return Segmenter.find_particles_via_cc(inv_mask, s_p_min, s_p_max)
 
-        print("Number of Contours found = " + str(len(contours)))
+        print("Number of RETR_EXTERNAL Contours found = " + str(len(contours)))
         ret: List[ROI] = []
         single_point_contour_shape = (1, 1, 2)
         for a_contour in contours:
@@ -242,7 +256,7 @@ class Segmenter(object):
         # saveimage(image_3channels2, Path("/tmp/contours3.tif"))
         # contours = root_children_contours
 
-        print("Number of Contours found = " + str(len(contours)))
+        print("Number of RETR_TREE Contours found = " + str(len(contours)))
         ret: List[ROI] = []
         accepted_parents = {-1: 0}  # contour_id, level
         single_point_contour_shape = (1, 1, 2)
@@ -363,8 +377,69 @@ class Segmenter(object):
         return contour_canvas
 
     @staticmethod
-    def find_particles_via_cc(mask: ndarray, s_p_min: int, s_p_max: int) -> List[ROI]:
-        inv_mask = 255 - mask  # Opencv looks for white objects on black background
+    def denoise_particles_via_cc(inv_mask: ndarray, s_p_min: int):
+        (
+            retval,
+            labels,
+            stats,
+            centroids,
+        ) = cv2.connectedComponentsWithStatsWithAlgorithm(
+            image=inv_mask, connectivity=8, ltype=cv2.CV_32S, ccltype=cv2.CCL_GRANA
+        )
+        assert (
+            cv2.CC_STAT_LEFT,
+            cv2.CC_STAT_TOP,
+            cv2.CC_STAT_WIDTH,
+            cv2.CC_STAT_HEIGHT,
+            cv2.CC_STAT_AREA,
+        ) == (0, 1, 2, 3, 4)
+        ret = []
+        print("cc filter, initial: ", retval)
+        eliminated_1 = 0
+        eliminated_l = 0
+        eliminated_r = 0
+        for cc_id in range(retval):
+            x, y, w, h, area_excl_holes = [int(m) for m in stats[cc_id]]
+            # Single point
+            if area_excl_holes == 1:
+                inv_mask[y, x] = 0
+                eliminated_1 += 1
+                continue
+            # More frequent exclusion reasons first
+            if w == 1 or h == 1:
+                cv2.line(
+                    img=inv_mask, pt1=(x, y), pt2=(x + w - 1, y + h - 1), color=(0,)
+                )
+                eliminated_l += 1
+                continue
+            # Even if contour was around a filled rectangle it would not meet min criterion
+            if w * h < s_p_min:
+                sub_labels = cropnp(
+                    image=labels, top=y, left=x, bottom=y + h, right=x + w
+                )
+                sub_mask = (sub_labels == cc_id).astype(
+                    dtype=np.uint8
+                ) * 255  # 255=shape, 0=not in shape
+                inv_mask[y : y + h, x : x + w] = np.bitwise_xor(
+                    inv_mask[y : y + h, x : x + w], sub_mask
+                )
+                eliminated_r += 1
+                continue
+        left = retval - (eliminated_1 + eliminated_l + eliminated_r)
+        print(
+            "cc filter, eliminated: ",
+            eliminated_1,
+            eliminated_l,
+            eliminated_r,
+            " left: ",
+            left,
+        )
+        return ret
+
+    @staticmethod
+    def find_particles_via_cc(
+        inv_mask: ndarray, s_p_min: int, s_p_max: int
+    ) -> List[ROI]:
         height, width = inv_mask.shape[:2]
         (
             retval,
@@ -384,32 +459,40 @@ class Segmenter(object):
         ret = []
         print("Number of cc found: ", retval)
         area_filter = 0
-        for a_cc in range(retval):
-            x, y, w, h, area_excl_holes = [int(m) for m in stats[a_cc]]
+        embedded = set()
+        for cc_id in range(retval):
+            if cc_id in embedded:
+                continue
+            x, y, w, h, area_excl_holes = [int(m) for m in stats[cc_id]]
+            # More frequent exclusion reasons first
             if w == 1 or h == 1:
                 continue
+            # Even if contour was around a filled rectangle it would not meet min criterion
+            if w * h < s_p_min:
+                continue
+
+            sub_labels, holes, filled_mask = Segmenter.get_regions(
+                labels, cc_id, x, y, w, h
+            )
+            area = area_excl_holes + holes.sum()
+
             # Eliminate if touching the border
             if x == 0 or y == 0 or x + w == width or y + h == height:
+                Segmenter.forbid_inside_objects(sub_labels * holes, cc_id, embedded)
                 continue
-
-            if w * h < s_p_min:
-                # Even if contour was around a filled rectangle it would not meet min criterion
-                # -> don't bother drawing the contour, which is expensive
-                continue
-
-            if area_excl_holes > s_p_max:
-                continue
-
-            sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
-            sub_mask = (sub_labels == a_cc).astype(dtype=np.uint8) * 255
-            filled_mask = Segmenter.filled_mask(sub_mask)
-            area = (filled_mask == 255).sum()
 
             area_filter += 1
             if area < s_p_min:
                 continue
             if area > s_p_max:
+                Segmenter.forbid_inside_objects(sub_labels * holes, cc_id, embedded)
                 continue
+
+            ratiobxby = w / h
+            if ratiobxby > Segmenter.max_w_to_h_ratio:
+                continue
+
+            Segmenter.forbid_inside_objects(sub_labels * holes, cc_id, embedded)
 
             ret.append(
                 ROI(
@@ -428,18 +511,41 @@ class Segmenter(object):
         return ret
 
     @staticmethod
-    def filled_mask(sub_mask: ndarray) -> ndarray:
-        height, width = sub_mask.shape
+    def get_regions(
+        labels: ndarray,
+        cc_id: int,
+        x: int,
+        y: int,
+        w: int,
+        h: int,
+    ) -> Tuple[ndarray, ndarray, ndarray]:
+        # Compute filled area
+        sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
+        sub_mask = (sub_labels == cc_id).astype(
+            dtype=np.uint8
+        ) * 255  # 0=not in shape, 255=shape
         sub_mask2 = cv2.copyMakeBorder(
             sub_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
         )
-        cv2.floodFill(sub_mask2, None, (0, 0), (128,))
-        orig_mask = cropnp(
-            image=sub_mask2, top=1, left=1, bottom=height + 1, right=width + 1
-        )
+        cv2.floodFill(
+            sub_mask2, None, (0, 0), (128,)
+        )  # 0=not in shape i.e. holes, 255=shape, 128=border
+        orig_mask = cropnp(image=sub_mask2, top=1, left=1, bottom=h + 1, right=w + 1)
+        holes = (orig_mask == 0).astype(np.uint8)
         orig_mask[orig_mask == 0] = 255
         orig_mask[orig_mask == 128] = 0
-        return orig_mask
+
+        return sub_labels, holes, orig_mask
+
+    @staticmethod
+    def forbid_inside_objects(other: ndarray, contour_id: int, embedded: Set[int]):
+        # Check for embedded objects
+        in_holes = np.unique(other).tolist()
+        if len(in_holes) > 1:
+            in_holes.remove(0)
+            # for a_hole in in_holes:
+            #     assert a_hole > contour_id
+            embedded.update(in_holes)
 
     def split_by_blobs(self, rois: List[ROI]):
         assert rois, "No ROIs"

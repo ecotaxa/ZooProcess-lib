@@ -337,8 +337,14 @@ def test_segmentation(projects, tmp_path, project, sample):
             )  # Sometimes there are more decimals in measurements
     # TODO: Add threshold (AKA 'upper= 243' in config) here
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
-    # found = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
-    found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
+    # found_rois = segmenter.find_blobs(
+    #     Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
+    # )
+    found_rois = segmenter.find_blobs(
+        # Segmenter.LEGACY_COMPATIBLE
+    )
+    # found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
+    # found_rois = segmenter.find_blobs()
     segmenter.split_by_blobs(found_rois)
 
     found = [a_roi.features for a_roi in found_rois]
