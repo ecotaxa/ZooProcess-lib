@@ -399,8 +399,126 @@ def test_segmentation(projects, tmp_path, project, sample):
     assert not_in_ref == []
 
 
+
+wrong_mask_maybe_gives_no_roi_when_legacy_has = [
+    (APERO1, "apero2023_tha_bioness_013_st46_d_n1_d2_1_sur_1"),
+]
+
+more_than25 = [(APERO1, "apero2023_tha_bioness_018_st66_n_n8_d3")]
 def sort_by_coords(features: List[Dict]):
     features.sort(key=feature_unq)
+
+@pytest.mark.parametrize(
+    "project, sample",
+    wrong_mask_maybe_gives_no_roi_when_legacy_has,
+    ids=[sample for (_prj, sample) in wrong_mask_maybe_gives_no_roi_when_legacy_has],
+)
+def test_nothing_found(projects, tmp_path, project, sample):
+    folder = ZooscanFolder(projects, project)
+    index = 1  # TODO: should come from get_names() below
+    vis1 = load_final_ref_image(folder, sample, index)
+    conf = folder.zooscan_config.read()
+    ref = read_measurements(folder, sample, index)
+    # TODO: Add threshold (AKA 'upper= 243' in config) here
+    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
+    # found_rois = segmenter.find_blobs(
+    #     Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
+    # )
+    found_rois = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
+    # found_rois = segmenter.find_blobs(Segmenter.METH_RETR_TREE)
+    # found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
+    # found_rois = segmenter.find_blobs()
+    segmenter.split_by_blobs(found_rois)
+
+    found = [a_roi.features for a_roi in found_rois]
+    sort_by_coords(found)
+    # if found != ref:
+    #     different, not_in_act, not_in_ref = visual_diffs(found, ref, sample, vis1)
+    assert found == ref
+
+
+def visual_diffs(actual, expected, sample, vis1):
+    different, not_in_ref, not_in_act = diff_dict_lists(expected, actual, feature_unq)
+    for a_diff in different:
+        a_ref, an_act = a_diff
+        print(a_ref)
+        print("->", an_act)
+    if len(not_in_ref) > 0:
+        for num, an_act in enumerate(not_in_ref):
+            # vig = cropnp(
+            #     image=vis1,
+            #     top=an_act["BY"],
+            #     left=an_act["BX"],
+            #     bottom=an_act["BY"] + an_act["Height"],
+            #     right=an_act["BX"] + an_act["Width"],
+            # )
+            print(f"extra {num}:{an_act}")
+            # saveimage(vig, f"/tmp/diff_{num}.png")
+    cv2.rectangle(
+        vis1,
+        (an_act["BX"], an_act["BY"]),
+        (an_act["BX"] + an_act["Width"], an_act["BY"] + an_act["Height"]),
+        (0,),
+        1,
+    )
+    saveimage(vis1, f"/tmp/dif_on_{sample}.tif")
+    if len(not_in_act) > 0:
+        for num, a_ref in enumerate(expected):
+            cv2.rectangle(
+                vis1,
+                (a_ref["BX"], a_ref["BY"]),
+                (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
+                (0,),
+                1,
+            )
+    for num, a_ref in enumerate(not_in_act):
+        print(f"missing ref {num}:{a_ref}")
+        cv2.rectangle(
+            vis1,
+            (a_ref["BX"], a_ref["BY"]),
+            (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
+            (0,),
+            4,
+        )
+        saveimage(vis1, "/tmp/diff.tif")
+    return different, not_in_act, not_in_ref
+
+
+def read_measurements(project_folder, sample, index):
+    work_files = project_folder.zooscan_scan.work.get_files(sample, index)
+    measures = work_files["meas"]
+    measures_types = {
+        "BX": int,
+        "BY": int,
+        "Width": int,
+        "Height": int,
+        "Area": int,
+        "%Area": float,
+        "XStart": int,
+        "YStart": int,
+        "Major": float,
+        "Minor": float,
+        "Angle": float,
+    }
+    ref = read_result_csv(measures, measures_types)
+    # This filter is _after_ measurements in ImageJ
+    ref = [
+        a_ref
+        for a_ref in ref
+        if a_ref["Width"] / a_ref["Height"] < Segmenter.max_w_to_h_ratio
+    ]
+    sort_by_coords(ref)
+    if "%Area" in measures_types:
+        for a_ref in ref:
+            a_ref["%Area"] = round(
+                a_ref["%Area"], 3
+            )  # Sometimes there are more decimals in measurements
+    if "Angle" in measures_types:
+        for a_ref in ref:
+            a_ref["Angle"] = round(
+                a_ref["Angle"], 3
+            )  # Sometimes there are more decimals in measurements
+    return ref
 
 
 def diff_dict_lists(

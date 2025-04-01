@@ -8,7 +8,7 @@ import numpy as np
 from numpy import ndarray
 
 from .EllipseFitter import EllipseFitter
-from .img_tools import cropnp, saveimage
+from .img_tools import cropnp
 
 
 class Features(TypedDict):
@@ -85,6 +85,7 @@ class Segmenter(object):
         _th, inv_mask = cv2.threshold(
             self.image, thresh_max, 255, cv2.THRESH_BINARY_INV
         )
+        # saveimage(inv_mask, "/tmp/inv_mask.tif")
         self.sanity_check(inv_mask)
         if method & self.LEGACY_COMPATIBLE:
             # Process image in 2 overlapping parts, split vertically.
@@ -231,9 +232,7 @@ class Segmenter(object):
         # )
         # saveimage(inv_mask, "/tmp/aft_flood.tif")
         approx = cv2.CHAIN_APPROX_NONE
-        contours, (hierarchy,) = cv2.findContours(
-            inv_mask, cv2.RETR_TREE, approx
-        )
+        contours, (hierarchy,) = cv2.findContours(inv_mask, cv2.RETR_TREE, approx)
         # return []
         # root_children_contours = []
         # for a_contour, its_hierarchy in zip(contours, hierarchy):
@@ -458,38 +457,47 @@ class Segmenter(object):
         ) == (0, 1, 2, 3, 4)
         ret = []
         print("Number of cc found: ", retval)
-        area_filter = 0
         embedded = set()
-        for cc_id in range(retval):
+        filtering_stats = [0] * 8
+        for cc_id in range(1, retval):  # First 'component' is the whole image
             if cc_id in embedded:
+                filtering_stats[0] += 1
                 continue
             x, y, w, h, area_excl_holes = [int(m) for m in stats[cc_id]]
             # More frequent exclusion reasons first
             if w == 1 or h == 1:
+                filtering_stats[1] += 1
                 continue
             # Even if contour was around a filled rectangle it would not meet min criterion
             if w * h < s_p_min:
+                filtering_stats[2] += 1
                 continue
-
+            # The cc bounding rect is the whole image, filter it but don't exclude inside
+            if x == 0 and y == 0 and x + w == width and y + h == height:
+                filtering_stats[3] += 1
+                continue
+            # Proceed to more expensive filtering
             sub_labels, holes, filled_mask = Segmenter.get_regions(
                 labels, cc_id, x, y, w, h
             )
             area = area_excl_holes + holes.sum()
-
-            # Eliminate if touching the border
+            # Eliminate if touching some border (but not all of them)
             if x == 0 or y == 0 or x + w == width or y + h == height:
                 Segmenter.forbid_inside_objects(sub_labels * holes, cc_id, embedded)
+                filtering_stats[4] += 1
                 continue
-
-            area_filter += 1
+            # Criteria from parameters
             if area < s_p_min:
+                filtering_stats[5] += 1
                 continue
             if area > s_p_max:
                 Segmenter.forbid_inside_objects(sub_labels * holes, cc_id, embedded)
+                filtering_stats[6] += 1
                 continue
 
             ratiobxby = w / h
             if ratiobxby > Segmenter.max_w_to_h_ratio:
+                filtering_stats[7] += 1
                 continue
 
             Segmenter.forbid_inside_objects(sub_labels * holes, cc_id, embedded)
@@ -507,7 +515,7 @@ class Segmenter(object):
                     contour=None,
                 )
             )
-        print("Filtered until area: ", area_filter, " result", len(ret))
+        print("Initial", retval, "filter stats", filtering_stats, "left", len(ret))
         return ret
 
     @staticmethod
@@ -528,10 +536,16 @@ class Segmenter(object):
             sub_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
         )
         cv2.floodFill(
-            sub_mask2, None, (0, 0), (128,)
-        )  # 0=not in shape i.e. holes, 255=shape, 128=border
+            image=sub_mask2,
+            mask=None,
+            seedPoint=(0, 0),
+            newVal=(128,),
+            flags=4,  # 4-pixel connectivity, don't cross a cc border
+        )  # 0=not part of shape but inside it i.e. holes, 255=shape, 128=outside border
         orig_mask = cropnp(image=sub_mask2, top=1, left=1, bottom=h + 1, right=w + 1)
-        holes = (orig_mask == 0).astype(np.uint8)
+        holes = (orig_mask == 0).astype(
+            np.uint8
+        )  # 0:non-hole 1:hole # TODO:Keep as bool?
         orig_mask[orig_mask == 0] = 255
         orig_mask[orig_mask == 128] = 0
 
