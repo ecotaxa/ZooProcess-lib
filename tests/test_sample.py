@@ -541,12 +541,22 @@ def draw_roi(image: np.ndarray, features: Features, thickness: int = 1):
 def sort_by_coords(features: List[Dict]):
     features.sort(key=feature_unq)
 
+
+@pytest.mark.parametrize(
+    "segmentation_method",
+    [
+        Segmenter.METH_CONTOUR,
+        Segmenter.LEGACY_COMPATIBLE,
+        Segmenter.METH_RETR_TREE,
+        Segmenter.METH_CONNECTED_COMPONENTS,
+    ],
+)
 @pytest.mark.parametrize(
     "project, sample",
     wrong_mask_maybe_gives_no_roi_when_legacy_has,
     ids=[sample for (_prj, sample) in wrong_mask_maybe_gives_no_roi_when_legacy_has],
 )
-def test_nothing_found(projects, tmp_path, project, sample):
+def test_nothing_found(projects, tmp_path, project, sample, segmentation_method):
     folder = ZooscanFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
     vis1 = load_final_ref_image(folder, sample, index)
@@ -557,7 +567,7 @@ def test_nothing_found(projects, tmp_path, project, sample):
     # found_rois = segmenter.find_blobs(
     #     Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
     # )
-    found_rois = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
+    found_rois = segmenter.find_blobs(segmentation_method)
     # found_rois = segmenter.find_blobs(Segmenter.METH_RETR_TREE)
     # found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
     # found_rois = segmenter.find_blobs()

@@ -154,34 +154,41 @@ class Segmenter(object):
         contours, _ = cv2.findContours(
             inv_mask,
             cv2.RETR_EXTERNAL,
-            cv2.CHAIN_APPROX_SIMPLE,  # same as cv2.RETR_EXTERNAL but returns less data
+            cv2.CHAIN_APPROX_SIMPLE,  # same as cv2.CHAIN_APPROX_NONE but returns less data
         )
-        if len(contours) == 1:
-            print("1 contour!")
+        if len(contours) <= 1:
+            print("0 or 1 contour!")
             return Segmenter.find_particles_via_cc(inv_mask, s_p_min, s_p_max)
 
         print("Number of RETR_EXTERNAL Contours found = " + str(len(contours)))
         ret: List[ROI] = []
         single_point_contour_shape = (1, 1, 2)
+        filtering_stats = [0] * 8
         for a_contour in contours:
             if a_contour.shape == single_point_contour_shape:  # Single-point "contour"
+                filtering_stats[0] += 1
                 continue
             x, y, w, h = cv2.boundingRect(a_contour)
             # Eliminate if touching the border
             if x == 0 or y == 0 or x + w == width or y + h == height:
+                filtering_stats[1] += 1
                 continue
             # Even if contour was around a filled rectangle it would not meet min criterion
             # -> don't bother drawing the contour, which is expensive
             if w * h < s_p_min:
+                filtering_stats[2] += 1
                 continue
             contour_mask = Segmenter.draw_contour(a_contour, x, y, w, h)
             area = np.count_nonzero(contour_mask)
             if area < s_p_min:
+                filtering_stats[5] += 1
                 continue
             if area > s_p_max:
+                filtering_stats[6] += 1
                 continue
             ratiobxby = w / h
             if ratiobxby > Segmenter.max_w_to_h_ratio:
+                filtering_stats[7] += 1
                 continue
             ret.append(
                 ROI(
@@ -196,8 +203,11 @@ class Segmenter(object):
                     contour=a_contour,
                 )
             )
-            # image_3channels = draw_contours(self.image, self.contours)
-            # saveimage(image_3channels, Path("/tmp/contours.tif"))
+        print(
+            "Initial", len(contours), "filter stats", filtering_stats, "left", len(ret)
+        )
+        # image_3channels = draw_contours(self.image, self.contours)
+        # saveimage(image_3channels, Path("/tmp/contours.tif"))
         return ret
 
     @staticmethod
@@ -233,7 +243,12 @@ class Segmenter(object):
         #     inv_mask, 0, 0, 0, 1, cv2.BORDER_CONSTANT, value=(0,)
         # )
         # saveimage(inv_mask, "/tmp/aft_flood.tif")
-        approx = cv2.CHAIN_APPROX_NONE
+        # approx = cv2.CHAIN_APPROX_SIMPLE # 8 min on complicated image
+        approx = (
+            cv2.CHAIN_APPROX_TC89_L1
+        )  # 4 min on complicated image (and different output)
+        approx = cv2.CHAIN_APPROX_TC89_KCOS  # 4 min on complicated image (and different output)
+        approx = cv2.CHAIN_APPROX_NONE  # 4 min on complicated image
         contours, (hierarchy,) = cv2.findContours(inv_mask, cv2.RETR_TREE, approx)
         # return []
         # root_children_contours = []
