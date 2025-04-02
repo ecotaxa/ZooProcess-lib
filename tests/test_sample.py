@@ -9,7 +9,8 @@ import pytest
 from ZooProcess_lib.Background import Background
 from ZooProcess_lib.Border import Border
 from ZooProcess_lib.ImageJLike import images_difference
-from ZooProcess_lib.Segmenter import Segmenter, feature_unq, Features
+from ZooProcess_lib.ROI import Features, feature_unq
+from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
     load_zipped_image,

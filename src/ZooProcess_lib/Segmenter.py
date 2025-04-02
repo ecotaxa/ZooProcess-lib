@@ -1,51 +1,17 @@
-import dataclasses
 import math
 from decimal import Decimal
-from typing import List, TypedDict, Tuple, Optional, Set
+from typing import List, Tuple
 
 import cv2
 import numpy as np
 from numpy import ndarray
 
 from .EllipseFitter import EllipseFitter
+from .ROI import ROI, feature_unq
+from .Segmenters.ConnectedComponents import ConnectedComponentsSegmenter
+from .Segmenters.ExternalContours import ExternalContoursSegmenter
+from .Segmenters.RecursiveContours import RecursiveContoursSegmenter
 from .img_tools import cropnp
-
-
-class Features(TypedDict):
-    # Enclosing rectangle
-    BX: int
-    BY: int
-    Width: int
-    Height: int
-    # Number of pixels inside the blob
-    Area: int
-    # Quoting some forum: (XStart,YStart) are the coordinates of the first boundary point
-    # of particles found by the particle analyzer.
-    XStart: int
-    YStart: int
-    # Area fraction : For thresholded images is the percentage of pixels in the image or selection
-    # that have been highlighted in red using Image▷Adjust▷Threshold… [T]↑.
-    # For non-thresholded images is the percentage of non-zero pixels. Uses the heading %Area.
-    # %Area: int
-    Major: float
-    Minor: float
-    Angle: float
-
-
-feature_unq = lambda f: (f["BX"], f["BY"], f["Width"], f["Height"])
-
-
-@dataclasses.dataclass(
-    frozen=False
-)  # TODO: Should be 'True', temp until ROI merge is clean
-class ROI(object):
-    features: Features
-    mask: ndarray
-    contour: Optional[ndarray] = None
-
-
-def features_are_at_same_coord(features: Features, another_blob: Features):
-    return features["BX"] == another_blob["BX"] and features["BY"] == another_blob["BY"]
 
 
 class Segmenter(object):
@@ -130,204 +96,22 @@ class Segmenter(object):
         #       Area	BX	BY	Width	Height	%Area	XStart	YStart
         if method & self.METH_CONNECTED_COMPONENTS:
             # Most reliable from execution/complexity points of view
-            return self.find_particles_via_cc(inv_mask, self.s_p_min, self.s_p_max)
+            return ConnectedComponentsSegmenter.find_particles_via_cc(
+                inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio
+            )
         elif method & self.METH_RETR_TREE:
             # Universal, but very slow on noisy images, collapses from second to ten of minutes
             # saveimage(inv_mask, "/tmp/bef_denoised.tif")
             #
             # self.denoise_particles_via_cc(inv_mask, self.s_p_min)
             # saveimage(inv_mask, "/tmp/aft_denoised.tif")
-            return self.find_particles_contour_tree(
-                inv_mask, self.s_p_min, self.s_p_max
+            return RecursiveContoursSegmenter.find_particles_contour_tree(
+                inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio
             )
         else:
-            return self.find_particles(inv_mask, self.s_p_min, self.s_p_max)
-
-    @staticmethod
-    def find_particles(inv_mask: ndarray, s_p_min: int, s_p_max: int) -> List[ROI]:
-        # ImageJ calls args are similar to:
-        # analysis1 = "minimum=" + Spmin + " maximum=" + Spmax + " circularity=0.00-1.00 bins=20 show=Outlines include exclude flood record";
-        # 'include' is 'Include holes'
-        # 'exclude' is 'Exclude on hedges'
-        # -> circularity is never used as a filter
-        height, width = inv_mask.shape[:2]
-        contours, _ = cv2.findContours(
-            inv_mask,
-            cv2.RETR_EXTERNAL,
-            cv2.CHAIN_APPROX_SIMPLE,  # same as cv2.CHAIN_APPROX_NONE but returns less data
-        )
-        if len(contours) <= 1:
-            print("0 or 1 contour!")
-            return Segmenter.find_particles_via_cc(inv_mask, s_p_min, s_p_max)
-
-        print("Number of RETR_EXTERNAL Contours found = " + str(len(contours)))
-        ret: List[ROI] = []
-        single_point_contour_shape = (1, 1, 2)
-        filtering_stats = [0] * 8
-        for a_contour in contours:
-            if a_contour.shape == single_point_contour_shape:  # Single-point "contour"
-                filtering_stats[0] += 1
-                continue
-            x, y, w, h = cv2.boundingRect(a_contour)
-            # Eliminate if touching the border
-            if x == 0 or y == 0 or x + w == width or y + h == height:
-                filtering_stats[1] += 1
-                continue
-            # Even if contour was around a filled rectangle it would not meet min criterion
-            # -> don't bother drawing the contour, which is expensive
-            if w * h < s_p_min:
-                filtering_stats[2] += 1
-                continue
-            contour_mask = Segmenter.draw_contour(a_contour, x, y, w, h)
-            area = np.count_nonzero(contour_mask)
-            if area < s_p_min:
-                filtering_stats[5] += 1
-                continue
-            if area > s_p_max:
-                filtering_stats[6] += 1
-                continue
-            ratiobxby = w / h
-            if ratiobxby > Segmenter.max_w_to_h_ratio:
-                filtering_stats[7] += 1
-                continue
-            ret.append(
-                ROI(
-                    features={
-                        "BX": x,
-                        "BY": y,
-                        "Width": w,
-                        "Height": h,
-                        "Area": area,
-                    },
-                    mask=contour_mask,
-                    contour=a_contour,
-                )
+            return ExternalContoursSegmenter.find_particles(
+                inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio
             )
-        print(
-            "Initial", len(contours), "filter stats", filtering_stats, "left", len(ret)
-        )
-        # image_3channels = draw_contours(self.image, self.contours)
-        # saveimage(image_3channels, Path("/tmp/contours.tif"))
-        return ret
-
-    @staticmethod
-    def find_particles_contour_tree(
-        inv_mask: ndarray, s_p_min: int, s_p_max: int
-    ) -> List[ROI]:
-        height, width = inv_mask.shape[:2]
-        # In some cases and despite previous steps, the border of the scan goes fully round the image, so
-        # there is a single contour!
-        # image_3channels = draw_contours(inv_mask, contours, thickness=1)
-        # saveimage(image_3channels, Path("/tmp/contours.tif"))
-        # Fix by removing it.
-        # first_pixel = np.argmax(inv_mask[0] == 255)
-        # saveimage(inv_mask, "/tmp/bef_flood.tif")
-        # cv2.floodFill(
-        #     image=inv_mask,
-        #     mask=None,
-        #     seedPoint=(first_pixel, 0),
-        #     newVal=(0,),
-        #     flags=8,  # 8-pixel connectivity, like contour detection does
-        # )
-        # Segmenter.undo_border_lines(inv_mask)
-        # cv2.drawContours(
-        #     image=inv_mask,
-        #     contours=contours,
-        #     contourIdx=0,
-        #     color=(0,),
-        #     thickness=4
-        # )
-        # Breach the border
-        # cv2.line(inv_mask, (0, 0), (300, 300), (0,), thickness=2)
-        # inv_mask = cv2.copyMakeBorder(
-        #     inv_mask, 0, 0, 0, 1, cv2.BORDER_CONSTANT, value=(0,)
-        # )
-        # saveimage(inv_mask, "/tmp/aft_flood.tif")
-        # approx = cv2.CHAIN_APPROX_SIMPLE # 8 min on complicated image
-        approx = (
-            cv2.CHAIN_APPROX_TC89_L1
-        )  # 4 min on complicated image (and different output)
-        approx = cv2.CHAIN_APPROX_TC89_KCOS  # 4 min on complicated image (and different output)
-        approx = cv2.CHAIN_APPROX_NONE  # 4 min on complicated image
-        contours, (hierarchy,) = cv2.findContours(inv_mask, cv2.RETR_TREE, approx)
-        # return []
-        # root_children_contours = []
-        # for a_contour, its_hierarchy in zip(contours, hierarchy):
-        #     (
-        #         next_contour,
-        #         previous_contour,
-        #         child_contour,
-        #         parent_contour,
-        #     ) = its_hierarchy
-        #     # In RETR_CCOMP mode we have 2 hierarchies, -1 is enclosing one, other is holes on
-        #     if parent_contour == -1:
-        #         root_children_contours.append(a_contour)
-        # contours = root_children_contours
-        # contours, (hierarchy,) = cv2.findContoursLinkRuns(
-        #     inv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
-        # )
-        # image_3channels = draw_contours(inv_mask, contours, thickness=3)
-        # saveimage(image_3channels, Path("/tmp/contours2.tif"))
-        # image_3channels2 = draw_contours(inv_mask, root_children_contours, thickness=3)
-        # saveimage(image_3channels2, Path("/tmp/contours3.tif"))
-        # contours = root_children_contours
-
-        print("Number of RETR_TREE Contours found = " + str(len(contours)))
-        ret: List[ROI] = []
-        accepted_parents = {-1: 0}  # contour_id, level
-        single_point_contour_shape = (1, 1, 2)
-        # Optimization
-        accepted_parents_get = accepted_parents.get
-        for contour_id, (a_contour, its_hierarchy) in enumerate(
-            zip(contours, hierarchy)
-        ):
-            parent_contour = int(its_hierarchy[3])
-            # assert parent_contour < contour_id  # Ensure we've seen the parent before
-            level = accepted_parents_get(parent_contour)
-            if level is None:
-                continue
-            # More frequent exclusion reasons first
-            if a_contour.shape == single_point_contour_shape:  # Single-point "contour"
-                continue  # Too small, really
-            x, y, w, h = cv2.boundingRect(a_contour)
-            # Eliminate if touching the border
-            if x == 0 or y == 0 or x + w == width or y + h == height:
-                # Keep descending, maybe an embedded shape fits
-                accepted_parents[contour_id] = accepted_parents[parent_contour] + 1
-                continue
-            # Even if contour was around a filled rectangle it would not meet min criterion
-            if w * h < s_p_min:
-                continue
-            # Compute filled area
-            contour_mask = Segmenter.draw_contour(a_contour, x, y, w, h)
-            area = np.count_nonzero(contour_mask)
-            if area < s_p_min:
-                continue
-            elif area > s_p_max:
-                # Keep descending, maybe an embedded shape fits
-                accepted_parents[contour_id] = accepted_parents[parent_contour] + 1
-                continue
-            if level % 2 != 0:
-                # Is a contour around a hole
-                continue
-            ratiobxby = w / h
-            if ratiobxby > Segmenter.max_w_to_h_ratio:
-                continue
-            roi = ROI(
-                features={
-                    "BX": x,
-                    "BY": y,
-                    "Width": w,
-                    "Height": h,
-                    "Area": area,
-                },
-                mask=contour_mask,
-                contour=a_contour,
-            )
-            ret.append(roi)
-            # image_3channels = draw_contours(self.image, self.contours)
-            # saveimage(image_3channels, Path("/tmp/contours.tif"))
-        return ret
 
     @staticmethod
     def undo_border_lines(inv_mask: ndarray) -> Tuple[int, int, int, int]:
@@ -378,19 +162,6 @@ class Segmenter(object):
             print(
                 f"########### WARNING : More than {min_bwratio}% of the segmented image is black ! \nThe associated background image maybe NOK."
             )
-
-    @staticmethod
-    def draw_contour(contour, x, y, w, h) -> ndarray:
-        contour_canvas = np.zeros([h, w], np.uint8)
-        cv2.drawContours(
-            image=contour_canvas,
-            contours=[contour],
-            contourIdx=0,
-            color=(255,),
-            thickness=cv2.FILLED,
-            offset=(-x, -y),
-        )
-        return contour_canvas
 
     @staticmethod
     def denoise_particles_via_cc(inv_mask: ndarray, s_p_min: int):
@@ -451,188 +222,6 @@ class Segmenter(object):
             left,
         )
         return ret
-
-    @staticmethod
-    def find_particles_via_cc(
-        inv_mask: ndarray, s_p_min: int, s_p_max: int
-    ) -> List[ROI]:
-        height, width = inv_mask.shape[:2]
-        (
-            retval,
-            labels,
-            stats,
-            centroids,
-        ) = cv2.connectedComponentsWithStatsWithAlgorithm(
-            image=inv_mask, connectivity=8, ltype=cv2.CV_32S, ccltype=cv2.CCL_GRANA
-        )
-        assert (
-            cv2.CC_STAT_LEFT,
-            cv2.CC_STAT_TOP,
-            cv2.CC_STAT_WIDTH,
-            cv2.CC_STAT_HEIGHT,
-            cv2.CC_STAT_AREA,
-        ) == (0, 1, 2, 3, 4)
-        ret = []
-        print("Number of cc found: ", retval)
-        embedded = set()
-        filtering_stats = [0] * 8
-        for cc_id in range(1, retval):  # First 'component' is the whole image
-            if cc_id in embedded:
-                filtering_stats[0] += 1
-                continue
-            x, y, w, h, area_excl_holes = [int(m) for m in stats[cc_id]]
-            # More frequent exclusion reasons first
-            if w == 1 or h == 1:
-                filtering_stats[1] += 1
-                continue
-            # Even if contour was around a filled rectangle it would not meet min criterion
-            if w * h < s_p_min:
-                filtering_stats[2] += 1
-                continue
-            # The cc bounding rect is the whole image minus borders, filter it but don't exclude inside
-            # TODO: 2 sub-cases: either the whole area is included,
-            #  or there is a band around the whole image
-            if (
-                x == 0
-                and y == 0
-                and x + w == width
-                and y + h == height
-                # and area_excl_holes > w * h / 2  # TODO: Not accurate
-            ):
-                filtering_stats[3] += 1
-                continue
-            # Proceed to more expensive filtering
-            sub_labels, holes, filled_mask = Segmenter.get_regions(
-                labels, cc_id, x, y, w, h
-            )
-            area = area_excl_holes + holes.sum()
-            # Eliminate if touching some border (but not all of them)
-            if x == 0 or y == 0 or x + w == width or y + h == height:
-                Segmenter.forbid_inside_objects(sub_labels * holes, cc_id, embedded)
-                filtering_stats[4] += 1
-                continue
-            # Criteria from parameters
-            if area < s_p_min:
-                filtering_stats[5] += 1
-                continue
-            if area > s_p_max:
-                Segmenter.forbid_inside_objects(sub_labels * holes, cc_id, embedded)
-                filtering_stats[6] += 1
-                continue
-
-            ratiobxby = w / h
-            if ratiobxby > Segmenter.max_w_to_h_ratio:
-                filtering_stats[7] += 1
-                continue
-
-            Segmenter.forbid_inside_objects(sub_labels * holes, cc_id, embedded)
-
-            ret.append(
-                ROI(
-                    features={
-                        "BX": x,
-                        "BY": y,
-                        "Width": w,
-                        "Height": h,
-                        "Area": int(area),
-                    },
-                    mask=filled_mask,
-                    contour=None,
-                )
-            )
-        print("Initial", retval, "filter stats", filtering_stats, "left", len(ret))
-        return ret
-
-    @staticmethod
-    def get_regions(
-        labels: ndarray,
-        cc_id: int,
-        x: int,
-        y: int,
-        w: int,
-        h: int,
-    ) -> Tuple[ndarray, ndarray, ndarray]:
-        # Compute filled area
-        sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
-        obj_mask = (sub_labels == cc_id).astype(
-            dtype=np.uint8
-        ) * 255  # 0=not in shape (either around shape or inside), 255=shape
-        if True:
-            contours, (hierarchy,) = cv2.findContours(
-                obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
-            )
-            # contours, (hierarchy,) = cv2.findContoursLinkRuns(obj_mask)
-            sub_mask3 = np.zeros_like(obj_mask)
-            cv2.drawContours(
-                image=sub_mask3,
-                contours=contours,
-                contourIdx=0,
-                color=(255,),
-                thickness=cv2.FILLED,
-            )  # 0=not in filled shape, 255=filled shape
-            holes3 = np.zeros_like(obj_mask)
-            cv2.drawContours(
-                image=holes3,
-                contours=contours[1:],
-                contourIdx=-1,
-                color=(255,),
-                thickness=cv2.FILLED,  # filled -> inside + contour
-            )  # 0=not in filled shape, 255=filled shape
-            cv2.drawContours(
-                image=holes3,
-                contours=contours[1:],
-                contourIdx=-1,
-                color=(0,),
-                thickness=1,  # fix the "contour' part of cv2.FILLED above
-            )  # 0=not in filled shape, 255=filled shape
-            holes3 = holes3 == 255
-            # if x == 0 and y == 0:
-            #     saveimage(sub_mask3, "/tmp/contour_sub.tif")
-            # holes2 = np.bitwise_xor(sub_mask, sub_mask3) == 255
-            # holes_id = np.unique(np.where(sub_labels > cc_id)).tolist()
-            return sub_labels, holes3, sub_mask3  # , holes_id
-        if False:
-            contours, _ = cv2.findContours(
-                obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
-            )
-            sub_mask2 = np.zeros_like(obj_mask)
-            cv2.drawContours(
-                image=sub_mask2,
-                contours=contours,
-                contourIdx=0,
-                color=(255,),
-                thickness=cv2.FILLED,
-            )  # 0=not in filled shape, 255=filled shape
-            holes2 = np.bitwise_xor(obj_mask, sub_mask2) == 255
-            return sub_labels, holes2, sub_mask2  # , holes_id
-        if False:
-            obj_mask2 = cv2.copyMakeBorder(
-                obj_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
-            )
-            cv2.floodFill(
-                image=obj_mask2,
-                mask=None,
-                seedPoint=(0, 0),
-                newVal=(128,),
-                flags=4,  # 4-pixel connectivity, don't cross a cc border
-            )  # 0=not part of shape but inside it i.e. holes, 255=shape, 128=outside border
-            sub_mask = cropnp(image=obj_mask2, top=1, left=1, bottom=h + 1, right=w + 1)
-            holes = sub_mask == 0  # False:non-hole True:hole
-            sub_mask[holes] = 255
-            sub_mask[sub_mask == 128] = 0
-
-        return sub_labels, holes, orig_mask
-        return sub_labels, holes, sub_mask
-
-    @staticmethod
-    def forbid_inside_objects(other: ndarray, contour_id: int, embedded: Set[int]):
-        # Check for embedded objects
-        in_holes = np.unique(other).tolist()
-        if len(in_holes) > 1:
-            in_holes.remove(0)
-            # for a_hole in in_holes:
-            #     assert a_hole > contour_id
-            embedded.update(in_holes)
 
     def split_by_blobs(self, rois: List[ROI]):
         assert rois, "No ROIs"
