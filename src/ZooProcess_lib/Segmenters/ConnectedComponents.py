@@ -1,3 +1,4 @@
+import time
 from typing import List, Tuple
 
 import cv2
@@ -39,7 +40,9 @@ class ConnectedComponentsSegmenter:
             #     continue
 
             # Proceed to more expensive filtering
-            holes, filled_mask = cls.get_regions(labels, cc_id, x, y, w, h)
+            holes, filled_mask = cls.get_regions(
+                labels, cc_id, x, y, w, h, area_excl_holes
+            )
             area = area_excl_holes + np.count_nonzero(holes)
             start_x = x + np.argmax(filled_mask == 255)
 
@@ -138,16 +141,15 @@ class ConnectedComponentsSegmenter:
 
     @staticmethod
     def get_regions(
-        labels: ndarray,
-        cc_id: int,
-        x: int,
-        y: int,
-        w: int,
-        h: int,
+        labels: ndarray, cc_id: int, x: int, y: int, w: int, h: int, area_excl: int
     ) -> Tuple[ndarray, ndarray]:
+        # before = time.time()
         # print("get_regions size:", w * h)
+        height, width = labels.shape[:2]
+        fill_ratio = h * w // area_excl
         # Compute filled area
-        if False:
+        if fill_ratio > 100:
+            # It's a bit faster to draw the shapes inside sparse shapes
             sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
             # noinspection PyUnresolvedReferences
             obj_mask = (sub_labels == cc_id).astype(
@@ -156,50 +158,67 @@ class ConnectedComponentsSegmenter:
             contours, (hierarchy,) = cv2.findContours(
                 obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
             )
-            sub_mask3 = np.zeros_like(obj_mask)
+            sub_mask = np.zeros_like(obj_mask)
             cv2.drawContours(
-                image=sub_mask3,
+                image=sub_mask,
                 contours=contours,
                 contourIdx=0,
                 color=(255,),
                 thickness=cv2.FILLED,
             )  # 0=not in filled shape, 255=filled shape
             # Holes are in second-level of RETR_CCOMP method output
-            holes3 = np.zeros_like(obj_mask)  # 0:non-hole 255:hole
+            holes = np.zeros_like(obj_mask)  # 0:non-hole 255:hole
             cv2.drawContours(
-                image=holes3,
+                image=holes,
                 contours=contours[1:],
                 contourIdx=-1,
                 color=(255,),
                 thickness=cv2.FILLED,  # filled -> inside + contour
             )  # 0=not in filled shape, 255=filled shape
             cv2.drawContours(
-                image=holes3,
+                image=holes,
                 contours=contours[1:],
                 contourIdx=-1,
                 color=(0,),
                 thickness=1,  # fix the "contour' part of cv2.FILLED above
             )  # 0=not in filled shape, 255=filled shape
-            return holes3, sub_mask3
-        if True:
-            sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
-            # noinspection PyUnresolvedReferences
-            obj_mask = (sub_labels == cc_id).astype(
-                dtype=np.uint8
-            ) * 255  # 0=not in shape (either around shape or inside), 255=shape
-            obj_mask2 = cv2.copyMakeBorder(
-                obj_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
-            )
+        else:
+            if x == 0 or y == 0 or x + w == width or y + h == height:
+                sub_labels = cropnp(
+                    image=labels, top=y, left=x, bottom=y + h, right=x + w
+                )
+                # noinspection PyUnresolvedReferences
+                obj_mask = (sub_labels == cc_id).astype(
+                    dtype=np.uint8
+                ) * 255  # 0=not in shape (either around shape or inside), 255=shape
+                obj_mask = cv2.copyMakeBorder(
+                    obj_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
+                )
+            else:
+                # Wa can save the copyMakeBorder by picking around the existing lines
+                sub_labels = cropnp(
+                    image=labels,
+                    top=y - 1,
+                    left=x - 1,
+                    bottom=y + h + 2,
+                    right=x + w + 2,
+                )
+                # noinspection PyUnresolvedReferences
+                obj_mask = (sub_labels == cc_id).astype(
+                    dtype=np.uint8
+                ) * 255  # 0=not in shape (either around shape or inside), 255=shape
             cv2.floodFill(
-                image=obj_mask2,
+                image=obj_mask,
                 mask=None,
                 seedPoint=(0, 0),
                 newVal=(128,),
                 flags=4,  # 4-pixel connectivity, don't cross a cc border
             )  # 0=not part of shape but inside it i.e. holes, 255=shape, 128=outside border
-            sub_mask = cropnp(image=obj_mask2, top=1, left=1, bottom=h + 1, right=w + 1)
+            sub_mask = cropnp(image=obj_mask, top=1, left=1, bottom=h + 1, right=w + 1)
             holes = sub_mask == 0  # False:non-hole True:hole
             sub_mask[holes] = 255
             sub_mask[sub_mask == 128] = 0
-
+        # elapsed = int((time.time() - before) * 10000)
+        # if elapsed > 0:
+        #     print("get_regions:", elapsed, " ratio ", fill_ratio, w, h)
         return holes, sub_mask
