@@ -1,4 +1,4 @@
-import time
+from pathlib import Path
 from typing import List, Tuple
 
 import cv2
@@ -6,7 +6,7 @@ import numpy as np
 from numpy import ndarray
 
 from ..ROI import ROI
-from ..img_tools import cropnp
+from ..img_tools import cropnp, saveimage
 
 
 class ConnectedComponentsSegmenter:
@@ -64,7 +64,6 @@ class ConnectedComponentsSegmenter:
                 cls.prevent_inclusion(in_shape, filled_mask, x, y, w, h)
                 filtering_stats[5] += 1
                 continue
-
             ratiobxby = w / h
             if ratiobxby > max_w_to_h_ratio:
                 filtering_stats[6] += 1
@@ -146,9 +145,10 @@ class ConnectedComponentsSegmenter:
         # before = time.time()
         # print("get_regions size:", w * h)
         height, width = labels.shape[:2]
-        fill_ratio = h * w // area_excl
+        empty_ratio = h * w // area_excl
         # Compute filled area
-        if fill_ratio > 100:
+        complete_contour = x == 0 and y == 0 and x + w == width and y + h == height
+        if empty_ratio > 100 and not complete_contour:
             # It's a bit faster to draw the shapes inside sparse shapes
             sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
             # noinspection PyUnresolvedReferences
@@ -158,6 +158,7 @@ class ConnectedComponentsSegmenter:
             contours, (hierarchy,) = cv2.findContours(
                 obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
             )
+
             sub_mask = np.zeros_like(obj_mask)
             cv2.drawContours(
                 image=sub_mask,
@@ -166,6 +167,38 @@ class ConnectedComponentsSegmenter:
                 color=(255,),
                 thickness=cv2.FILLED,
             )  # 0=not in filled shape, 255=filled shape
+
+            # Despite all the efforts made to avoid it (e.g. small holes in border lines so contour detection algo
+            # can sneak inside particles area), sometimes the first contour is an _outer_ one. It can be fitting perfectly
+            # around the border lines to image borders, or, when there are tiny holes in border lines, all holes could be filled
+            # in by some object or noise.
+            # Historical algorithm is immune to this problem, because when taking 2 slices, one vertical side is completely opened
+            # and contour detection will find everything. But it raises other issues like lost big particles.
+            # BUT, OTOH, sometimes there could be only 3 full borders, resulting in same contour, but an inner
+            # one. We distinguish by sampling the central pixel.
+            # ConnectedComponentsSegmenter.debug_cc_comp_contour(obj_mask, contours)
+            if complete_contour and sub_mask[height // 2, width // 2] == 255:
+                cv2.drawContours(
+                    image=obj_mask,
+                    contours=contours,
+                    contourIdx=0,
+                    color=(0,),
+                    thickness=1,  # filled -> inside + contour
+                )
+                contours, (hierarchy,) = cv2.findContours(
+                    obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
+                )
+                ConnectedComponentsSegmenter.debug_cc_comp_contour(obj_mask, contours)
+                sub_mask = np.zeros_like(obj_mask)
+                cv2.drawContours(
+                    image=sub_mask,
+                    contours=contours,
+                    contourIdx=0,
+                    color=(255,),
+                    thickness=cv2.FILLED,
+                )  # 0=not in filled shape, 255=filled shape
+                sub_mask[0, 0] = 255  # produce a fake first pixel for x_start
+                # saveimage(obj_mask, "/tmp/zooprocess/coutour_corr.tif")
             # Holes are in second-level of RETR_CCOMP method output
             holes = np.zeros_like(obj_mask)  # 0:non-hole 255:hole
             cv2.drawContours(
@@ -174,14 +207,14 @@ class ConnectedComponentsSegmenter:
                 contourIdx=-1,
                 color=(255,),
                 thickness=cv2.FILLED,  # filled -> inside + contour
-            )  # 0=not in filled shape, 255=filled shape
+            )  # 0=not in hole, 255=hole
             cv2.drawContours(
                 image=holes,
                 contours=contours[1:],
                 contourIdx=-1,
                 color=(0,),
                 thickness=1,  # fix the "contour' part of cv2.FILLED above
-            )  # 0=not in filled shape, 255=filled shape
+            )  # 0=not in hole, 255=hole
         else:
             if x == 0 or y == 0 or x + w == width or y + h == height:
                 sub_labels = cropnp(
@@ -214,11 +247,28 @@ class ConnectedComponentsSegmenter:
                 newVal=(128,),
                 flags=4,  # 4-pixel connectivity, don't cross a cc border
             )  # 0=not part of shape but inside it i.e. holes, 255=shape, 128=outside border
+            if complete_contour:
+                cv2.floodFill(
+                    image=obj_mask,
+                    mask=None,
+                    seedPoint=(height // 2, width // 2),
+                    newVal=(128,),
+                    flags=4,  # 4-pixel connectivity, don't cross a cc border
+                )
+                # saveimage(obj_mask, "/tmp/zooprocess/obj_mask.tif")
             sub_mask = cropnp(image=obj_mask, top=1, left=1, bottom=h + 1, right=w + 1)
             holes = sub_mask == 0  # False:non-hole True:hole
             sub_mask[holes] = 255
             sub_mask[sub_mask == 128] = 0
-        # elapsed = int((time.time() - before) * 10000)
-        # if elapsed > 0:
-        #     print("get_regions:", elapsed, " ratio ", fill_ratio, w, h)
+            # elapsed = int((time.time() - before) * 10000)
+            # if elapsed > 0:
+            #     print("get_regions:", elapsed, " ratio ", empty_ratio, w, h)
         return holes, sub_mask
+
+    @staticmethod
+    def debug_cc_comp_contour(obj_mask, contours):
+        dbg_img = np.zeros_like(obj_mask)
+        dbg_img_3chan = cv2.merge([dbg_img, dbg_img, dbg_img])
+        cv2.drawContours(dbg_img_3chan, contours[0:1], -1, (255, 0, 0), cv2.FILLED)
+        cv2.drawContours(dbg_img_3chan, contours[1:], -1, (0, 255, 0), cv2.FILLED)
+        saveimage(dbg_img_3chan, Path("/tmp/zooprocess/contours.tif"))
