@@ -158,11 +158,13 @@ def saveimage(
         pil_image = Image.fromarray(image)
         if debug:
             print(f"** Save file ** (pil) {new_filename}")
+        # TODO: Fails silently?
         pil_image.save(new_filename, dpi=dpi)
     else:
         path_as_str = Path(new_filename).absolute().as_posix()
         if debug:
             print(f"** Save file ** (cv2) {path_as_str}")
+        # TODO: Fails silently?
         cv2.imwrite(path_as_str, image)
     return new_filename
 

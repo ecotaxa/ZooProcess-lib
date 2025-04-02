@@ -19,7 +19,8 @@ from ZooProcess_lib.img_tools import (
     get_date_time_digitized,
     crop_right,
     clear_outside,
-    draw_outside_lines, saveimage,
+    draw_outside_lines,
+    saveimage,
 )
 from .env_fixture import projects, read_home
 from .projects_for_test import (
@@ -158,18 +159,18 @@ def test_raw_to_work(projects, tmp_path, project, sample):
         eight_bit_sample_image.shape[1], eight_bit_sample_image.shape[0]
     )
 
-    # saveimage(cropped_bg, "/tmp/cropped_bg.tif")
-    # ref_cropped_bg = loadimage(Path("/tmp/fond_cropped_legacy.tif"))
+    # saveimage(cropped_bg, "/tmp/zooprocess/cropped_bg.tif")
+    # ref_cropped_bg = loadimage(Path("/tmp/zooprocess/fond_cropped_legacy.tif"))
     # diff_actual_with_ref_and_source(ref_cropped_bg, cropped_bg, ref_cropped_bg)
     # assert np.array_equal(ref_cropped_bg, cropped_bg)
 
-    # saveimage(mean_bg, "/tmp/mean_bg.tif")
-    # ref_mean_bg = loadimage(Path("/tmp/fond_apres_mean.tif"))
+    # saveimage(mean_bg, "/tmp/zooprocess/mean_bg.tif")
+    # ref_mean_bg = loadimage(Path("/tmp/zooprocess/fond_apres_mean.tif"))
     # diff_actual_with_ref_and_source(ref_mean_bg, mean_bg, ref_mean_bg)
     # assert np.array_equal(ref_mean_bg, mean_bg)
 
-    # saveimage(adjusted_bg, Path("/tmp/resized_bg.tif"))
-    # ref_resized_bg = loadimage(Path("/tmp/fond_apres_resize.tif"))
+    # saveimage(adjusted_bg, Path("/tmp/zooprocess/resized_bg.tif"))
+    # ref_resized_bg = loadimage(Path("/tmp/zooprocess/fond_apres_resize.tif"))
     # diff_actual_with_ref_and_source(ref_resized_bg, adjusted_bg, ref_resized_bg)
     # if not np.array_equal(ref_resized_bg, adjusted_bg):
     #     nb_errors = diff_actual_with_ref_and_source(
@@ -189,13 +190,13 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     # Invert 8-bit
     sample_minus_background_image = 255 - sample_minus_background_image
 
-    # ref_after_sub_bg = loadimage(Path("/tmp/fond_apres_subs.tif"))
+    # ref_after_sub_bg = loadimage(Path("/tmp/zooprocess/fond_apres_subs.tif"))
     # diff_actual_with_ref_and_source(ref_after_sub_bg, sample_minus_background_image, ref_after_sub_bg)
     # assert np.array_equal(ref_after_sub_bg, sample_minus_background_image)
 
     sample_minus_background_image = crop_right(sample_minus_background_image, limitod)
 
-    # ref_after_sub_and_crop_bg = loadimage(Path("/tmp/fond_apres_subs_et_crop.tif"))
+    # ref_after_sub_and_crop_bg = loadimage(Path("/tmp/zooprocess/fond_apres_subs_et_crop.tif"))
     # diff_actual_with_ref_and_source(ref_after_sub_and_crop_bg, sample_minus_background_image, ref_after_sub_and_crop_bg)
     # assert np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image)
 
@@ -209,7 +210,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     )
 
     # ref_after_sub_and_crop_bg = loadimage(
-    #     Path("/tmp/fond_apres_subs_et_crop_et_clear.tif")
+    #     Path("/tmp/zooprocess/fond_apres_subs_et_crop_et_clear.tif")
     # )
     # if not np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image):
     #     diff_actual_with_ref_and_source(
@@ -230,7 +231,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     )
 
     # ref_after_sub_and_crop_bg = loadimage(
-    #     Path("/tmp/fond_apres_subs_et_crop_et_clear_et_lignes.tif")
+    #     Path("/tmp/zooprocess/fond_apres_subs_et_crop_et_clear_et_lignes.tif")
     # )
     # if not np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image):
     #     diff_actual_with_ref_and_source(
@@ -244,7 +245,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     expected_final_image = load_final_ref_image(folder, sample, index)
     assert sample_minus_background_image.shape == expected_final_image.shape
 
-    # saveimage(sample_minus_background_image, "/tmp/final_with_bg.tif")
+    # saveimage(sample_minus_background_image, "/tmp/zooprocess/final_with_bg.tif")
     # compare
     # Always add separator mask, if present
     work_files = folder.zooscan_scan.work.get_files(sample, index)
@@ -264,7 +265,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
 
     if not np.array_equal(expected_final_image, sample_minus_background_image):
         save_diff_image(
-            expected_final_image, sample_minus_background_image, Path("/tmp/diff.jpg")
+            expected_final_image, sample_minus_background_image, Path("/tmp/zooprocess/diff.jpg")
         )
         # assert False
         nb_real_errors = diff_actual_with_ref_and_source(
@@ -303,47 +304,13 @@ def test_segmentation(projects, tmp_path, project, sample):
     index = 1  # TODO: should come from get_names() below
     vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
-    work_files = folder.zooscan_scan.work.get_files(sample, index)
-    measures = work_files["meas"]
-    measures_types = {
-        "BX": int,
-        "BY": int,
-        "Width": int,
-        "Height": int,
-        "Area": int,
-        "%Area": float,
-        "XStart": int,
-        "YStart": int,
-        "Major": float,
-        "Minor": float,
-        "Angle": float,
-    }
-    ref = read_result_csv(measures, measures_types)
-    # This filter is _after_ measurements in ImageJ
-    ref = [
-        a_ref
-        for a_ref in ref
-        if a_ref["Width"] / a_ref["Height"] < Segmenter.max_w_to_h_ratio
-    ]
-    sort_by_coords(ref)
-    if "%Area" in measures_types:
-        for a_ref in ref:
-            a_ref["%Area"] = round(
-                a_ref["%Area"], 3
-            )  # Sometimes there are more decimals in measurements
-    if "Angle" in measures_types:
-        for a_ref in ref:
-            a_ref["Angle"] = round(
-                a_ref["Angle"], 3
-            )  # Sometimes there are more decimals in measurements
+    ref = read_measurements(folder, sample, index)
     # TODO: Add threshold (AKA 'upper= 243' in config) here
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
-    # found_rois = segmenter.find_blobs(
-    #     Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
-    # )
     found_rois = segmenter.find_blobs(
-        # Segmenter.LEGACY_COMPATIBLE
+        Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
     )
+    # found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
     # found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
     # found_rois = segmenter.find_blobs()
     segmenter.split_by_blobs(found_rois)
@@ -487,7 +454,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
                 #     right=an_act["BX"] + an_act["Width"],
                 # )
                 print(f"in new only {num}:{a_new}")
-                # saveimage(vig, f"/tmp/diff_{num}.png")
+                # saveimage(vig, f"/tmp/zooprocess/diff_{num}.png")
                 draw_roi(vis1, a_new, 4)
         # if len(not_in_new) > 0:
         #     for num, a_compat in enumerate(not_in_new):
@@ -499,10 +466,10 @@ def test_algo_diff(projects, tmp_path, project, sample):
         #         #     right=an_act["BX"] + an_act["Width"],
         #         # )
         #         print(f"in compat only {num}:{a_compat}")
-        #         # saveimage(vig, f"/tmp/diff_{num}.png")
+        #         # saveimage(vig, f"/tmp/zooprocess/diff_{num}.png")
         #         draw_roi(vis1, a_compat, 8)
         # if len(not_in_compat) + len(not_in_new) > 0:
-        #     saveimage(vis1, f"/tmp/dif_on_{sample}.tif")
+        #     saveimage(vis1, f"/tmp/zooprocess/dif_on_{sample}.tif")
         # assert not_in_compat == [], "Extra NEW"
     # if len(not_in_act) > 0:
     # for num, a_ref in enumerate(ref):
@@ -522,7 +489,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
     #         (0,),
     #         4,
     #     )
-    #     saveimage(vis1, "/tmp/diff.tif")
+    #     saveimage(vis1, "/tmp/zooprocess/diff.tif")
     assert found_feats_new == found_feats_compat
     # assert different == []
     # assert not_in_act == []
@@ -596,7 +563,7 @@ def visual_diffs(actual, expected, sample, tgt_img):
         #     right=an_act["BX"] + an_act["Width"],
         # )
         print(f"extra {num}:{an_act}")
-        # saveimage(vig, f"/tmp/diff_{num}.png")
+        # saveimage(vig, f"/tmp/zooprocess/diff_{num}.png")
         cv2.rectangle(
             tgt_img,
             (an_act["BX"], an_act["BY"]),
@@ -622,7 +589,7 @@ def visual_diffs(actual, expected, sample, tgt_img):
             4,
         )
     if len(different) or len(not_in_act) or len(not_in_ref):
-        saveimage(tgt_img, f"/tmp/dif_on_{sample}.tif")
+        saveimage(tgt_img, f"/tmp/zooprocess/dif_on_{sample}.tif")
     return different, not_in_act, not_in_ref
 
 
