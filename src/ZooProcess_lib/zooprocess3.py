@@ -260,7 +260,7 @@ class zooprocessv10:
         Smmax = (3.1416 / 4) * pow(maxsize, 2);
         Spmax = round(Smmax / (pow(pixel, 2)));
 
-        return (Spmin, Spmax)
+        return Spmin, Spmax
 
     def threshold_binary(self, image, thresh_min=0, thresh_max=255, path: Path = None):
         th, mask = cv2.threshold(image, thresh_min, thresh_max, cv2.THRESH_BINARY)

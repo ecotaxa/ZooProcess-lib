@@ -4,8 +4,8 @@ import cv2
 import numpy as np
 from numpy import ndarray
 
-from ZooProcess_lib.ROI import ROI
-from ZooProcess_lib.Segmenters.ExternalContours import ExternalContoursSegmenter
+from ..ROI import ROI
+from ..segmenters.ExternalContours import ExternalContoursSegmenter
 
 
 class RecursiveContoursSegmenter(object):

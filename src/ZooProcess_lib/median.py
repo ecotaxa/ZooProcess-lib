@@ -65,5 +65,5 @@ def picheral_median(image:np.ndarray):
 
     print(f"median: {median}, mean: {mean}")
 
-    return (median,mean)
+    return median,mean
 

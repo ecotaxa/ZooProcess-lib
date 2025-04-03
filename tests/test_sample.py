@@ -265,7 +265,9 @@ def test_raw_to_work(projects, tmp_path, project, sample):
 
     if not np.array_equal(expected_final_image, sample_minus_background_image):
         save_diff_image(
-            expected_final_image, sample_minus_background_image, Path("/tmp/zooprocess/diff.jpg")
+            expected_final_image,
+            sample_minus_background_image,
+            Path("/tmp/zooprocess/diff.jpg"),
         )
         # assert False
         nb_real_errors = diff_actual_with_ref_and_source(
@@ -427,11 +429,13 @@ def test_algo_diff(projects, tmp_path, project, sample):
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
 
     # found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
-    found_rois_new = segmenter.find_blobs()
+    found_rois_new = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR)
     found_feats_new = [a_roi.features for a_roi in found_rois_new]
     sort_by_coords(found_feats_new)
 
-    found_rois_compat = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
+    found_rois_compat = segmenter.find_blobs(
+        Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR
+    )
     found_feats_compat = [a_roi.features for a_roi in found_rois_compat]
     sort_by_coords(found_feats_compat)
 
@@ -514,7 +518,7 @@ def sort_by_coords(features: List[Dict]):
     "segmentation_method",
     [
         Segmenter.METH_TOP_CONTOUR,
-        Segmenter.LEGACY_COMPATIBLE,
+        Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR,
         # Segmenter.METH_RETR_TREE,
         Segmenter.METH_CONNECTED_COMPONENTS,
     ],

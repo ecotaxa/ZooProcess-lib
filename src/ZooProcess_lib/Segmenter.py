@@ -8,10 +8,10 @@ from numpy import ndarray
 
 from .EllipseFitter import EllipseFitter
 from .ROI import ROI, feature_unq
-from .Segmenters.ConnectedComponents import ConnectedComponentsSegmenter
-from .Segmenters.ExternalContours import ExternalContoursSegmenter
-from .Segmenters.RecursiveContours import RecursiveContoursSegmenter
 from .img_tools import cropnp
+from .segmenters.ConnectedComponents import ConnectedComponentsSegmenter
+from .segmenters.ExternalContours import ExternalContoursSegmenter
+from .segmenters.RecursiveContours import RecursiveContoursSegmenter
 
 
 class Segmenter(object):
@@ -44,7 +44,7 @@ class Segmenter(object):
         self.s_p_min = round(sm_min / (pow(pixel, 2)))
         self.s_p_max = round(sm_max / (pow(pixel, 2)))
 
-    def find_blobs(self, method: int = METH_TOP_CONTOUR) -> List[ROI]:
+    def find_blobs(self, method: int) -> List[ROI]:
         # Threshold the source image to have a b&w mask
         thresh_max = self.THRESH_MAX
         # mask is white objects on black background
@@ -54,6 +54,9 @@ class Segmenter(object):
         # saveimage(inv_mask, "/tmp/inv_mask.tif")
         self.sanity_check(inv_mask)
         if method & self.LEGACY_COMPATIBLE:
+            assert (
+                method - self.LEGACY_COMPATIBLE != 0
+            ), "Sub-method is mandatory for legacy mode"
             if self.width > self.Wlimit and self.height > self.Hlimit:
                 return self.find_particles_legacy_way(inv_mask, method)
         return self.find_particles_with_method(inv_mask, method)
@@ -209,6 +212,7 @@ class Segmenter(object):
                 sub_labels = cropnp(
                     image=labels, top=y, left=x, bottom=y + h, right=x + w
                 )
+                # noinspection PyUnresolvedReferences # seen as bool by PyCharm
                 sub_mask = (sub_labels == cc_id).astype(
                     dtype=np.uint8
                 ) * 255  # 255=shape, 0=not in shape

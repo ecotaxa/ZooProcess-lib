@@ -1,4 +1,5 @@
 import math
+import mmap
 from datetime import datetime
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, Callable, Union
@@ -214,6 +215,27 @@ def load_zipped_image(file_path: Path) -> np.ndarray:
         the_file = inside[0]
         file_content = np.frombuffer(img_zip.read(the_file), np.uint8)
         return cv2.imdecode(file_content, flags=cv2.IMREAD_UNCHANGED)
+
+
+# Is not needed in python 3.13, https://github.com/python/cpython/issues/111835
+class SeekableMmap(mmap.mmap):
+    def seekable(self):
+        return False
+
+
+def load_zipped_image_using_mmap(file_path: Path) -> np.ndarray:
+    assert file_path.name.lower().endswith(".zip")
+    print(f"Loading {file_path}")
+    with open(file_path, mode="rb") as file_obj:
+        with SeekableMmap(
+            file_obj.fileno(), length=0, access=mmap.ACCESS_READ
+        ) as mmap_obj:
+            with ZipFile(mmap_obj, "r") as img_zip:
+                inside = img_zip.filelist
+                assert len(inside) == 1
+                the_file = inside[0]
+                file_content = np.frombuffer(img_zip.read(the_file), np.uint8)
+                return cv2.imdecode(file_content, flags=cv2.IMREAD_UNCHANGED)
 
 
 def properties(image, title=None, showMatrix=False) -> None:
@@ -785,7 +807,7 @@ def picheral_median(image: np.ndarray):
 
     print(f"median: {median}, mean: {mean}")
 
-    return (median, mean)
+    return median, mean
 
 
 def separate_apply_mask(filename_image, filename_mask) -> np.ndarray:
