@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import List, Tuple
 
@@ -23,21 +24,9 @@ class ConnectedComponentsSegmenter:
         print("Number of cc found: ", retval)
         filtering_stats = [0] * 7
         maybe_kept, filtering_stats[0:1] = cls.prefilter(stats, s_p_min)
-        fitting_criteria = []
+        ret = []
         in_shape = np.zeros((height, width), dtype=np.uint8)
         for x, y, w, h, area_excl_holes, cc_id in maybe_kept:
-            # The cc bounding rect is the whole image minus borders, filter it but don't exclude inside
-            # TODO: 2 sub-cases: either the whole area is included,
-            #  or there is a band around the whole image
-            # if (
-            #     x == 0
-            #     and y == 0
-            #     and x + w == width
-            #     and y + h == height
-            #     # and area_excl_holes > w * h / 2  # TODO: Not accurate
-            # ):
-            #     filtering_stats[3] += 1
-            #     continue
 
             # Proceed to more expensive filtering
             holes, filled_mask = cls.get_regions(
@@ -71,7 +60,7 @@ class ConnectedComponentsSegmenter:
 
             cls.prevent_inclusion(in_shape, filled_mask, x, y, w, h)
 
-            fitting_criteria.append(
+            ret.append(
                 ROI(
                     features={
                         "BX": int(x),
@@ -84,8 +73,6 @@ class ConnectedComponentsSegmenter:
                     contour=None,
                 )
             )
-        # ret = cls.remove_in_holes(fitting_criteria, width, height)
-        ret = fitting_criteria
         print("Initial", retval, "filter stats", filtering_stats, "left", len(ret))
         return ret
 
@@ -143,78 +130,62 @@ class ConnectedComponentsSegmenter:
         labels: ndarray, cc_id: int, x: int, y: int, w: int, h: int, area_excl: int
     ) -> Tuple[ndarray, ndarray]:
         # before = time.time()
-        # print("get_regions size:", w * h)
         height, width = labels.shape[:2]
         empty_ratio = h * w // area_excl
         # Compute filled area
-        complete_contour = x == 0 and y == 0 and x + w == width and y + h == height
-        if empty_ratio > 100 and not complete_contour:
+        if empty_ratio > 20:
             # It's a bit faster to draw the shapes inside sparse shapes
             sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
             # noinspection PyUnresolvedReferences
             obj_mask = (sub_labels == cc_id).astype(
                 dtype=np.uint8
-            )  # 0=not in shape (either around shape or inside), 1=shape
-            contours, (hierarchy,) = cv2.findContours(
+            ) * 255  # 0=not in shape (either around shape or inside), 255=shape
+            contours, _ = cv2.findContours(
                 obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
             )
 
-            sub_mask = np.zeros_like(obj_mask)
-            cv2.drawContours(
-                image=sub_mask,
-                contours=contours,
-                contourIdx=0,
-                color=(255,),
-                thickness=cv2.FILLED,
-            )  # 0=not in filled shape, 255=filled shape
-
             # Despite all the efforts made to avoid it (e.g. small holes in border lines so contour detection algo
             # can sneak inside particles area), sometimes the first contour is an _outer_ one. It can be fitting perfectly
-            # around the border lines to image borders, or, when there are tiny holes in border lines, all holes could be filled
+            # around the border lines to image borders, or, when there are tiny holes in border lines, all holes could be covered
             # in by some object or noise.
             # Historical algorithm is immune to this problem, because when taking 2 slices, one vertical side is completely opened
             # and contour detection will find everything. But it raises other issues like lost big particles.
-            # BUT, OTOH, sometimes there could be only 3 full borders, resulting in same contour, but an inner
-            # one. We distinguish by sampling the central pixel.
+            #
+            # OTOH, sometimes there could be only 3 full borders, resulting in same contour, but an inner
+            # one as usually.
+            #
+            # First case manifest itself as an inner contour filling nearly all the image. It's geometrically OK as a
+            # hole inside the shape, but we get rid of it.
+            #
             # ConnectedComponentsSegmenter.debug_cc_comp_contour(obj_mask, contours)
-            if complete_contour and sub_mask[height // 2, width // 2] == 255:
-                cv2.drawContours(
-                    image=obj_mask,
-                    contours=contours,
-                    contourIdx=0,
-                    color=(0,),
-                    thickness=1,  # filled -> inside + contour
-                )
-                contours, (hierarchy,) = cv2.findContours(
-                    obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
-                )
-                ConnectedComponentsSegmenter.debug_cc_comp_contour(obj_mask, contours)
-                sub_mask = np.zeros_like(obj_mask)
-                cv2.drawContours(
-                    image=sub_mask,
-                    contours=contours,
-                    contourIdx=0,
-                    color=(255,),
-                    thickness=cv2.FILLED,
-                )  # 0=not in filled shape, 255=filled shape
-                sub_mask[0, 0] = 255  # produce a fake first pixel for x_start
-                # saveimage(obj_mask, "/tmp/zooprocess/coutour_corr.tif")
-            # Holes are in second-level of RETR_CCOMP method output
+            if x == 0 and y == 0 and x + w == width and y + h == height:
+                to_remove = None
+                big_area_threshold = height * width * 8 / 10
+                for contour_ndx in range(1, len(contours)):
+                    if cv2.contourArea(contours[contour_ndx]) > big_area_threshold:
+                        to_remove = contour_ndx
+                        break
+                if to_remove is not None:
+                    contours = list(contours)
+                    del contours[to_remove]
+
+            # Holes are in second level of RETR_CCOMP method output
             holes = np.zeros_like(obj_mask)  # 0:non-hole 255:hole
             cv2.drawContours(
                 image=holes,
                 contours=contours[1:],
                 contourIdx=-1,
                 color=(255,),
-                thickness=cv2.FILLED,  # filled -> inside + contour
+                thickness=cv2.FILLED,  # FILLED -> inside + contour
             )  # 0=not in hole, 255=hole
             cv2.drawContours(
                 image=holes,
                 contours=contours[1:],
                 contourIdx=-1,
                 color=(0,),
-                thickness=1,  # fix the "contour' part of cv2.FILLED above
+                thickness=1,  # fix the 'contour' part of cv2.FILLED above
             )  # 0=not in hole, 255=hole
+            sub_mask = obj_mask | holes
         else:
             if x == 0 or y == 0 or x + w == width or y + h == height:
                 sub_labels = cropnp(
@@ -228,7 +199,7 @@ class ConnectedComponentsSegmenter:
                     obj_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
                 )
             else:
-                # Wa can save the copyMakeBorder by picking around the existing lines
+                # Wa can save the copyMakeBorder above by picking around the existing lines
                 sub_labels = cropnp(
                     image=labels,
                     top=y - 1,
@@ -247,22 +218,13 @@ class ConnectedComponentsSegmenter:
                 newVal=(128,),
                 flags=4,  # 4-pixel connectivity, don't cross a cc border
             )  # 0=not part of shape but inside it i.e. holes, 255=shape, 128=outside border
-            if complete_contour:
-                cv2.floodFill(
-                    image=obj_mask,
-                    mask=None,
-                    seedPoint=(height // 2, width // 2),
-                    newVal=(128,),
-                    flags=4,  # 4-pixel connectivity, don't cross a cc border
-                )
-                # saveimage(obj_mask, "/tmp/zooprocess/obj_mask.tif")
             sub_mask = cropnp(image=obj_mask, top=1, left=1, bottom=h + 1, right=w + 1)
             holes = sub_mask == 0  # False:non-hole True:hole
             sub_mask[holes] = 255
             sub_mask[sub_mask == 128] = 0
-            # elapsed = int((time.time() - before) * 10000)
-            # if elapsed > 0:
-            #     print("get_regions:", elapsed, " ratio ", empty_ratio, w, h)
+        # elapsed = int((time.time() - before) * 10000)
+        # if elapsed > 0:
+        #     print("get_regions:", elapsed, " ratio ", empty_ratio, w, h)
         return holes, sub_mask
 
     @staticmethod
