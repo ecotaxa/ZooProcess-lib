@@ -7,7 +7,7 @@ Translated from Java to Python with additional error handling and type safety.
 """
 
 import math
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import cv2
 import numpy as np
@@ -50,6 +50,13 @@ class EllipseFitter:
         self._u20: float = 0.0  # central moment u20
         self._u02: float = 0.0  # central moment u02
         self._u11: float = 0.0  # central moment u11
+
+    def __str__(self):
+        return str(list(
+            (a, getattr(self, a))
+            for a in dir(self)
+            if isinstance(getattr(self, a), (int, float))
+        ))
 
     def fit(self, mask: ndarray) -> None:
         """

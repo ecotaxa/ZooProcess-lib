@@ -389,37 +389,31 @@ extra_big = [
 ]
 
 missingd = [
-    (APERO, "apero2023_tha_bioness_014_st46_n_n7_d2_1_sur_2"),
     (APERO, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2"),
+    (APERO, "apero2023_tha_bioness_014_st46_n_n7_d2_1_sur_2"),
     (APERO1, "apero2023_tha_bioness_005_st20_d_n1_d1_1_sur_2"),
     (APERO1, "apero2023_tha_bioness_005_st20_d_n1_d1_2_sur_2"),
     (APERO1, "apero2023_tha_bioness_005_st20_d_n3_d1_3_sur_4"),
     (APERO1, "apero2023_tha_bioness_017_st66_d_n3_d2_1_sur_1"),
 ]
 
+more_than25_is_black = [(APERO1, "apero2023_tha_bioness_018_st66_n_n8_d3")]
+
 wrong_mask_maybe_gives_no_roi_when_legacy_has = [
     (APERO1, "apero2023_tha_bioness_013_st46_d_n1_d2_1_sur_1"),
 ]
 
-more_than25 = [(APERO1, "apero2023_tha_bioness_018_st66_n_n8_d3")]
-
 
 @pytest.mark.parametrize(
     "project, sample",
-    one_contour,
-    ids=[sample for (_prj, sample) in one_contour],
-    # [
-    #     (APERO1, "apero2023_tha_bioness_005_st20_d_n2_d1_2_sur_2"),
-    #     (APERO, "apero2023_tha_bioness_013_st46_d_n7_d3"), # Single contour
-    # (APERO, "apero2023_tha_bioness_014_st46_n_n6_d1_1_sur_1"),
-    # (TRIATLAS, "m158_mn18_n2_d1_1_sur_4"),
-    # (APERO, "apero2023_tha_bioness_014_st46_n_n7_d1_2_sur_4"), # 1 missing object
-    # (APERO, "apero2023_tha_bioness_014_st46_n_n7_d2_1_sur_2"), # 1 missing object
-    # ],
-    # project = 'Zooscan_apero_tha_bioness_sup2000_sn033'
-    # sample = 'apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_3_sur_4'
+    tested_samples,
+    ids=[sample for (_prj, sample) in tested_samples],
 )
 def test_algo_diff(projects, tmp_path, project, sample):
+    """
+    Read ROIs using legacy algorithm and CC one.
+    The differences have to fit in expected patterns.
+    """
     folder = ZooscanFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
     vis1 = load_final_ref_image(folder, sample, index)
@@ -428,8 +422,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
     # TODO: Add threshold (AKA 'upper= 243' in config) here
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
 
-    # found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
-    found_rois_new = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR)
+    found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
     found_feats_new = [a_roi.features for a_roi in found_rois_new]
     sort_by_coords(found_feats_new)
 
