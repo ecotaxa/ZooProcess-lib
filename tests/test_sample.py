@@ -403,6 +403,8 @@ wrong_mask_maybe_gives_no_roi_when_legacy_has = [
     (APERO1, "apero2023_tha_bioness_013_st46_d_n1_d2_1_sur_1"),
 ]
 
+different_algo_diff_outputs = sorted(extra_big + missingd + more_than25_is_black)
+
 
 @pytest.mark.parametrize(
     "project, sample",
@@ -433,64 +435,39 @@ def test_algo_diff(projects, tmp_path, project, sample):
     sort_by_coords(found_feats_compat)
 
     if found_feats_compat != found_feats_new:
+        # Boundaries of the problematic area
+        central_band_end = int(segmenter.width * segmenter.overlap)
+        central_band_start = segmenter.width - int(segmenter.width * segmenter.overlap)
+
         different, not_in_compat, not_in_new = diff_dict_lists(
             found_feats_compat, found_feats_new, feature_unq
         )
-        assert different == []
-        # for a_diff in different:
-        #     a_ref, an_act = a_diff
-        #     print(a_ref)
-        #     print("->", an_act)
-        if len(not_in_compat) > 0:
-            for num, a_new in enumerate(not_in_compat):
-                # vig = cropnp(
-                #     image=vis1,
-                #     top=an_act["BY"],
-                #     left=an_act["BX"],
-                #     bottom=an_act["BY"] + an_act["Height"],
-                #     right=an_act["BX"] + an_act["Width"],
-                # )
-                print(f"in new only {num}:{a_new}")
-                # saveimage(vig, f"/tmp/zooprocess/diff_{num}.png")
-                draw_roi(vis1, a_new, 4)
-        # if len(not_in_new) > 0:
-        #     for num, a_compat in enumerate(not_in_new):
-        #         # vig = cropnp(
-        #         #     image=vis1,
-        #         #     top=an_act["BY"],
-        #         #     left=an_act["BX"],
-        #         #     bottom=an_act["BY"] + an_act["Height"],
-        #         #     right=an_act["BX"] + an_act["Width"],
-        #         # )
-        #         print(f"in compat only {num}:{a_compat}")
-        #         # saveimage(vig, f"/tmp/zooprocess/diff_{num}.png")
-        #         draw_roi(vis1, a_compat, 8)
-        # if len(not_in_compat) + len(not_in_new) > 0:
-        #     saveimage(vis1, f"/tmp/zooprocess/dif_on_{sample}.tif")
-        # assert not_in_compat == [], "Extra NEW"
-    # if len(not_in_act) > 0:
-    # for num, a_ref in enumerate(ref):
-    #     cv2.rectangle(
-    #         vis1,
-    #         (a_ref["BX"], a_ref["BY"]),
-    #         (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
-    #         (0,),
-    #         1,
-    #     )
-    # for num, a_ref in enumerate(not_in_act):
-    #     print(f"missing ref {num}:{a_ref}")
-    #     cv2.rectangle(
-    #         vis1,
-    #         (a_ref["BX"], a_ref["BY"]),
-    #         (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
-    #         (0,),
-    #         4,
-    #     )
-    #     saveimage(vis1, "/tmp/zooprocess/diff.tif")
-    assert found_feats_new == found_feats_compat
-    # assert different == []
-    # assert not_in_act == []
-    # assert not_in_ref == []
+        assert different == []  # If on both sides they have to be equal, whatever.
+
+        # We have in 'new' version extra particles which were removed from legacy
+        # as they touch both borders of a 20% vertical band in the middle of the image.
+        # So in either processed band they are eliminated.
+        for a_new in not_in_compat:
+            x1, x2 = a_new["BX"], a_new["BX"] + a_new["Width"]
+            assert x1 <= central_band_start and x2 >= central_band_end
+
+        # We have in 'new' version missing particles, which were wrongly included in legacy.
+        # e.g. Big object A embeds small object B and is crossed by central_band_start line
+        #    (but not by both lines otherwise it's above case).
+        #      Legacy:
+        #           A in split in 2 by central_band_start computed above, giving Aleft and Aright.
+        #           B ends up in Aright (in central band).
+        #           While processing right band, Aright is eliminated as it touches a border
+        #           BUT B is not seen as 'inside Aright' so it survives.
+        #           Legacy finds OK particle A in full while processing left band.
+        #       New:
+        #           A is detected and B is seen as 'embedded', so B is eliminated.
+        for a_compat in not_in_new:
+            x1, x2 = a_compat["BX"], a_compat["BX"] + a_compat["Width"]
+            assert (
+                central_band_start <= x1 <= central_band_end
+                and central_band_start <= x2 <= central_band_end
+            )
 
 
 def draw_roi(image: np.ndarray, features: Features, thickness: int = 1):

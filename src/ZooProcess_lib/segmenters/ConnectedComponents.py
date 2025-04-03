@@ -73,7 +73,7 @@ class ConnectedComponentsSegmenter:
                     contour=None,
                 )
             )
-        print("Initial", retval, "filter stats", filtering_stats, "left", len(ret))
+        print("Initial CCs", retval, "filter stats", filtering_stats, "left", len(ret))
         return ret
 
     @classmethod

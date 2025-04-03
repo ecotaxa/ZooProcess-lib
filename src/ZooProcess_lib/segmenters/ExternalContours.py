@@ -73,7 +73,7 @@ class ExternalContoursSegmenter:
                 )
             )
         print(
-            "Initial", len(contours), "filter stats", filtering_stats, "left", len(ret)
+            "Initial contours", len(contours), "filter stats", filtering_stats, "left", len(ret)
         )
         # image_3channels = draw_contours(self.image, self.contours)
         # saveimage(image_3channels, Path("/tmp/contours.tif"))
