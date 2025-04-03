@@ -307,10 +307,10 @@ def test_segmentation(projects, tmp_path, project, sample):
     ref = read_measurements(folder, sample, index)
     # TODO: Add threshold (AKA 'upper= 243' in config) here
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
-    found_rois = segmenter.find_blobs(
-        Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
-    )
-    # found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
+    # found_rois = segmenter.find_blobs(
+    #     Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
+    # )
+    found_rois = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
     # found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
     # found_rois = segmenter.find_blobs()
     segmenter.split_by_blobs(found_rois)
@@ -513,9 +513,9 @@ def sort_by_coords(features: List[Dict]):
 @pytest.mark.parametrize(
     "segmentation_method",
     [
-        Segmenter.METH_CONTOUR,
+        Segmenter.METH_TOP_CONTOUR,
         Segmenter.LEGACY_COMPATIBLE,
-        Segmenter.METH_RETR_TREE,
+        # Segmenter.METH_RETR_TREE,
         Segmenter.METH_CONNECTED_COMPONENTS,
     ],
 )

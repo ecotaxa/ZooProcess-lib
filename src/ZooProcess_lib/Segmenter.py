@@ -28,9 +28,9 @@ class Segmenter(object):
     # For filtering horizontal lines
     max_w_to_h_ratio = 40
 
-    METH_CONTOUR = 1
+    METH_TOP_CONTOUR = 1
     METH_CONNECTED_COMPONENTS = 2
-    METH_RETR_TREE = 4
+    METH_CONTOUR_TREE = 4
     LEGACY_COMPATIBLE = 16
 
     def __init__(self, image: ndarray, minsize: float, maxsize: float):
@@ -44,7 +44,7 @@ class Segmenter(object):
         self.s_p_min = round(sm_min / (pow(pixel, 2)))
         self.s_p_max = round(sm_max / (pow(pixel, 2)))
 
-    def find_blobs(self, method: int = METH_CONTOUR) -> List[ROI]:
+    def find_blobs(self, method: int = METH_TOP_CONTOUR) -> List[ROI]:
         # Threshold the source image to have a b&w mask
         thresh_max = self.THRESH_MAX
         # mask is white objects on black background
@@ -54,42 +54,47 @@ class Segmenter(object):
         # saveimage(inv_mask, "/tmp/inv_mask.tif")
         self.sanity_check(inv_mask)
         if method & self.LEGACY_COMPATIBLE:
-            # Process image in 2 overlapping parts, split vertically.
-            # There is a side effect in that objects in the middle 20% band can appear if embedded or disappear if too large.
             if self.width > self.Wlimit and self.height > self.Hlimit:
-                overlap_size = int(self.width * self.overlap)
-                left_mask = cropnp(
-                    inv_mask, top=0, left=0, bottom=self.height, right=overlap_size
-                )
-                left_rois = self.find_particles_with_method(method, left_mask)
-                right_mask = cropnp(
-                    inv_mask,
-                    top=0,
-                    left=self.width - overlap_size,
-                    bottom=self.height,
-                    right=self.width,
-                )
-                right_rois = self.find_particles_with_method(method, right_mask)
-                # Fix coordinates from right pane
-                for right_roi in right_rois:
-                    right_roi.features["BX"] += self.width - overlap_size
-                # Merge ROI lists
-                key_func = lambda r: feature_unq(r.features)
-                right_by_key = {key_func(ri): ri for ri in right_rois}
-                left_by_key = {key_func(le): le for le in left_rois}
-                assert len(left_by_key) == len(left_rois)
-                assert len(right_by_key) == len(right_rois)
-                for right_key, right_roi in right_by_key.items():
-                    if right_key in left_by_key:
-                        _left_roi = left_by_key[right_key]  # Unused so far
-                # Add different
-                for left_key, left_roi in left_by_key.items():
-                    if left_key not in right_by_key:
-                        right_by_key[left_key] = left_roi
-                return list(right_by_key.values())
-        return self.find_particles_with_method(method, inv_mask)
+                return self.find_particles_legacy_way(inv_mask, method)
+        return self.find_particles_with_method(inv_mask, method)
 
-    def find_particles_with_method(self, method: int, inv_mask: ndarray) -> List[ROI]:
+    def find_particles_legacy_way(self, inv_mask: ndarray, method: int):
+        # Process image in 2 overlapping parts, split vertically.
+        # There is a good side effect that, when borders are all around the image, it works.
+        # BUT as well the bad side effect that objects in the middle 20% band can appear if embedded
+        # or disappear if too large.
+        overlap_size = int(self.width * self.overlap)
+        left_mask = cropnp(
+            inv_mask, top=0, left=0, bottom=self.height, right=overlap_size
+        )
+        left_rois = self.find_particles_with_method(left_mask, method)
+        right_mask = cropnp(
+            inv_mask,
+            top=0,
+            left=self.width - overlap_size,
+            bottom=self.height,
+            right=self.width,
+        )
+        right_rois = self.find_particles_with_method(right_mask, method)
+        # Fix coordinates from right pane
+        for right_roi in right_rois:
+            right_roi.features["BX"] += self.width - overlap_size
+        # Merge ROI lists
+        key_func = lambda r: feature_unq(r.features)
+        right_by_key = {key_func(ri): ri for ri in right_rois}
+        left_by_key = {key_func(le): le for le in left_rois}
+        assert len(left_by_key) == len(left_rois)
+        assert len(right_by_key) == len(right_rois)
+        for right_key, right_roi in right_by_key.items():
+            if right_key in left_by_key:
+                _left_roi = left_by_key[right_key]  # Unused so far
+        # Add different
+        for left_key, left_roi in left_by_key.items():
+            if left_key not in right_by_key:
+                right_by_key[left_key] = left_roi
+        return list(right_by_key.values())
+
+    def find_particles_with_method(self, inv_mask: ndarray, method: int) -> List[ROI]:
         # Required measurements:
         #       area bounding area_fraction limit decimal=2
         # Result:
@@ -99,8 +104,8 @@ class Segmenter(object):
             return ConnectedComponentsSegmenter.find_particles_via_cc(
                 inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio
             )
-        elif method & self.METH_RETR_TREE:
-            # Universal, but very slow on noisy images, collapses from second to ten of minutes
+        elif method & self.METH_CONTOUR_TREE:
+            # Universal, but very slow on noisy images, collapses from seconds to ten of minutes
             # saveimage(inv_mask, "/tmp/bef_denoised.tif")
             #
             # self.denoise_particles_via_cc(inv_mask, self.s_p_min)

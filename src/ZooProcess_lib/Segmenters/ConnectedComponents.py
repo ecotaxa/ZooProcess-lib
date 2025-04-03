@@ -147,7 +147,7 @@ class ConnectedComponentsSegmenter:
             # Despite all the efforts made to avoid it (e.g. small holes in border lines so contour detection algo
             # can sneak inside particles area), sometimes the first contour is an _outer_ one. It can be fitting perfectly
             # around the border lines to image borders, or, when there are tiny holes in border lines, all holes could be covered
-            # in by some object or noise.
+            # in by some particle or noise.
             # Historical algorithm is immune to this problem, because when taking 2 slices, one vertical side is completely opened
             # and contour detection will find everything. But it raises other issues like lost big particles.
             #
