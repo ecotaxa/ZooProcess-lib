@@ -52,11 +52,13 @@ class EllipseFitter:
         self._u11: float = 0.0  # central moment u11
 
     def __str__(self):
-        return str(list(
-            (a, getattr(self, a))
-            for a in dir(self)
-            if isinstance(getattr(self, a), (int, float))
-        ))
+        return str(
+            list(
+                (a, getattr(self, a))
+                for a in dir(self)
+                if isinstance(getattr(self, a), (int, float))
+            )
+        )
 
     def fit(self, mask: ndarray) -> None:
         """
@@ -151,19 +153,25 @@ class EllipseFitter:
         This method calculates various sums from the mask data that are
         used to compute the central moments of the ROI.
         """
-        _xsum = _ysum = _x2sum = _y2sum = _xysum = _bit_count = 0
+        # Transfer x coords of 'on' pixels into their place
+        ndx_mat = np.zeros_like(self._mask, dtype=np.int32)
+        nz = np.nonzero(self._mask)
+        # A zero here means both "previous value from init" or "there is an 'on' pixel at x=0"
+        ndx_mat[nz] = nz[1]
 
-        for y in range(self._height):
-            nz_line = np.nonzero(self._mask[y])[0]
-            _x2sum += np.sum(nz_line * nz_line)
-            x_sum_of_line = np.sum(nz_line)
-            bit_count_of_line = nz_line.shape[0]
+        line_counts = np.sum(self._mask != 0, axis=1)
+        _bit_count = np.sum(line_counts)
 
-            _xsum += x_sum_of_line
-            _ysum += bit_count_of_line * y
-            _xysum += x_sum_of_line * y
-            _y2sum += y * y * bit_count_of_line
-            _bit_count += bit_count_of_line
+        line_sums = np.sum(ndx_mat, axis=1)
+        _xsum = np.sum(line_sums)
+
+        ndx_squares = np.sum(np.square(ndx_mat), axis=1)
+        _x2sum = np.sum(ndx_squares)
+
+        y_s = np.arange(self._height)
+        _ysum = np.sum(line_counts * y_s)
+        _y2sum = np.sum(np.square(y_s) * line_counts)
+        _xysum = np.sum(line_sums * y_s)
 
         (
             self._xsum,

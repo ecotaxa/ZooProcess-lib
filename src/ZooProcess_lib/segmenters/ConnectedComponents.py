@@ -27,7 +27,6 @@ class ConnectedComponentsSegmenter:
         ret = []
         in_shape = np.zeros((height, width), dtype=np.uint8)
         for x, y, w, h, area_excl_holes, cc_id in maybe_kept:
-
             # Proceed to more expensive filtering
             holes, filled_mask = cls.get_regions(
                 labels, cc_id, x, y, w, h, area_excl_holes
@@ -159,12 +158,8 @@ class ConnectedComponentsSegmenter:
             #
             # ConnectedComponentsSegmenter.debug_cc_comp_contour(obj_mask, contours)
             if x == 0 and y == 0 and x + w == width and y + h == height:
-                to_remove = None
                 big_area_threshold = height * width * 8 / 10
-                for contour_ndx in range(1, len(contours)):
-                    if cv2.contourArea(contours[contour_ndx]) > big_area_threshold:
-                        to_remove = contour_ndx
-                        break
+                to_remove = ConnectedComponentsSegmenter.find_contours_above(contours, big_area_threshold)
                 if to_remove is not None:
                     contours = list(contours)
                     del contours[to_remove]
@@ -226,6 +221,13 @@ class ConnectedComponentsSegmenter:
         # if elapsed > 0:
         #     print("get_regions:", elapsed, " ratio ", empty_ratio, w, h)
         return holes, sub_mask
+
+    @staticmethod
+    def find_contours_above(contours, big_area_threshold):
+        for contour_ndx in range(1, len(contours)):
+            if cv2.contourArea(contours[contour_ndx]) > big_area_threshold:
+                return contour_ndx
+        return None
 
     @staticmethod
     def debug_cc_comp_contour(obj_mask, contours):

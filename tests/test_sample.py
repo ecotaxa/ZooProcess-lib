@@ -294,36 +294,6 @@ def load_final_ref_image(folder, sample, index):
     return reference_image
 
 
-@pytest.mark.parametrize(
-    "project, sample",
-    # [(APERO_REDUCED, "apero2023_tha_bioness_014_st46_n_n9_d2_8_sur_8")],
-    # [(APERO_REDUCED2, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2")],
-    tested_samples,
-    ids=[sample for (_prj, sample) in tested_samples],
-)
-def test_segmentation(projects, tmp_path, project, sample):
-    folder = ZooscanFolder(projects, project)
-    index = 1  # TODO: should come from get_names() below
-    vis1 = load_final_ref_image(folder, sample, index)
-    conf = folder.zooscan_config.read()
-    ref = read_measurements(folder, sample, index)
-    # TODO: Add threshold (AKA 'upper= 243' in config) here
-    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
-    # found_rois = segmenter.find_blobs(
-    #     Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
-    # )
-    found_rois = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
-    # found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
-    # found_rois = segmenter.find_blobs()
-    segmenter.split_by_blobs(found_rois)
-
-    found = [a_roi.features for a_roi in found_rois]
-    sort_by_coords(found)
-    if found != ref:
-        different, not_in_act, not_in_ref = visual_diffs(found, ref, sample, vis1)
-    assert found == ref
-
-
 one_contour = [
     (APERO, "apero2023_tha_bioness_013_st46_d_n4_d1_1_sur_1"),
     (APERO, "apero2023_tha_bioness_013_st46_d_n4_d2_1_sur_2"),
@@ -411,6 +381,36 @@ different_algo_diff_outputs = sorted(extra_big + missingd + more_than25_is_black
     tested_samples,
     ids=[sample for (_prj, sample) in tested_samples],
 )
+def test_segmentation(projects, tmp_path, project, sample):
+    folder = ZooscanFolder(projects, project)
+    index = 1  # TODO: should come from get_names() below
+    vis1 = load_final_ref_image(folder, sample, index)
+    conf = folder.zooscan_config.read()
+    ref = read_measurements(folder, sample, index)
+    # TODO: Add threshold (AKA 'upper= 243' in config) here
+    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
+    found_rois = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
+    segmenter.split_by_blobs(found_rois)
+
+    found = [a_roi.features for a_roi in found_rois]
+    sort_by_coords(found)
+    if found != ref:
+        rois_compat = segmenter.find_blobs(
+            Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR
+        )
+        segmenter.split_by_blobs(rois_compat)
+        found = [a_roi.features for a_roi in rois_compat]
+        sort_by_coords(found)
+        if found != ref:
+            different, not_in_act, not_in_ref = visual_diffs(found, ref, sample, vis1)
+    assert found == ref
+
+
+@pytest.mark.parametrize(
+    "project, sample",
+    tested_samples,
+    ids=[sample for (_prj, sample) in tested_samples],
+)
 def test_algo_diff(projects, tmp_path, project, sample):
     """
     Read ROIs using legacy algorithm and CC one.
@@ -434,6 +434,16 @@ def test_algo_diff(projects, tmp_path, project, sample):
     found_feats_compat = [a_roi.features for a_roi in found_rois_compat]
     sort_by_coords(found_feats_compat)
 
+    enclosing_rectangles = [
+        (
+            a_new["BX"],
+            a_new["BY"],
+            a_new["BX"] + a_new["Width"],
+            a_new["BY"] + a_new["Height"],
+        )
+        for a_new in found_feats_new
+    ]
+
     if found_feats_compat != found_feats_new:
         # Boundaries of the problematic area
         central_band_end = int(segmenter.width * segmenter.overlap)
@@ -452,22 +462,34 @@ def test_algo_diff(projects, tmp_path, project, sample):
             assert x1 <= central_band_start and x2 >= central_band_end
 
         # We have in 'new' version missing particles, which were wrongly included in legacy.
-        # e.g. Big object A embeds small object B and is crossed by central_band_start line
-        #    (but not by both lines otherwise it's above case).
+        # e.g. Big object A 'embeds' small object B and is crossed by only central_band_start line
+        #    (if crossed by both lines it's above case).
         #      Legacy:
         #           A in split in 2 by central_band_start computed above, giving Aleft and Aright.
         #           B ends up in Aright (in central band).
-        #           While processing right band, Aright is eliminated as it touches a border
+        #           While processing right band, Aright is eliminated as it touches a border.
         #           BUT B is not seen as 'inside Aright' so it survives.
-        #           Legacy finds OK particle A in full while processing left band.
+        #           As legacy finds OK particle A in full (while processing left band), we
+        #               have B which is included in A, impossible otherwise.
         #       New:
         #           A is detected and B is seen as 'embedded', so B is eliminated.
         for a_compat in not_in_new:
             x1, x2 = a_compat["BX"], a_compat["BX"] + a_compat["Width"]
+            y1, y2 = a_compat["BY"], a_compat["BY"] + a_compat["Height"]
             assert (
                 central_band_start <= x1 <= central_band_end
                 and central_band_start <= x2 <= central_band_end
             )
+            # Not 100% accurate as we should compare masks, but enough for a test
+            parent = [
+                a_rect
+                for a_rect in enclosing_rectangles
+                if a_rect[0] <= x1 <= a_rect[2]
+                and a_rect[0] <= x2 <= a_rect[2]
+                and a_rect[1] <= y1 <= a_rect[3]
+                and a_rect[1] <= y2 <= a_rect[3]
+            ]
+            assert len(parent) >= 1
 
 
 def draw_roi(image: np.ndarray, features: Features, thickness: int = 1):
