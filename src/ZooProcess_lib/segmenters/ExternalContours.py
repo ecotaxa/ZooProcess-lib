@@ -9,7 +9,7 @@ from ..ROI import ROI
 
 class ExternalContoursSegmenter:
     @classmethod
-    def find_particles(
+    def find_particles_contours(
         cls, inv_mask: np.ndarray, s_p_min: int, s_p_max: int, max_w_to_h_ratio: float
     ) -> List[ROI]:
         # ImageJ calls args are similar to:

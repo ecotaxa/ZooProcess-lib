@@ -117,7 +117,7 @@ class Segmenter(object):
                 inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio
             )
         else:
-            return ExternalContoursSegmenter.find_particles(
+            return ExternalContoursSegmenter.find_particles_contours(
                 inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio
             )
 

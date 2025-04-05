@@ -407,6 +407,38 @@ def test_segmentation(projects, tmp_path, project, sample):
     assert found == ref
 
 
+# TRES LENT (minutes) si do_full_image_regions
+#        /Zooscan_iado_wp2_2021_sn002/Zooscan_scan/_work/t_22_6_tot_1/t_22_6_tot_1_vis1.zip
+#        > 25% black: /Zooscan_apero_tha_bioness_sn033/Zooscan_scan/_work/apero2023_tha_bioness_017_st66_d_n7_d2_2_sur_2_1
+
+# min: 1.43 max: 14.53 avg: 3.36 mean: 3.36 stddev: 2.74
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_005_st20_d_n5_d2_7_sur_8') time: 9.220950221002568 score: 2.1390329273732
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_005_st20_d_n6_d2_2_sur_8') time: 10.122247557999799 score: 2.467973561313795
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_005_st20_d_n7_d1_1_sur_1') time: 8.910890585000743 score: 2.0258724762776437
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_005_st20_d_n7_d2_2_sur_4') time: 9.059331119999115 score: 2.0800478540142757
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_005_st20_d_n7_d2_3_sur_4') time: 9.037640021000698 score: 2.072131394525802
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_005_st20_d_n7_d2_4_sur_4') time: 8.985328556998866 score: 2.053039619342652
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_006_st20_n_n7_d1_2_sur_2') time: 11.438748902997759 score: 2.9484485047437077
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_017_st66_d_n3_d3') time: 9.504851375997532 score: 2.2426464875903402
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_017_st66_d_n7_d2_2_sur_2') time: 8.999405242997454 score: 2.0581770959844725
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_018_st66_n_n5_d1_1_sur_1') time: 9.103037269000197 score: 2.0959990032847435
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_018_st66_n_n5_d2_1_sur_2') time: 9.15029166200111 score: 2.1132451321171932
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_018_st66_n_n5_d2_2_sur_2') time: 9.191119891998824 score: 2.128145945984972
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_018_st66_n_n5_d3') time: 9.179760746999818 score: 2.1240002726276708
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_018_st66_n_n6_d1_1_sur_1') time: 14.52888735000306 score: 4.076236259125205
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_018_st66_n_n8_d3') time: 12.768916317996627 score: 3.4339110649622726
+
+# min: 1.24 max: 31.26 avg: 3.13 mean: 3.13 stddev: 2.62
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_005_st20_d_n6_d2_2_sur_8') time: 8.582134183001472 score: 2.080967245420409
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_005_st20_d_n6_d2_6_sur_8') time: 8.779860276998079 score: 2.1564352202282744
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_006_st20_n_n7_d1_2_sur_2') time: 9.01265724300174 score: 2.245289024046466
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_006_st20_n_n9_d2_1_sur_4') time: 10.280500679000397 score: 2.7291987324428995
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_013_st46_d_n1_d1_1_sur_2') time: 8.544385868000973 score: 2.0665594916034244
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_017_st66_d_n4_d2_2_sur_2') time: 9.629918854996504 score: 2.480885059158971
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_017_st66_d_n7_d2_2_sur_2') time: 9.4120114690013 score: 2.397714301145534
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_018_st66_n_n6_d1_1_sur_1') time: 15.56034653000097 score: 4.744407072519454
+# Fails for sample: ('Zooscan_apero_tha_bioness_sn033', 'apero2023_tha_bioness_018_st66_n_n8_d3') time: 31.262469840003178 score: 10.73758390839816
+
 def test_linear_response_time(projects, tmp_path):
     """Assert that response time does not explode, even for tricky/unusual cases.
     Note: Cannot be done in pytest parametrized test, which are isolated"""
@@ -435,6 +467,14 @@ def test_linear_response_time(projects, tmp_path):
         )
     ]
     print("min:", min, "max:", max, "avg:", avg, "mean:", mean, "stddev:", stddev)
+    z_scores = (np_times - mean) / stddev
+    max_zscore = 2
+    for a_sample, its_time, its_score in zip(test_set, spent_times, z_scores ):
+        if abs(its_score) > max_zscore:
+            print("Fails for sample:", a_sample, "time:", its_time, "score:", its_score)
+    assert np.argmax(np.abs(z_scores) > max_zscore) == 0
+
+
 @pytest.mark.parametrize(
     "project, sample",
     tested_samples,

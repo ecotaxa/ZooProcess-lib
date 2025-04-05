@@ -23,11 +23,17 @@ class ConnectedComponentsSegmenter:
 
         print("Number of cc found: ", retval)
         filtering_stats = [0] * 7
-        maybe_kept, filtering_stats[0:1] = cls.prefilter(stats, s_p_min)
+        maybe_kept, filtering_stats[0:2] = cls.prefilter(stats, s_p_min)
         ret = []
-        in_shape = np.zeros((height, width), dtype=np.uint8)
+        # Note: The labels matrix is used for marking exclusion zones as well
         for x, y, w, h, area_excl_holes, cc_id in maybe_kept:
             # Proceed to more expensive filtering
+
+            first_on = np.argmax(labels[y, x : x + w] == cc_id)
+            if first_on == 0:
+                # Shape was erased, i.e. excluded
+                filtering_stats[2] += 1
+                continue
             holes, filled_mask = cls.get_regions(
                 labels, cc_id, x, y, w, h, area_excl_holes
             )
@@ -41,7 +47,7 @@ class ConnectedComponentsSegmenter:
 
             # Eliminate if touching any border
             if x == 0 or y == 0 or x + w == width or y + h == height:
-                cls.prevent_inclusion(in_shape, filled_mask, x, y, w, h)
+                cls.prevent_inclusion(labels, holes, x, y, w, h)
                 filtering_stats[3] += 1
                 continue
             # Criteria from parameters
@@ -49,7 +55,7 @@ class ConnectedComponentsSegmenter:
                 filtering_stats[4] += 1
                 continue
             if area > s_p_max:
-                cls.prevent_inclusion(in_shape, filled_mask, x, y, w, h)
+                cls.prevent_inclusion(labels, holes, x, y, w, h)
                 filtering_stats[5] += 1
                 continue
             ratiobxby = w / h
@@ -57,7 +63,7 @@ class ConnectedComponentsSegmenter:
                 filtering_stats[6] += 1
                 continue
 
-            cls.prevent_inclusion(in_shape, filled_mask, x, y, w, h)
+            cls.prevent_inclusion(labels, holes, x, y, w, h)
 
             ret.append(
                 ROI(
@@ -76,10 +82,11 @@ class ConnectedComponentsSegmenter:
         return ret
 
     @classmethod
-    def prevent_inclusion(cls, in_shape, filled_mask, x, y, w, h):
-        in_shape[y : y + h, x : x + w] = np.bitwise_or(
-            in_shape[y : y + h, x : x + w], filled_mask
-        )
+    def prevent_inclusion(cls, shape: ndarray, mask: ndarray, x, y, w, h):
+        """
+        Mark exclusion zone in shape. "0" in shape means allowed, so warp a bit outside.
+        """
+        shape[y : y + h, x : x + w] += mask
 
     @classmethod
     def prefilter(
@@ -101,15 +108,15 @@ class ConnectedComponentsSegmenter:
         ret = np.concatenate((cc_stats[offs:], indices), axis=1)
         # 1-pixel line, including single point
         by_size_1 = ret[:, cv2.CC_STAT_WIDTH] > 1
+        size_flt = len(ret) - int(np.sum(by_size_1))
         ret = ret[by_size_1]
-        size_flt = len(by_size_1)
         by_size_2 = ret[:, cv2.CC_STAT_HEIGHT] > 1
+        size_flt += len(ret) - int(np.sum(by_size_2))
         ret = ret[by_size_2]
-        size_flt += len(by_size_2)
         # Even if contour was around a filled rectangle it would not meet min criterion
-        by_area = ret[:, cv2.CC_STAT_WIDTH] * ret[:, cv2.CC_STAT_HEIGHT]
-        ret = ret[by_area > s_p_min]
-        area_flt = len(by_area)
+        by_area = ret[:, cv2.CC_STAT_WIDTH] * ret[:, cv2.CC_STAT_HEIGHT] > int(s_p_min)
+        area_flt = len(ret) - int(np.sum(by_area))
+        ret = ret[by_area]
         return ret, (size_flt, area_flt)
 
     @classmethod
@@ -133,7 +140,7 @@ class ConnectedComponentsSegmenter:
         empty_ratio = h * w // area_excl
         # Compute filled area
         if empty_ratio > 20:
-            # It's a bit faster to draw the shapes inside sparse shapes
+            # It's a bit faster to draw the hole shapes inside sparse shapes
             sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
             # noinspection PyUnresolvedReferences
             obj_mask = (sub_labels == cc_id).astype(
@@ -183,6 +190,7 @@ class ConnectedComponentsSegmenter:
             sub_mask = obj_mask | holes
         else:
             if x == 0 or y == 0 or x + w == width or y + h == height:
+                # The shape touches an image border
                 sub_labels = cropnp(
                     image=labels, top=y, left=x, bottom=y + h, right=x + w
                 )
@@ -190,6 +198,7 @@ class ConnectedComponentsSegmenter:
                 obj_mask = (sub_labels == cc_id).astype(
                     dtype=np.uint8
                 ) * 255  # 0=not in shape (either around shape or inside), 255=shape
+                # Draw lines around for the floodFill to spread all around
                 obj_mask = cv2.copyMakeBorder(
                     obj_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
                 )
