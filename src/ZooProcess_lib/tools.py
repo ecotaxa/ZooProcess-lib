@@ -1,22 +1,25 @@
 import os
 import sys
+import time
 from pathlib import Path
+from typing import Callable, Any, Tuple
 
 
 def nameit(func):
     from functools import wraps
+
     @wraps(func)
     def nameit_wrapper(*args, **kwargs):
-        print(f'Running: {func.__name__}')
+        print(f"Running: {func.__name__}")
         result = func(*args, **kwargs)
         return result
 
     return nameit_wrapper
 
 
-def timeit(func):
+def timeit(func: Callable) -> Callable:
     """
-    Decorator to calculate the time take by a function
+    Decorator to print the time taken by a function
     use with
         @timeit
         def fn2mesure(somesArgs): ...
@@ -26,18 +29,25 @@ def timeit(func):
     """
 
     from functools import wraps
+
     @wraps(func)
     def timeit_wrapper(*args, **kwargs):
-        import time
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        total_time = end_time - start_time
+        total_time, result = measure_time(func, *args, **kwargs)
         # first item in the args, ie `args[0]` is `self`
-        print(f'Function {func.__name__!r}{args} {kwargs} Took {total_time:.4f} seconds')
+        print(
+            f"Function {func.__name__!r}{args} {kwargs} Took {total_time:.4f} seconds"
+        )
         return result
 
     return timeit_wrapper
+
+
+def measure_time(func: Callable, *args, **kwargs) -> Tuple[float, Any]:
+    start_time = time.perf_counter()
+    result = func(*args, **kwargs)
+    end_time = time.perf_counter()
+    total_time = end_time - start_time
+    return total_time, result
 
 
 def eprint(*args, **kwargs):

@@ -22,6 +22,7 @@ from ZooProcess_lib.img_tools import (
     draw_outside_lines,
     saveimage,
 )
+from ZooProcess_lib.tools import measure_time
 from .env_fixture import projects, read_home
 from .projects_for_test import (
     APERO2000,
@@ -406,6 +407,34 @@ def test_segmentation(projects, tmp_path, project, sample):
     assert found == ref
 
 
+def test_linear_response_time(projects, tmp_path):
+    """Assert that response time does not explode, even for tricky/unusual cases.
+    Note: Cannot be done in pytest parametrized test, which are isolated"""
+    test_set = tested_samples
+    spent_times = []
+    for project, sample in test_set:
+        folder = ZooscanFolder(projects, project)
+        index = 1  # TODO: should come from get_names() below
+        vis1 = load_final_ref_image(folder, sample, index)
+        conf = folder.zooscan_config.read()
+        # TODO: Add threshold (AKA 'upper= 243' in config) here
+        segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
+        spent, _found_rois = measure_time(
+            segmenter.find_blobs, Segmenter.METH_CONNECTED_COMPONENTS
+        )
+        spent_times.append(spent)
+    np_times = np.array(spent_times)
+    min, max, avg, mean, stddev = [
+        round(m, 2)
+        for m in (
+            np.min(spent_times),
+            np.max(spent_times),
+            np.average(np_times),
+            np.mean(np_times),
+            np.std(np_times),
+        )
+    ]
+    print("min:", min, "max:", max, "avg:", avg, "mean:", mean, "stddev:", stddev)
 @pytest.mark.parametrize(
     "project, sample",
     tested_samples,
