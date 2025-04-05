@@ -35,15 +35,11 @@ class ConnectedComponentsSegmenter:
                 filtering_stats[2] += 1
                 continue
             holes, filled_mask = cls.get_regions(
+
+            holes, obj_mask = cls.get_regions(
                 labels, cc_id, x, y, w, h, area_excl_holes
             )
             area = area_excl_holes + np.count_nonzero(holes)
-            start_x = x + np.argmax(filled_mask == 255)
-
-            if in_shape[y, start_x] != 0:
-                # Excluded
-                filtering_stats[2] += 1
-                continue
 
             # Eliminate if touching any border
             if x == 0 or y == 0 or x + w == width or y + h == height:
@@ -74,7 +70,7 @@ class ConnectedComponentsSegmenter:
                         "Height": int(h),
                         "Area": int(area),
                     },
-                    mask=filled_mask,
+                    mask=obj_mask + holes,
                     contour=None,
                 )
             )
@@ -180,6 +176,7 @@ class ConnectedComponentsSegmenter:
                 color=(255,),
                 thickness=cv2.FILLED,  # FILLED -> inside + contour
             )  # 0=not in hole, 255=hole
+            # Above 'holes' is not pixel-exact as the edge b/w object and holes is drawn
             cv2.drawContours(
                 image=holes,
                 contours=contours[1:],
@@ -187,7 +184,7 @@ class ConnectedComponentsSegmenter:
                 color=(0,),
                 thickness=1,  # fix the 'contour' part of cv2.FILLED above
             )  # 0=not in hole, 255=hole
-            sub_mask = obj_mask | holes
+            sub_mask = obj_mask
         else:
             if x == 0 or y == 0 or x + w == width or y + h == height:
                 # The shape touches an image border
@@ -215,17 +212,12 @@ class ConnectedComponentsSegmenter:
                 obj_mask = (sub_labels == cc_id).astype(
                     dtype=np.uint8
                 ) * 255  # 0=not in shape (either around shape or inside), 255=shape
+            holes = 255 - obj_mask  # 255=around 0=shape 255=holes
             cv2.floodFill(
-                image=obj_mask,
-                mask=None,
-                seedPoint=(0, 0),
-                newVal=(128,),
-                flags=4,  # 4-pixel connectivity, don't cross a cc border
-            )  # 0=not part of shape but inside it i.e. holes, 255=shape, 128=outside border
+                holes, mask=None, seedPoint=(0, 0), newVal=(0,)
+            )  # 0=around 0=shape 255=holes
             sub_mask = cropnp(image=obj_mask, top=1, left=1, bottom=h + 1, right=w + 1)
-            holes = sub_mask == 0  # False:non-hole True:hole
-            sub_mask[holes] = 255
-            sub_mask[sub_mask == 128] = 0
+            holes = cropnp(image=holes, top=1, left=1, bottom=h + 1, right=w + 1)
         # elapsed = int((time.time() - before) * 10000)
         # if elapsed > 0:
         #     print("get_regions:", elapsed, " ratio ", empty_ratio, w, h)
