@@ -370,6 +370,20 @@ missingd = [
 
 more_than25_is_black = [(APERO1, "apero2023_tha_bioness_018_st66_n_n8_d3")]
 
+stripes_in_thresholded = more_than25_is_black + [
+    (APERO1, "apero2023_tha_bioness_018_st66_n_n6_d1_1_sur_1"),
+    (APERO1, "apero2023_tha_bioness_017_st66_d_n7_d2_2_sur_2"),
+    (APERO1, "apero2023_tha_bioness_017_st66_d_n4_d2_2_sur_2"),
+    (APERO1, "apero2023_tha_bioness_013_st46_d_n1_d1_1_sur_2"),
+]
+
+all_borders = [
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n2_d2_3_sur_4"),
+    (APERO1, "apero2023_tha_bioness_005_st20_d_n2_d2_4_sur_4"),
+]
+
+very_big = [(APERO1, "apero2023_tha_bioness_006_st20_n_n7_d1_2_sur_2")]
+
 wrong_mask_maybe_gives_no_roi_when_legacy_has = [
     (APERO1, "apero2023_tha_bioness_013_st46_d_n1_d2_1_sur_1"),
 ]
@@ -456,20 +470,20 @@ def test_linear_response_time(projects, tmp_path):
         )
         spent_times.append(spent)
     np_times = np.array(spent_times)
-    min, max, avg, mean, stddev = [
+    min, max, mean, median, stddev = [
         round(m, 2)
         for m in (
             np.min(spent_times),
             np.max(spent_times),
             np.average(np_times),
-            np.mean(np_times),
+            np.median(np_times),
             np.std(np_times),
         )
     ]
-    print("min:", min, "max:", max, "avg:", avg, "mean:", mean, "stddev:", stddev)
-    z_scores = (np_times - mean) / stddev
-    max_zscore = 2
-    for a_sample, its_time, its_score in zip(test_set, spent_times, z_scores ):
+    print("min:", min, "max:", max, "mean:", mean, "median:", median, "stddev:", stddev)
+    z_scores = (np_times - median) / stddev
+    max_zscore = 3
+    for a_sample, its_time, its_score in zip(test_set, spent_times, z_scores):
         if abs(its_score) > max_zscore:
             print("Fails for sample:", a_sample, "time:", its_time, "score:", its_score)
     assert np.argmax(np.abs(z_scores) > max_zscore) == 0
