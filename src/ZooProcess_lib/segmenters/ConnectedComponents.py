@@ -1,4 +1,4 @@
-import time
+import math
 from pathlib import Path
 from typing import List, Tuple
 
@@ -19,9 +19,14 @@ class ConnectedComponentsSegmenter:
         cls, inv_mask: ndarray, s_p_min: int, s_p_max: int, max_w_to_h_ratio: float
     ) -> List[ROI]:
         height, width = inv_mask.shape[:2]
-        labels, retval, stats = cls.extract_ccs(inv_mask)
-
-        print("Number of cc found: ", retval)
+        hnoise = cls.horizontal_noise_ratio(inv_mask)  # takes a few tens of ms
+        if hnoise > 1:
+            before = cls.denoise(inv_mask, s_p_min)
+            labels, retval, stats = cls.extract_ccs(inv_mask)
+            print("Noisy! number of cc removed: ", before, "then found: ", retval)
+        else:
+            labels, retval, stats = cls.extract_ccs(inv_mask)
+            print("Number of cc found: ", retval)
         filtering_stats = [0] * 7
         maybe_kept, filtering_stats[0:2] = cls.prefilter(stats, s_p_min)
         ret = []
@@ -34,8 +39,6 @@ class ConnectedComponentsSegmenter:
                 # Shape was erased, i.e. excluded
                 filtering_stats[2] += 1
                 continue
-            holes, filled_mask = cls.get_regions(
-
             holes, obj_mask = cls.get_regions(
                 labels, cc_id, x, y, w, h, area_excl_holes
             )
@@ -143,8 +146,6 @@ class ConnectedComponentsSegmenter:
                 labels, cc_id, x, y, w, h, height, width
             )
         else:
-            holes, sub_mask = ConnectedComponentsSegmenter.get_regions_using_floodfill(labels, cc_id, x, y, w, h, width,
-                                                                                       height)
             holes, sub_mask = ConnectedComponentsSegmenter.get_regions_using_floodfill(
                 labels, cc_id, x, y, w, h, width, height
             )
@@ -235,7 +236,6 @@ class ConnectedComponentsSegmenter:
         sub_mask = obj_mask
         return holes, sub_mask
 
-
     @staticmethod
     def find_contours_above(contours, big_area_threshold):
         for contour_ndx in range(1, len(contours)):
@@ -250,3 +250,27 @@ class ConnectedComponentsSegmenter:
         cv2.drawContours(dbg_img_3chan, contours[0:1], -1, (255, 0, 0), cv2.FILLED)
         cv2.drawContours(dbg_img_3chan, contours[1:], -1, (0, 255, 0), cv2.FILLED)
         saveimage(dbg_img_3chan, Path("/tmp/zooprocess/contours.tif"))
+
+    @classmethod
+    def horizontal_noise_ratio(cls, inv_mask: ndarray) -> int:
+        """Number of != pixels from one line to another, in central region of the image"""
+        height, width = inv_mask.shape[:2]
+        excluded = int(height * 0.9) // 2
+        orig = inv_mask[excluded:-excluded]
+        below = inv_mask[excluded + 1 : -excluded + 1]
+        diff = orig ^ below
+        ret = int(np.sum(diff == 255) * 100 / ((height - excluded) * width))
+        return ret
+
+    @classmethod
+    def denoise(cls, inv_mask: ndarray, s_p_min: float) -> int:
+        """Remove connected components which cannot end up in final result"""
+        min_pixels = int(math.sqrt(s_p_min))
+        retval, labels = cv2.connectedComponents(
+            image=inv_mask, connectivity=8, ltype=cv2.CV_32S
+        )
+        unique, counts = np.unique(labels, return_counts=True)
+        to_erase = unique[np.where(counts < min_pixels)]
+        labels2 = np.isin(labels, to_erase)
+        inv_mask[labels2] = 0
+        return int(retval)

@@ -470,7 +470,7 @@ def test_linear_response_time(projects, tmp_path):
         )
         spent_times.append(spent)
     np_times = np.array(spent_times)
-    min, max, mean, median, stddev = [
+    min_, max_, mean, median, stddev = [
         round(m, 2)
         for m in (
             np.min(spent_times),
@@ -480,7 +480,7 @@ def test_linear_response_time(projects, tmp_path):
             np.std(np_times),
         )
     ]
-    print("min:", min, "max:", max, "mean:", mean, "median:", median, "stddev:", stddev)
+    print("min:", min_, "max:", max_, "mean:", mean, "median:", median, "stddev:", stddev)
     z_scores = (np_times - median) / stddev
     max_zscore = 3
     for a_sample, its_time, its_score in zip(test_set, spent_times, z_scores):
