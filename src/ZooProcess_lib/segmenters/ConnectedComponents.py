@@ -20,15 +20,17 @@ class ConnectedComponentsSegmenter:
     ) -> List[ROI]:
         height, width = inv_mask.shape[:2]
         hnoise = cls.horizontal_noise_ratio(inv_mask)  # takes a few tens of ms
-        if hnoise > 1:
+        denoised = False
+        if hnoise >= 1:
             before = cls.denoise(inv_mask, s_p_min)
+            denoised = True
             labels, retval, stats = cls.extract_ccs(inv_mask)
-            print("Noisy! number of cc removed: ", before, "then found: ", retval)
+            print("Noisy! number of initial CCs:", before, "then found: ", retval)
         else:
             labels, retval, stats = cls.extract_ccs(inv_mask)
             print("Number of cc found: ", retval)
-        filtering_stats = [0] * 7
-        maybe_kept, filtering_stats[0:2] = cls.prefilter(stats, s_p_min)
+        filtering_stats = [0] * 8
+        maybe_kept, filtering_stats[0:3] = cls.prefilter(stats, s_p_min, not denoised)
         ret = []
         # Note: The labels matrix is used for marking exclusion zones as well
         for x, y, w, h, area_excl_holes, cc_id in maybe_kept:
@@ -37,31 +39,34 @@ class ConnectedComponentsSegmenter:
             first_on = np.argmax(labels[y, x : x + w] == cc_id)
             if first_on == 0:
                 # Shape was erased, i.e. excluded
-                filtering_stats[2] += 1
+                filtering_stats[3] += 1
                 continue
+
+            touching = x == 0 or y == 0 or x + w == width or y + h == height
+
             holes, obj_mask = cls.get_regions(
                 labels, cc_id, x, y, w, h, area_excl_holes
             )
             area = area_excl_holes + np.count_nonzero(holes)
 
             # Eliminate if touching any border
-            if x == 0 or y == 0 or x + w == width or y + h == height:
+            if touching:
                 cls.prevent_inclusion(labels, holes, x, y, w, h)
-                filtering_stats[3] += 1
+                filtering_stats[4] += 1
                 continue
             # Criteria from parameters
             if area < s_p_min:
                 # print("Excluded region: ", w, h, area_excl_holes, area, s_p_min)
-                filtering_stats[4] += 1
+                filtering_stats[5] += 1
                 continue
             if area > s_p_max:
                 cls.prevent_inclusion(labels, holes, x, y, w, h)
-                filtering_stats[5] += 1
+                filtering_stats[6] += 1
                 continue
             # Horizontal stripes from scanner bed movement
             ratiobxby = w / h
             if ratiobxby > max_w_to_h_ratio:
-                filtering_stats[6] += 1
+                filtering_stats[7] += 1
                 continue
 
             cls.prevent_inclusion(labels, holes, x, y, w, h)
@@ -91,8 +96,8 @@ class ConnectedComponentsSegmenter:
 
     @classmethod
     def prefilter(
-        cls, cc_stats: ndarray, s_p_min: float
-    ) -> Tuple[ndarray, Tuple[int, int]]:
+        cls, cc_stats: ndarray, s_p_min: float, do_square: bool
+    ) -> Tuple[ndarray, Tuple[int, int, int]]:
         assert (
             cv2.CC_STAT_LEFT,
             cv2.CC_STAT_TOP,
@@ -107,18 +112,29 @@ class ConnectedComponentsSegmenter:
             (len(cc_stats) - offs, 1),
         )
         ret = np.concatenate((cc_stats[offs:], indices), axis=1)
-        # 1-pixel line, including single point
-        by_size_1 = ret[:, cv2.CC_STAT_WIDTH] > 1
-        size_flt = len(ret) - int(np.sum(by_size_1))
-        ret = ret[by_size_1]
-        by_size_2 = ret[:, cv2.CC_STAT_HEIGHT] > 1
-        size_flt += len(ret) - int(np.sum(by_size_2))
-        ret = ret[by_size_2]
+        # Even if all pixels formed a 1-pixel-wide square, adding the hole inside would not make enough
+        if do_square:
+            min_pixels = int(math.sqrt(s_p_min))
+            by_holes_area = ret[:, cv2.CC_STAT_AREA] > min_pixels
+            holes_area_flt = len(ret)
+            ret = ret[by_holes_area]
+            holes_area_flt -= len(ret)
+        else:
+            holes_area_flt = 0
         # Even if contour was around a filled rectangle it would not meet min criterion
         by_area = ret[:, cv2.CC_STAT_WIDTH] * ret[:, cv2.CC_STAT_HEIGHT] > int(s_p_min)
-        area_flt = len(ret) - int(np.sum(by_area))
+        area_flt = len(ret)
         ret = ret[by_area]
-        return ret, (size_flt, area_flt)
+        area_flt -= len(ret)
+        # 1-pixel lines
+        # TODO: a OR here (np.where or np.select?)
+        by_size_1 = ret[:, cv2.CC_STAT_WIDTH] > 1
+        size_flt = len(ret)
+        ret = ret[by_size_1]
+        by_size_2 = ret[:, cv2.CC_STAT_HEIGHT] > 1
+        ret = ret[by_size_2]
+        size_flt -= len(ret)
+        return ret, (holes_area_flt, area_flt, size_flt)
 
     @classmethod
     def extract_ccs(cls, inv_mask):
@@ -269,8 +285,9 @@ class ConnectedComponentsSegmenter:
         retval, labels = cv2.connectedComponents(
             image=inv_mask, connectivity=8, ltype=cv2.CV_32S
         )
-        unique, counts = np.unique(labels, return_counts=True)
-        to_erase = unique[np.where(counts < min_pixels)]
+
+        _unique, counts = np.unique(labels, return_counts=True)
+        to_erase = np.nonzero(counts <= min_pixels)
         labels2 = np.isin(labels, to_erase)
         inv_mask[labels2] = 0
         return int(retval)
