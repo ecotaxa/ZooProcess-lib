@@ -466,9 +466,11 @@ def test_linear_response_time(projects, tmp_path):
         conf = folder.zooscan_config.read()
         # TODO: Add threshold (AKA 'upper= 243' in config) here
         segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
-        spent, _found_rois = measure_time(
+        spent, found_rois = measure_time(
             segmenter.find_blobs, Segmenter.METH_CONNECTED_COMPONENTS
         )
+        # Minimal & fast
+        assert found_rois != []
         spent_times.append(spent)
         print(f"test #{num_test}: spent time: {spent:.2f}s")
     np_times = np.array(spent_times)

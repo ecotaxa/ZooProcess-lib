@@ -1,6 +1,6 @@
 import math
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Sequence
 
 import cv2
 import numpy as np
@@ -184,6 +184,17 @@ class ConnectedComponentsSegmenter:
             holes, sub_mask = ConnectedComponentsSegmenter.get_regions_using_floodfill(
                 labels, cc_id, cc
             )
+        # elapsed = int((time.time() - before) * 10000)
+        # if elapsed > 10:
+        #     print(
+        #         "get_regions:",
+        #         elapsed,
+        #         " ratio ",
+        #         empty_ratio,
+        #         (w, h),
+        #         " img ",
+        #         (width, height),
+        #     )
         return holes, sub_mask
 
     @staticmethod
@@ -262,40 +273,18 @@ class ConnectedComponentsSegmenter:
         sub_image = cropnp(
             image=inv_mask, top=cc.y, left=cc.x, bottom=cc.y + cc.h, right=cc.x + cc.w
         )
-        # Despite all the efforts made to avoid it (e.g. small holes in border lines so contour detection algo
-        # can sneak inside particles area), sometimes the first contour is an _outer_ one. It can be fitting perfectly
-        # around the border lines to image borders, or, when there are tiny holes in border lines, all holes could be covered
-        # in by some particle or noise.
-        # Historical algorithm is immune to this problem, because when taking 2 slices, one vertical side is completely opened
-        # and contour detection will find everything. But it raises other issues like lost big particles.
-        #
-        # OTOH, sometimes there could be only 3 full borders, resulting in same contour, but an inner
-        # one as usually.
-        #
-        # First case manifest itself as an inner contour filling nearly all the image. It's geometrically OK as a
-        # hole inside the shape, but we get rid of it.
-        #
-        # ConnectedComponentsSegmenter.debug_cc_comp_contour(obj_mask, contours)
-        if cc.entire:
-            big_area_threshold = cc.h * cc.w * 8 / 10
-            to_remove = ConnectedComponentsSegmenter.find_contours_above(
-                contours, big_area_threshold
-            )
-            if to_remove is not None:
-                # print("4 borders")
-                contours = list(contours)
-                del contours[to_remove]
-        # Holes are in second level of RETR_CCOMP method output
-        holes = np.zeros_like(obj_mask)
         ext_contours, _ = cv2.findContours(
             sub_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
         # Note: the contours returned _might_ include [truncated] neighbours as we look
         # in original mask not in the masked-by-cc_id one like in get_regions_using_floodfill
+        contour_4_cc = ConnectedComponentsSegmenter.find_matching_contour(
+            ext_contours, cc
+        )
+        assert contour_4_cc is not None, "Touching shape not found"
         if (
             cc.entire
-            and len(ext_contours) == 1
-            and cv2.contourArea(ext_contours[0]) > 0.9 * cc.w * cc.h
+            and cv2.contourArea(contour_4_cc) > 0.9 * cc.w * cc.h
         ):
             # Despite all the efforts made to avoid it (e.g. small holes in border lines so contour detection algo
             # can sneak inside particles area), sometimes the first contour is an _outer_ one. It can be fitting perfectly
@@ -312,25 +301,25 @@ class ConnectedComponentsSegmenter:
             print("4 borders closed")
             ConnectedComponentsSegmenter.ptci_full_4_borders(labels, cc_id, cc)
         else:
-            # We have 1 top-level contour which is our shape, and eventually neighbours around
-            for a_contour in ext_contours:
-                x_c, y_c, w_c, h_c = cv2.boundingRect(a_contour)
-                x_c, y_c = x_c + cc.x, y_c + cc.y  # Translate as we're in a sub-rect
-                if cc.is_at(x_c, y_c, w_c, h_c):
-                    ours = a_contour
-                    break
-            else:
-                assert False, "Touching shape not found"
             # Disable the full shape, we're done
-            # Note: It's a bit border-line as we use a drawing primitive inside a non-image.
+            # Note: It's a bit border-line as we use a drawing primitive on a non-image.
             cv2.drawContours(
                 image=labels,
-                contours=[ours],
+                contours=[contour_4_cc],
                 contourIdx=-1,
                 color=(1,),
                 thickness=cv2.FILLED,  # FILLED → inside + contour
             )
         return
+
+    @staticmethod
+    def find_matching_contour(contours: Sequence[ndarray], cc: CC) -> Optional[ndarray]:
+        for a_contour in contours:
+            x_c, y_c, w_c, h_c = cv2.boundingRect(a_contour)
+            x_c, y_c = x_c + cc.x, y_c + cc.y  # Translate as we're in a sub-rect
+            if cc.is_at(x_c, y_c, w_c, h_c):
+                return a_contour
+        return None
 
     @staticmethod
     def ptci_full_4_borders(labels: ndarray, cc_id: int, cc: CC):
@@ -366,6 +355,9 @@ class ConnectedComponentsSegmenter:
         # Above 'holes' is not pixel-exact as the edges b/w particle and holes is drawn, eliminate them
         holes ^= obj_mask
         return holes, obj_mask
+            thickness=cv2.FILLED,  # FILLED → inside (the hole itself) + contour (contour area, in the shape)
+        )
+
             thickness=cv2.FILLED,  # FILLED → inside (the hole itself) + contour (contour area, in the shape)
         )
 

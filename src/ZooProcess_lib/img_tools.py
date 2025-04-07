@@ -451,10 +451,18 @@ def crop_if_larger(image: np.ndarray, right: int, bottom: int) -> np.ndarray:
 
 
 def cropnp(
-    image: np.ndarray, top: int, left: int, bottom: int, right: int
+    image: np.ndarray,
+    top: Optional[int] = None,
+    left: Optional[int] = None,
+    bottom: Optional[int] = None,
+    right: Optional[int] = None,
 ) -> np.ndarray:
-    # Return a sub-image at given dimensions/coordinates
-    # !!! The sub-image is not a copy, it shares the memory with original image (fast but risky)
+    """Return a sub-image at given dimensions/coordinates
+    !!! The sub-image is not a copy, it shares the memory with original image (fast but risky)
+    """
+    assert (
+        top is not None or left is not None or bottom is not None or right is not None
+    )
     # cropped_image = img[80:280, 150:330]
     # start_row:end_row, start_col:end_col
     # print(top,left,bottom,right)
