@@ -175,9 +175,9 @@ class ConnectedComponentsSegmenter:
             # The shape touches an image border
             sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
             # noinspection PyUnresolvedReferences
-            obj_mask = (sub_labels == cc_id).astype(
-                dtype=np.uint8
-            ) * 255  # 0=not in shape (either around shape or inside), 255=shape
+            obj_mask = (
+                sub_labels == cc_id
+            )  # False=not in shape (either around shape or inside), True=shape
             # Draw lines around for the floodFill to spread all around
             obj_mask = cv2.copyMakeBorder(
                 obj_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
@@ -193,12 +193,12 @@ class ConnectedComponentsSegmenter:
             )
             # noinspection PyUnresolvedReferences
             obj_mask = (sub_labels == cc_id).astype(
-                dtype=np.uint8
-            ) * 255  # 0=not in shape (either around shape or inside), 255=shape
-        holes = 255 - obj_mask  # 255=around 0=shape 255=holes
+                np.uint8
+            )  # 0=not in shape (either around shape or inside), 1=shape
+        holes = ~obj_mask  # 1=around 0=shape 1=holes
         cv2.floodFill(
             holes, mask=None, seedPoint=(0, 0), newVal=(0,)
-        )  # 0=around 0=shape 255=holes
+        )  # False=around False=shape True=holes
         sub_mask = cropnp(image=obj_mask, top=1, left=1, bottom=h + 1, right=w + 1)
         holes = cropnp(image=holes, top=1, left=1, bottom=h + 1, right=w + 1)
         return holes, sub_mask
@@ -210,8 +210,8 @@ class ConnectedComponentsSegmenter:
         sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
         # noinspection PyUnresolvedReferences
         obj_mask = (sub_labels == cc_id).astype(
-            dtype=np.uint8
-        ) * 255  # 0=not in shape (either around shape or inside), 255=shape
+            np.uint8
+        )  # 0=not in shape (either around shape or inside), 1=shape
         contours, _ = cv2.findContours(
             obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
         )
@@ -239,18 +239,17 @@ class ConnectedComponentsSegmenter:
                 contours = list(contours)
                 del contours[to_remove]
         # Holes are in second level of RETR_CCOMP method output
-        holes = np.zeros_like(obj_mask)  # 0:non-hole 255:hole
+        holes = np.zeros_like(obj_mask)
         cv2.drawContours(
             image=holes,
             contours=contours[1:],
             contourIdx=-1,
-            color=(255,),
+            color=(1,),
             thickness=cv2.FILLED,  # FILLED -> inside + contour
-        )  # 0=not in hole, 255=hole
+        )  # 0=not in hole, 1=hole
         # Above 'holes' is not pixel-exact as the edges b/w particle and holes is drawn, eliminate them
         holes ^= obj_mask
-        sub_mask = obj_mask
-        return holes, sub_mask
+        return holes, obj_mask
 
     @staticmethod
     def find_contours_above(contours, big_area_threshold):
@@ -272,10 +271,10 @@ class ConnectedComponentsSegmenter:
         """Number of != pixels from one line to another, in central region of the image"""
         height, width = inv_mask.shape[:2]
         excluded = int(height * 0.9) // 2
-        orig = inv_mask[excluded:-excluded]
-        below = inv_mask[excluded + 1 : -excluded + 1]
+        orig = cropnp(image=inv_mask, top=excluded, bottom=-excluded)
+        below = cropnp(image=inv_mask, top=excluded + 1, bottom=-excluded + 1)
         diff = orig ^ below
-        ret = int(np.sum(diff == 255) * 100 / ((height - excluded) * width))
+        ret = int(np.sum(diff) * 100 / ((height - excluded) * width))
         return ret
 
     @classmethod

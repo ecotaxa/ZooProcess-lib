@@ -49,7 +49,7 @@ class Segmenter(object):
         thresh_max = self.THRESH_MAX
         # mask is white objects on black background
         _th, inv_mask = cv2.threshold(
-            self.image, thresh_max, 255, cv2.THRESH_BINARY_INV
+            self.image, thresh_max, 1, cv2.THRESH_BINARY_INV
         )
         # saveimage(inv_mask, "/tmp/inv_mask.tif")
         self.sanity_check(inv_mask)

@@ -19,7 +19,7 @@ class RecursiveContoursSegmenter(object):
         # image_3channels = draw_contours(inv_mask, contours, thickness=1)
         # saveimage(image_3channels, Path("/tmp/contours.tif"))
         # Fix by removing it.
-        # first_pixel = np.argmax(inv_mask[0] == 255)
+        # first_pixel = np.argmax(inv_mask[0] == 1)
         # saveimage(inv_mask, "/tmp/bef_flood.tif")
         # cv2.floodFill(
         #     image=inv_mask,
