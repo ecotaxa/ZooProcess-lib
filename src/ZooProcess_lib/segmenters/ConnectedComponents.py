@@ -10,6 +10,24 @@ from ..ROI import ROI
 from ..img_tools import cropnp, saveimage
 
 
+class CC:
+    __slots__ = "x", "y", "w", "h", "touching", "entire"
+    x: int
+    y: int
+    w: int
+    h: int
+    touching: bool  # The CC touches one border at least
+    entire: bool  # The CC touches all borders
+
+    def __init__(self, x: int, y: int, w: int, h: int, width: int, height: int):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.touching = x == 0 or y == 0 or x + w == width or y + h == height
+        self.entire = w == width and h == height
+
+
 class ConnectedComponentsSegmenter:
     def __init__(self, image):
         self.image = image
@@ -42,16 +60,14 @@ class ConnectedComponentsSegmenter:
                 filtering_stats[3] += 1
                 continue
 
-            touching = x == 0 or y == 0 or x + w == width or y + h == height
+            cc = CC(x, y, w, h, width, height)
 
-            holes, obj_mask = cls.get_regions(
-                labels, cc_id, x, y, w, h, area_excl_holes
-            )
+            holes, obj_mask = cls.get_regions(labels, cc_id, cc, area_excl_holes)
             area = area_excl_holes + np.count_nonzero(holes)
 
             # Eliminate if touching any border
-            if touching:
-                cls.prevent_inclusion(labels, holes, x, y, w, h)
+            if cc.touching:
+                cls.prevent_inclusion(labels, holes, cc)
                 filtering_stats[4] += 1
                 continue
             # Criteria from parameters
@@ -60,7 +76,7 @@ class ConnectedComponentsSegmenter:
                 filtering_stats[5] += 1
                 continue
             if area > s_p_max:
-                cls.prevent_inclusion(labels, holes, x, y, w, h)
+                cls.prevent_inclusion(labels, holes, cc)
                 filtering_stats[6] += 1
                 continue
             # Horizontal stripes from scanner bed movement
@@ -69,7 +85,7 @@ class ConnectedComponentsSegmenter:
                 filtering_stats[7] += 1
                 continue
 
-            cls.prevent_inclusion(labels, holes, x, y, w, h)
+            cls.prevent_inclusion(labels, holes, cc)
 
             ret.append(
                 ROI(
@@ -88,11 +104,11 @@ class ConnectedComponentsSegmenter:
         return ret
 
     @classmethod
-    def prevent_inclusion(cls, shape: ndarray, mask: ndarray, x, y, w, h):
+    def prevent_inclusion(cls, shape: ndarray, mask: ndarray, cc: CC):
         """
         Mark exclusion zone in shape. "0" in shape means allowed, so warp a bit outside.
         """
-        shape[y : y + h, x : x + w] += mask
+        shape[cc.y : cc.y + cc.h, cc.x : cc.x + cc.w] += mask
 
     @classmethod
     def prefilter(
@@ -150,34 +166,35 @@ class ConnectedComponentsSegmenter:
 
     @staticmethod
     def get_regions(
-        labels: ndarray, cc_id: int, x: int, y: int, w: int, h: int, area_excl: int
+        labels: ndarray, cc_id: int, cc: CC, area_excl: int
     ) -> Tuple[ndarray, ndarray]:
         # before = time.time()
-        height, width = labels.shape[:2]
-        empty_ratio = h * w // area_excl
+        empty_ratio = cc.h * cc.w // area_excl
         # Compute filled area
         if empty_ratio > 20:
             # It's a bit faster to draw the hole shapes inside sparse shapes
             holes, sub_mask = ConnectedComponentsSegmenter.get_regions_using_contours(
-                labels, cc_id, x, y, w, h, height, width
+                labels, cc_id, cc
             )
         else:
             holes, sub_mask = ConnectedComponentsSegmenter.get_regions_using_floodfill(
-                labels, cc_id, x, y, w, h, width, height
+                labels, cc_id, cc
             )
         return holes, sub_mask
 
     @staticmethod
     def get_regions_using_floodfill(
-        labels: ndarray, cc_id: int, x, y, w, h, width, height
+        labels: ndarray, cc_id: int, cc: CC
     ) -> Tuple[ndarray, ndarray]:
-        if x == 0 or y == 0 or x + w == width or y + h == height:
+        if cc.touching:
             # The shape touches an image border
-            sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
+            sub_labels = cropnp(
+                image=labels, top=cc.y, left=cc.x, bottom=cc.y + cc.h, right=cc.x + cc.w
+            )
             # noinspection PyUnresolvedReferences
-            obj_mask = (
-                sub_labels == cc_id
-            )  # False=not in shape (either around shape or inside), True=shape
+            obj_mask = (sub_labels == cc_id).astype(
+                np.uint8
+            )  # 0=not in shape (either around shape or inside), 1=shape
             # Draw lines around for the floodFill to spread all around
             obj_mask = cv2.copyMakeBorder(
                 obj_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
@@ -186,28 +203,38 @@ class ConnectedComponentsSegmenter:
             # Wa can save the copyMakeBorder above by picking around the existing lines
             sub_labels = cropnp(
                 image=labels,
-                top=y - 1,
-                left=x - 1,
-                bottom=y + h + 2,
-                right=x + w + 2,
+                top=cc.y - 1,
+                left=cc.x - 1,
+                bottom=cc.y + cc.h + 2,
+                right=cc.x + cc.w + 2,
             )
             # noinspection PyUnresolvedReferences
             obj_mask = (sub_labels == cc_id).astype(
                 np.uint8
             )  # 0=not in shape (either around shape or inside), 1=shape
-        holes = ~obj_mask  # 1=around 0=shape 1=holes
+        holes = 1 - obj_mask  # 1=around 0=shape 1=holes
         cv2.floodFill(
             holes, mask=None, seedPoint=(0, 0), newVal=(0,)
-        )  # False=around False=shape True=holes
-        sub_mask = cropnp(image=obj_mask, top=1, left=1, bottom=h + 1, right=w + 1)
-        holes = cropnp(image=holes, top=1, left=1, bottom=h + 1, right=w + 1)
+        )  # 0=around 0=shape 1=holes
+        sub_mask = cropnp(
+            image=obj_mask, top=1, left=1, bottom=cc.h + 1, right=cc.w + 1
+        )
+        holes = cropnp(image=holes, top=1, left=1, bottom=cc.h + 1, right=cc.w + 1)
         return holes, sub_mask
 
     @staticmethod
     def get_regions_using_contours(
-        labels: ndarray, cc_id: int, x, y, w, h, height, width
+        labels: ndarray,
+        cc_id: int,
+        cc: CC,
     ) -> Tuple[ndarray, ndarray]:
-        sub_labels = cropnp(image=labels, top=y, left=x, bottom=y + h, right=x + w)
+        # return np.ones((cc.h, cc.w), dtype=np.uint8), np.ones(
+        #     (cc.h, cc.w), dtype=np.uint8
+        # )
+        # ESSAI sur le masque directement pour éviter la recopie
+        sub_labels = cropnp(
+            image=labels, top=cc.y, left=cc.x, bottom=cc.y + cc.h, right=cc.x + cc.w
+        )
         # noinspection PyUnresolvedReferences
         obj_mask = (sub_labels == cc_id).astype(
             np.uint8
@@ -229,8 +256,8 @@ class ConnectedComponentsSegmenter:
         # hole inside the shape, but we get rid of it.
         #
         # ConnectedComponentsSegmenter.debug_cc_comp_contour(obj_mask, contours)
-        if x == 0 and y == 0 and x + w == width and y + h == height:
-            big_area_threshold = height * width * 8 / 10
+        if cc.entire:
+            big_area_threshold = cc.h * cc.w * 8 / 10
             to_remove = ConnectedComponentsSegmenter.find_contours_above(
                 contours, big_area_threshold
             )
@@ -245,7 +272,7 @@ class ConnectedComponentsSegmenter:
             contours=contours[1:],
             contourIdx=-1,
             color=(1,),
-            thickness=cv2.FILLED,  # FILLED -> inside + contour
+            thickness=cv2.FILLED,  # FILLED → inside + contour
         )  # 0=not in hole, 1=hole
         # Above 'holes' is not pixel-exact as the edges b/w particle and holes is drawn, eliminate them
         holes ^= obj_mask

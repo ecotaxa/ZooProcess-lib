@@ -243,11 +243,12 @@ class Segmenter(object):
             vignette = cropnp(
                 self.image, top=by, left=bx, bottom=by + height, right=bx + width
             )
-            vignette = np.bitwise_or(vignette, 255 - a_roi.mask)
+            # Whiten background -> push to 255 as min is black
+            vignette = np.bitwise_or(vignette, 255 - a_roi.mask * 255)
             # Compute more features
             # Xstart
             # First white pixel in first line of shape seems OK for this measurement
-            x_start = features["BX"] + int(np.argmax(a_roi.mask == 255))
+            x_start = features["BX"] + int(np.argmax(a_roi.mask != 0))
             features["XStart"] = x_start
             features["YStart"] = features["BY"]
             # %Area

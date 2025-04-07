@@ -1,6 +1,5 @@
-from typing import TypedDict, Optional
-
 import dataclasses
+from typing import TypedDict, Optional
 
 from numpy import ndarray
 
@@ -34,10 +33,9 @@ feature_unq = lambda f: (f["BX"], f["BY"], f["Width"], f["Height"])
 )  # TODO: Should be 'True', temp until ROI merge is clean
 class ROI(object):
     features: Features
-    mask: ndarray
+    mask: ndarray  # convention: 0=not in particle, 1=particle and inside
     contour: Optional[ndarray] = None
 
 
 def features_are_at_same_coord(features: Features, another_blob: Features):
     return features["BX"] == another_blob["BX"] and features["BY"] == another_blob["BY"]
-
