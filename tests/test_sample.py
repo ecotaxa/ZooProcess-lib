@@ -71,7 +71,8 @@ def all_samples_in(project: str, but_not=()) -> list[tuple[str, str]]:
 
 
 tested_samples = (
-    all_samples_in(
+    all_samples_in(IADO)
+    + all_samples_in(
         APERO2000,
         [
             "apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1",  # Corrupted ZIP

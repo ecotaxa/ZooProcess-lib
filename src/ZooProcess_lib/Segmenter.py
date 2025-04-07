@@ -125,8 +125,8 @@ class Segmenter(object):
     def undo_border_lines(inv_mask: ndarray) -> Tuple[int, int, int, int]:
         height, width = inv_mask.shape[:2]
         # Find the 2 border dots in each dimension
-        (left, right) = np.where(inv_mask[0] == 255)[0]
-        (top, bottom) = np.where(inv_mask[:, 0] == 255)[0]
+        (left, right) = np.where(inv_mask[0] != 0)[0]
+        (top, bottom) = np.where(inv_mask[:, 0] != 0)[0]
         # Clear them
         cv2.line(
             img=inv_mask,
