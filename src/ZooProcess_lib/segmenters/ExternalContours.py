@@ -86,7 +86,7 @@ class ExternalContoursSegmenter:
             image=contour_canvas,
             contours=[contour],
             contourIdx=0,
-            color=(255,),
+            color=(1,),
             thickness=cv2.FILLED,
             offset=(-x, -y),
         )

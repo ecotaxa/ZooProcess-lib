@@ -458,7 +458,7 @@ def test_linear_response_time(projects, tmp_path):
     Note: Cannot be done in pytest parametrized test, which are isolated"""
     test_set = tested_samples
     spent_times = []
-    for project, sample in test_set:
+    for num_test, (project, sample) in enumerate(test_set):
         folder = ZooscanFolder(projects, project)
         index = 1  # TODO: should come from get_names() below
         vis1 = load_final_ref_image(folder, sample, index)
@@ -469,6 +469,7 @@ def test_linear_response_time(projects, tmp_path):
             segmenter.find_blobs, Segmenter.METH_CONNECTED_COMPONENTS
         )
         spent_times.append(spent)
+        print(f"test #{num_test}: spent time: {spent:.2f}s")
     np_times = np.array(spent_times)
     min_, max_, mean, median, stddev = [
         round(m, 2)
