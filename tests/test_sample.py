@@ -411,14 +411,11 @@ def test_segmentation(projects, tmp_path, project, sample):
     found = [a_roi.features for a_roi in found_rois]
     sort_by_coords(found)
     if found != ref:
-        rois_compat = segmenter.find_blobs(
-            Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR
-        )
-        segmenter.split_by_blobs(rois_compat)
-        found = [a_roi.features for a_roi in rois_compat]
-        sort_by_coords(found)
-        if found != ref:
-            different, not_in_act, not_in_ref = visual_diffs(found, ref, sample, vis1)
+        try:
+            assert_valid_diffs(segmenter, ref, found)
+            return
+        except AssertionError as e:
+            visual_diffs(found, ref, sample, vis1)
     assert found == ref
 
 
@@ -521,6 +518,11 @@ def test_algo_diff(projects, tmp_path, project, sample):
     found_feats_compat = [a_roi.features for a_roi in found_rois_compat]
     sort_by_coords(found_feats_compat)
 
+    if found_feats_compat != found_feats_new:
+        assert_valid_diffs(segmenter, found_feats_compat, found_feats_new)
+
+
+def assert_valid_diffs(segmenter, ref_feats, act_feats):
     enclosing_rectangles = [
         (
             a_new["BX"],
@@ -528,55 +530,50 @@ def test_algo_diff(projects, tmp_path, project, sample):
             a_new["BX"] + a_new["Width"],
             a_new["BY"] + a_new["Height"],
         )
-        for a_new in found_feats_new
+        for a_new in act_feats
     ]
-
-    if found_feats_compat != found_feats_new:
-        # Boundaries of the problematic area
-        central_band_end = int(segmenter.width * segmenter.overlap)
-        central_band_start = segmenter.width - int(segmenter.width * segmenter.overlap)
-
-        different, not_in_compat, not_in_new = diff_dict_lists(
-            found_feats_compat, found_feats_new, feature_unq
+    # Boundaries of the problematic area
+    central_band_end = int(segmenter.width * segmenter.overlap)
+    central_band_start = segmenter.width - int(segmenter.width * segmenter.overlap)
+    different, not_in_compat, not_in_new = diff_dict_lists(
+        ref_feats, act_feats, feature_unq
+    )
+    assert different == []  # If on both sides they have to be equal, whatever.
+    # We have in 'new' version extra particles which were removed from legacy
+    # as they touch both borders of a 20% vertical band in the middle of the image.
+    # So in either processed band they are eliminated.
+    for a_new in not_in_compat:
+        x1, x2 = a_new["BX"], a_new["BX"] + a_new["Width"]
+        assert x1 <= central_band_start and x2 >= central_band_end
+    # We have in 'new' version missing particles, which were wrongly included in legacy.
+    # e.g. Big object A 'embeds' small object B and is crossed by only central_band_start line
+    #    (if crossed by both lines it's above case).
+    #      Legacy:
+    #           A in split in 2 by central_band_start computed above, giving Aleft and Aright.
+    #           B ends up in Aright (in central band).
+    #           While processing right band, Aright is eliminated as it touches a border.
+    #           BUT B is not seen as 'inside Aright' so it survives.
+    #           As legacy finds OK particle A in full (while processing left band), we
+    #               have B which is included in A, impossible otherwise.
+    #       New:
+    #           A is detected and B is seen as 'embedded', so B is eliminated.
+    for a_compat in not_in_new:
+        x1, x2 = a_compat["BX"], a_compat["BX"] + a_compat["Width"]
+        y1, y2 = a_compat["BY"], a_compat["BY"] + a_compat["Height"]
+        assert (
+            central_band_start <= x1 <= central_band_end
+            and central_band_start <= x2 <= central_band_end
         )
-        assert different == []  # If on both sides they have to be equal, whatever.
-
-        # We have in 'new' version extra particles which were removed from legacy
-        # as they touch both borders of a 20% vertical band in the middle of the image.
-        # So in either processed band they are eliminated.
-        for a_new in not_in_compat:
-            x1, x2 = a_new["BX"], a_new["BX"] + a_new["Width"]
-            assert x1 <= central_band_start and x2 >= central_band_end
-
-        # We have in 'new' version missing particles, which were wrongly included in legacy.
-        # e.g. Big object A 'embeds' small object B and is crossed by only central_band_start line
-        #    (if crossed by both lines it's above case).
-        #      Legacy:
-        #           A in split in 2 by central_band_start computed above, giving Aleft and Aright.
-        #           B ends up in Aright (in central band).
-        #           While processing right band, Aright is eliminated as it touches a border.
-        #           BUT B is not seen as 'inside Aright' so it survives.
-        #           As legacy finds OK particle A in full (while processing left band), we
-        #               have B which is included in A, impossible otherwise.
-        #       New:
-        #           A is detected and B is seen as 'embedded', so B is eliminated.
-        for a_compat in not_in_new:
-            x1, x2 = a_compat["BX"], a_compat["BX"] + a_compat["Width"]
-            y1, y2 = a_compat["BY"], a_compat["BY"] + a_compat["Height"]
-            assert (
-                central_band_start <= x1 <= central_band_end
-                and central_band_start <= x2 <= central_band_end
-            )
-            # Not 100% accurate as we should compare masks, but enough for a test
-            parent = [
-                a_rect
-                for a_rect in enclosing_rectangles
-                if a_rect[0] <= x1 <= a_rect[2]
-                and a_rect[0] <= x2 <= a_rect[2]
-                and a_rect[1] <= y1 <= a_rect[3]
-                and a_rect[1] <= y2 <= a_rect[3]
-            ]
-            assert len(parent) >= 1
+        # Not 100% accurate as we should compare masks, but enough for a test
+        parent = [
+            a_rect
+            for a_rect in enclosing_rectangles
+            if a_rect[0] <= x1 <= a_rect[2]
+               and a_rect[0] <= x2 <= a_rect[2]
+               and a_rect[1] <= y1 <= a_rect[3]
+               and a_rect[1] <= y2 <= a_rect[3]
+        ]
+        assert len(parent) >= 1
 
 
 def draw_roi(image: np.ndarray, features: Features, thickness: int = 1):
@@ -636,7 +633,7 @@ def visual_diffs(actual, expected, sample, tgt_img):
     for a_diff in different:
         a_ref, an_act = a_diff
         print(a_ref)
-        print("->", an_act)
+        print("<->", an_act)
     for num, an_act in enumerate(not_in_ref):
         # vig = cropnp(
         #     image=vis1,
