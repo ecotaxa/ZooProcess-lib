@@ -70,7 +70,7 @@ class ConnectedComponentsSegmenter:
             if x == 6170 and y == 41:
                 pass
             if cc.entire:
-                self.prevent_entire_cc_inclusion(inv_mask, labels, cc_id, cc)
+                self.prevent_entire_cc_inclusion(labels, cc_id, cc)
                 filtering_stats[4] += 1
                 continue
 
@@ -190,13 +190,14 @@ class ConnectedComponentsSegmenter:
     def get_regions(
         labels: ndarray, cc_id: int, cc: CC, area_excl: int
     ) -> Tuple[ndarray, ndarray]:
+        assert not cc.entire
         # before = time.time()
         empty_ratio = cc.h * cc.w // area_excl
         # if np.count_nonzero(labels == cc_id) != area_excl:
         #     pass
         # Compute filled area
-        if empty_ratio > 20 or cc.entire:
-            # It's a bit faster, and mandatory if full image, to draw the hole shapes inside sparse shapes
+        if empty_ratio > 200:
+            # It's faster to draw the hole shapes inside very sparse shapes
             holes, sub_mask = ConnectedComponentsSegmenter.get_regions_using_contours(
                 labels, cc_id, cc
             )
@@ -309,23 +310,15 @@ class ConnectedComponentsSegmenter:
         return holes, obj_mask
 
     @staticmethod
-    def prevent_entire_cc_inclusion(
-        inv_mask: ndarray, labels: ndarray, cc_id: int, cc: CC
-    ):
-        # Here we don't build a mask from labels like elsewhere, because it's the full image to clone.
-        sub_image = cropnp(
-            image=inv_mask, top=cc.y, left=cc.x, bottom=cc.y + cc.h, right=cc.x + cc.w
+    def prevent_entire_cc_inclusion(labels: ndarray, cc_id: int, cc: CC):
+        obj_mask = ConnectedComponentsSegmenter.build_mask_from_labels(
+            labels, cc, cc_id
         )
-        ext_contours, _ = cv2.findContours(
-            sub_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        contours, _ = cv2.findContours(
+            obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
         )
-        # Note: the returned contours _might_ include [truncated] neighbours as we look
-        # in original mask, not in the masked-by-cc_id one like in get_regions_using_floodfill
-        # TODO: The returned contours might as well include all interesting particles! both CC and
-        #  top-level contours info is fetched using openCV at this point.
-        contour_4_cc = ConnectedComponentsSegmenter.find_top_contour(ext_contours, cc)
-        assert contour_4_cc is not None, "Touching shape not found"
-        if cc.entire and cv2.contourArea(contour_4_cc) > 0.9 * cc.w * cc.h:
+        big_area_threshold = cc.h * cc.w * 8 / 10
+        if cv2.contourArea(contours[0]) > big_area_threshold:
             # Despite all the efforts made to avoid it (e.g. small holes in border lines so contour detection algo
             # can sneak inside particles area), sometimes the first contour is an _outer_ one. It can be fitting perfectly
             # around the border lines to image borders, or, when there are tiny holes in border lines, all holes could be covered
@@ -339,7 +332,9 @@ class ConnectedComponentsSegmenter:
             # First case manifest itself as an inner contour filling nearly all the image. It's geometrically OK as it's a
             # hole inside the shape, but we need to get rid of it in decent time.
             print("4 borders closed")
-            ConnectedComponentsSegmenter.ptci_full_4_borders(labels, cc_id, cc)
+            contours = ConnectedComponentsSegmenter.remove_faulty_inside_contour(
+                contours, big_area_threshold
+            )
         else:
             # Disable the full shape, we're done
             # Note: It's a bit border-line as we use a drawing primitive on a non-image.
@@ -352,6 +347,22 @@ class ConnectedComponentsSegmenter:
                 thickness=cv2.FILLED,  # FILLED → inside + contour
             )
         return
+            # We have an entire shape but its interior is not the full image.
+            # Imagine a giant "U" covering 3 borders but not the top one,
+            #      or a giant "C" covering 3 borders but not the right one.
+            # We can paint the interior holes as "forbidden".
+            print("4 borders not closed")
+        # Note: It's a bit border-line as we use a drawing primitive on a non-image.
+        cv2.drawContours(
+            image=labels,
+            contours=contours[
+                1:
+            ],  # Omit the first one which is the shape itself, hence already "painted"
+            contourIdx=-1,
+            color=(1,),
+            offset=(cc.x, cc.y),
+            thickness=cv2.FILLED,  # FILLED → inside + contour
+        )
 
     @staticmethod
     def find_matching_contour(contours: Sequence[ndarray], cc: CC) -> Optional[ndarray]:
@@ -403,14 +414,30 @@ class ConnectedComponentsSegmenter:
             contourIdx=-1,
             color=(1,),
             thickness=cv2.FILLED,  # FILLED → inside (the hole itself) + contour (contour area, in the shape)
-        )
-
-    @staticmethod
-    def find_contours_above(contours, big_area_threshold):
+    def remove_faulty_inside_contour(
+        contours: Sequence[ndarray], big_area_threshold: int
+    ) -> List[ndarray]:
         for contour_ndx in range(1, len(contours)):
             if cv2.contourArea(contours[contour_ndx]) > big_area_threshold:
-                return contour_ndx
-        return None
+                to_remove = contour_ndx
+                break
+        else:
+            to_remove = None
+        assert to_remove is not None, "Failed to locate inside contour"
+        contours = list(contours)
+        del contours[to_remove]
+        return contours
+
+    @staticmethod
+    def build_mask_from_labels(labels, cc, cc_id):
+        sub_labels = cropnp(
+            image=labels, top=cc.y, left=cc.x, bottom=cc.y + cc.h, right=cc.x + cc.w
+        )
+        # noinspection PyUnresolvedReferences
+        obj_mask = (sub_labels == cc_id).astype(
+            np.uint8
+        )  # 0=not in shape (either around shape or inside), 1=shape
+        return obj_mask
 
     @classmethod
     def horizontal_noise_ratio(cls, inv_mask: ndarray) -> int:
