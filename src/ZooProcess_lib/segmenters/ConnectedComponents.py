@@ -56,7 +56,7 @@ class ConnectedComponentsSegmenter:
         for x, y, w, h, area_excl_holes, cc_id in maybe_kept:
             # Proceed to more expensive filtering
 
-            cc_id_present = np.any(np.where(labels[y, x : x + w] == cc_id))
+            cc_id_present = np.any(labels[y, x : x + w] == cc_id)
             if not cc_id_present:
                 # Shape was erased, i.e. excluded
                 filtering_stats[3] += 1
@@ -64,6 +64,11 @@ class ConnectedComponentsSegmenter:
 
             cc = CC(x, y, w, h, width, height)
 
+            # if cc_id == 62388:
+            #     ConnectedComponentsSegmenter.debug_save_cc_image(self.image, cc, cc_id)
+
+            if x == 6170 and y == 41:
+                pass
             # Eliminate if touching any border, no need for mask or holes
             if cc.touching:
                 self.prevent_touching_cc_inclusion(inv_mask, labels, cc_id, cc)
@@ -111,9 +116,17 @@ class ConnectedComponentsSegmenter:
         """
         Mark exclusion zone in shape. "0" in shape means allowed, so warp a bit outside.
         """
-        shape[cc.y : cc.y + cc.h, cc.x : cc.x + cc.w] += mask
+        # assert np.unique(mask) == (0, 1)
+        # bef = np.count_nonzero(shape == 93581)
+        # shape[cc.y : cc.y + cc.h, cc.x : cc.x + cc.w] += mask.astype(np.uint32)*100000000
         sub_labels = labels[cc.y : cc.y + cc.h, cc.x : cc.x + cc.w]
+        # assert np.count_nonzero(sub_labels < 0) == 0
+        # sub_labels *= -mask
+        # sub_labels += mask.astype(np.uint32) * 100000000
         sub_labels[mask != 0] = 1
+        # assert np.count_nonzero(sub_labels < 0) == 1
+        # if np.count_nonzero(shape == 93581) != bef:
+        #     pass
 
     @classmethod
     def prefilter(
@@ -133,6 +146,7 @@ class ConnectedComponentsSegmenter:
             (len(cc_stats) - offs, 1),
         )
         ret = np.concatenate((cc_stats[offs:], indices), axis=1)
+        # return ret, (0, 0, 0)
         # Even if all pixels formed a 1-pixel-wide square, adding the hole inside would not make enough
         if do_square:
             min_pixels = int(math.sqrt(s_p_min))
@@ -175,6 +189,8 @@ class ConnectedComponentsSegmenter:
     ) -> Tuple[ndarray, ndarray]:
         # before = time.time()
         empty_ratio = cc.h * cc.w // area_excl
+        # if np.count_nonzero(labels == cc_id) != area_excl:
+        #     pass
         # Compute filled area
         if empty_ratio > 20 or cc.entire:
             # It's a bit faster, and mandatory if full image, to draw the hole shapes inside sparse shapes
@@ -196,6 +212,21 @@ class ConnectedComponentsSegmenter:
         #         " img ",
         #         (width, height),
         #     )
+        # if not area_excl == np.count_nonzero(sub_mask):
+        #     sub_labels = np.count_nonzero(
+        #         cropnp(
+        #             image=labels,
+        #             top=cc.y,
+        #             left=cc.x,
+        #             bottom=cc.y + cc.h,
+        #             right=cc.x + cc.w,
+        #         )
+        #         == cc_id
+        #     )
+        #     nb_holes = np.count_nonzero(holes)
+        #     nb_mask = np.count_nonzero(sub_mask)
+        #     raise "pb here"
+        #     pass
         return holes, sub_mask
 
     @staticmethod
@@ -256,15 +287,6 @@ class ConnectedComponentsSegmenter:
             obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
         )  # Holes, if any, are in second level of RETR_CCOMP method output
         holes = np.zeros_like(obj_mask)
-        cv2.drawContours(
-            image=holes,
-            contours=contours[1:],
-            contourIdx=-1,
-            color=(1,),
-            thickness=cv2.FILLED,  # FILLED → inside + contour
-        )  # 0=not in hole, 1=hole
-        # Above 'holes' is not pixel-exact as the edges b/w particle and holes is drawn, eliminate them
-        holes ^= obj_mask
         if len(contours) > 1:
             cv2.drawContours(
                 image=holes,
@@ -294,11 +316,11 @@ class ConnectedComponentsSegmenter:
         ext_contours, _ = cv2.findContours(
             sub_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
-        # Note: the contours returned _might_ include [truncated] neighbours as we look
+        # Note: the returned contours _might_ include [truncated] neighbours as we look
         # in original mask, not in the masked-by-cc_id one like in get_regions_using_floodfill
-        contour_4_cc = ConnectedComponentsSegmenter.find_matching_contour(
-            ext_contours, cc
-        )
+        # TODO: The returned contours might as well include all interesting particles! both CC and
+        #  top-level contours info is fetched using openCV at this point.
+        contour_4_cc = ConnectedComponentsSegmenter.find_top_contour(ext_contours, cc)
         assert contour_4_cc is not None, "Touching shape not found"
         if cc.entire and cv2.contourArea(contour_4_cc) > 0.9 * cc.w * cc.h:
             # Despite all the efforts made to avoid it (e.g. small holes in border lines so contour detection algo
@@ -335,6 +357,16 @@ class ConnectedComponentsSegmenter:
             x_c, y_c, w_c, h_c = cv2.boundingRect(a_contour)
             x_c, y_c = x_c + cc.x, y_c + cc.y  # Translate as we're in a sub-rect
             if cc.is_at(x_c, y_c, w_c, h_c):
+                return a_contour
+        return None
+
+    @staticmethod
+    def find_top_contour(contours: Sequence[ndarray], cc: CC) -> Optional[ndarray]:
+        """Find top-level contour, the one enclosing all the rest"""
+        w, h = cc.w, cc.h
+        for a_contour in reversed(contours):  # Enclosing ones are at the end
+            _x_c, _y_c, w_c, h_c = cv2.boundingRect(a_contour)
+            if w == w_c and h_c == h_c:
                 return a_contour
         return None
 
