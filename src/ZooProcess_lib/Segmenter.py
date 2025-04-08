@@ -104,7 +104,7 @@ class Segmenter(object):
         #       Area	BX	BY	Width	Height	%Area	XStart	YStart
         if method & self.METH_CONNECTED_COMPONENTS:
             # Most reliable from execution/complexity points of view
-            return ConnectedComponentsSegmenter.find_particles_via_cc(
+            return ConnectedComponentsSegmenter(self.image).find_particles_via_cc(
                 inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio
             )
         elif method & self.METH_CONTOUR_TREE:
