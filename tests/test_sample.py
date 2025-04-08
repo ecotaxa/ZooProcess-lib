@@ -415,7 +415,7 @@ def test_segmentation(projects, tmp_path, project, sample):
             assert_valid_diffs(segmenter, ref, found)
             return
         except AssertionError as e:
-            visual_diffs(found, ref, sample, vis1)
+            visual_diffs(ref, found, sample, vis1)
     assert found == ref
 
 
@@ -628,7 +628,7 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     assert found == ref
 
 
-def visual_diffs(actual, expected, sample, tgt_img):
+def visual_diffs(expected, actual, sample, tgt_img):
     different, not_in_ref, not_in_act = diff_dict_lists(expected, actual, feature_unq)
     for a_diff in different:
         a_ref, an_act = a_diff

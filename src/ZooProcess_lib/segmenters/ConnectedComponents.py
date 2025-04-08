@@ -69,15 +69,18 @@ class ConnectedComponentsSegmenter:
 
             if x == 6170 and y == 41:
                 pass
-            # Eliminate if touching any border, no need for mask or holes
-            if cc.touching:
-                self.prevent_touching_cc_inclusion(inv_mask, labels, cc_id, cc)
+            if cc.entire:
+                self.prevent_entire_cc_inclusion(inv_mask, labels, cc_id, cc)
                 filtering_stats[4] += 1
                 continue
 
             holes, obj_mask = self.get_regions(labels, cc_id, cc, area_excl_holes)
             area = area_excl_holes + np.count_nonzero(holes)
-
+            # Eliminate if touching any border ('entire' case treated above)
+            if cc.touching:
+                self.prevent_inclusion(labels, holes, cc)
+                filtering_stats[4] += 1
+                continue
             # Criteria from parameters
             if area < s_p_min:
                 # print("Excluded region: ", w, h, area_excl_holes, area, s_p_min)
@@ -275,7 +278,6 @@ class ConnectedComponentsSegmenter:
         cc_id: int,
         cc: CC,
     ) -> Tuple[ndarray, ndarray]:
-        assert not cc.touching
         sub_labels = cropnp(
             image=labels, top=cc.y, left=cc.x, bottom=cc.y + cc.h, right=cc.x + cc.w
         )
@@ -307,9 +309,10 @@ class ConnectedComponentsSegmenter:
         return holes, obj_mask
 
     @staticmethod
-    def prevent_touching_cc_inclusion(
+    def prevent_entire_cc_inclusion(
         inv_mask: ndarray, labels: ndarray, cc_id: int, cc: CC
     ):
+        # Here we don't build a mask from labels like elsewhere, because it's the full image to clone.
         sub_image = cropnp(
             image=inv_mask, top=cc.y, left=cc.x, bottom=cc.y + cc.h, right=cc.x + cc.w
         )
