@@ -317,8 +317,9 @@ class ConnectedComponentsSegmenter:
         contours, _ = cv2.findContours(
             obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
         )
+        ext_contour = contours[0]
         big_area_threshold = cc.h * cc.w * 8 / 10
-        if cv2.contourArea(contours[0]) > big_area_threshold:
+        if cv2.contourArea(ext_contour) > big_area_threshold:
             # Despite all the efforts made to avoid it (e.g. small holes in border lines so contour detection algo
             # can sneak inside particles area), sometimes the first contour is an _outer_ one. It can be fitting perfectly
             # around the border lines to image borders, or, when there are tiny holes in border lines, all holes could be covered
@@ -336,22 +337,13 @@ class ConnectedComponentsSegmenter:
                 contours, big_area_threshold
             )
         else:
-            # Disable the full shape, we're done
-            # Note: It's a bit border-line as we use a drawing primitive on a non-image.
-            cv2.drawContours(
-                image=labels,
-                contours=[contour_4_cc],
-                contourIdx=-1,
-                color=(1,),
-                offset=(cc.x, cc.y),
-                thickness=cv2.FILLED,  # FILLED → inside + contour
-            )
-        return
             # We have an entire shape but its interior is not the full image.
             # Imagine a giant "U" covering 3 borders but not the top one,
             #      or a giant "C" covering 3 borders but not the right one.
             # We can paint the interior holes as "forbidden".
             print("4 borders not closed")
+            # Disable the full shape, we're done
+
         # Note: It's a bit border-line as we use a drawing primitive on a non-image.
         cv2.drawContours(
             image=labels,
@@ -360,7 +352,6 @@ class ConnectedComponentsSegmenter:
             ],  # Omit the first one which is the shape itself, hence already "painted"
             contourIdx=-1,
             color=(1,),
-            offset=(cc.x, cc.y),
             thickness=cv2.FILLED,  # FILLED → inside + contour
         )
 
@@ -384,36 +375,6 @@ class ConnectedComponentsSegmenter:
                 return a_contour
         return None
 
-    @staticmethod
-    def ptci_full_4_borders(labels: ndarray, cc_id: int, cc: CC):
-        sub_labels = cropnp(
-            image=labels, top=cc.y, left=cc.x, bottom=cc.y + cc.h, right=cc.x + cc.w
-        )
-        # noinspection PyUnresolvedReferences
-        obj_mask = (sub_labels == cc_id).astype(
-            np.uint8
-        )  # 0=not in shape (either around shape or inside), 1=shape
-        contours, _ = cv2.findContours(
-            obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
-        )
-        big_area_threshold = cc.h * cc.w * 8 / 10
-        to_remove = ConnectedComponentsSegmenter.find_contours_above(
-            contours, big_area_threshold
-        )
-        if to_remove is not None:
-            print("4 borders closed")
-            contours = list(contours)
-            del contours[to_remove]
-        else:
-            assert False
-        # Holes are in second level of RETR_CCOMP method output, exclude them by drawing directly into labels
-        # Note: it's a bit border-line as we use a drawing primitive on something which is not an image.
-        cv2.drawContours(
-            image=labels,
-            contours=contours[1:],
-            contourIdx=-1,
-            color=(1,),
-            thickness=cv2.FILLED,  # FILLED → inside (the hole itself) + contour (contour area, in the shape)
     def remove_faulty_inside_contour(
         contours: Sequence[ndarray], big_area_threshold: int
     ) -> List[ndarray]:
