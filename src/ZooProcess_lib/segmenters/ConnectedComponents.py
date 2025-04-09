@@ -39,9 +39,10 @@ class ConnectedComponentsSegmenter:
         self, inv_mask: ndarray, s_p_min: int, s_p_max: int, max_w_to_h_ratio: float
     ) -> List[ROI]:
         height, width = inv_mask.shape[:2]
-        hnoise = self.horizontal_noise_ratio(inv_mask)  # takes a few tens of ms
+        hnoise = self.horizontal_noise_ratio(inv_mask)  # Takes a few tens of ms
         denoised = False
         if hnoise >= 10:
+            # For noisy images (~10M potential particles), retrieving contours can jump to minutes
             before = self.denoise(inv_mask, s_p_min)
             denoised = True
             labels, retval, stats = self.extract_ccs(inv_mask)
@@ -65,7 +66,7 @@ class ConnectedComponentsSegmenter:
             cc = CC(x, y, w, h, width, height)
 
             if cc.entire:
-                self.prevent_entire_cc_inclusion(labels, cc_id, cc)
+                self.prevent_entire_cc_inclusion(inv_mask, labels, cc_id, cc)
                 filtering_stats[4] += 1
                 continue
 
@@ -302,16 +303,24 @@ class ConnectedComponentsSegmenter:
         return holes, obj_mask
 
     @staticmethod
-    def prevent_entire_cc_inclusion(labels: ndarray, cc_id: int, cc: CC):
-        obj_mask = ConnectedComponentsSegmenter.build_mask_from_labels(
-            labels, cc, cc_id
+    def prevent_entire_cc_inclusion(
+        inv_mask: ndarray, labels: ndarray, cc_id: int, cc: CC
+    ):
+        # Here we don't build a mask from labels like elsewhere, because it's the full image to clone.
+        sub_image = cropnp(
+            image=inv_mask, top=cc.y, left=cc.x, bottom=cc.y + cc.h, right=cc.x + cc.w
         )
-        contours, _ = cv2.findContours(
-            obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        ext_contours, _ = cv2.findContours(
+            sub_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
-        ext_contour = contours[0]
-        big_area_threshold = cc.h * cc.w * 8 // 10
-        if cv2.contourArea(ext_contour) > big_area_threshold:
+        # Note: the returned contours _might_ include [truncated] neighbours as we look
+        # in original mask, not in the masked-by-cc_id one like in get_regions_using_floodfill
+        # TODO: The returned contours might as well include all interesting particles! both CC and
+        #  top-level contours info is fetched using openCV at this point.
+        contour_4_cc = ConnectedComponentsSegmenter.find_top_contour(ext_contours, cc)
+        print("nb contour_4_cc:", len(ext_contours))
+        assert contour_4_cc is not None, "Touching shape not found"
+        if cc.entire and cv2.contourArea(contour_4_cc) > 0.9 * cc.w * cc.h:
             # Despite all the efforts made to avoid it (e.g. small holes in border lines so contour detection algo
             # can sneak inside particles area), sometimes the first contour is an _outer_ one. It can be fitting perfectly
             # around the border lines to image borders, or, when there are tiny holes in border lines, all holes could be covered
@@ -326,14 +335,12 @@ class ConnectedComponentsSegmenter:
             # hole inside the shape, but we need to get rid of it in decent time.
             print("4 borders closed")
             # Open a gap so the 4-borders doesn't have the annoying property anymore
-            cv2.line(obj_mask, (cc.w // 2, 0), (cc.w // 2, cc.h // 2), (0,), 1)
-            contours, _ = cv2.findContours(
-                obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            cv2.line(inv_mask, (cc.w // 2, 0), (cc.w // 2, cc.h // 2), (0,), 1)
+            ext_contours, _ = cv2.findContours(
+                inv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
-            contours = ConnectedComponentsSegmenter.remove_unwanted_inside_contour(
-                contours, big_area_threshold
-            )
-            contours = contours[1:]
+            contour_4_cc = ConnectedComponentsSegmenter.find_top_contour(ext_contours, cc)
+            print("nb contour_4_cc after cut:", len(ext_contours))
         else:
             # We have an entire shape but its interior is not the full image.
             # Imagine a giant "U" covering 3 borders but not the top one,
@@ -345,7 +352,7 @@ class ConnectedComponentsSegmenter:
         # Note: It's a bit border-line as we use a drawing primitive on a non-image.
         cv2.drawContours(
             image=labels,
-            contours=contours,
+            contours=[contour_4_cc],
             contourIdx=-1,
             color=(1,),
             thickness=cv2.FILLED,  # FILLED → inside + contour
