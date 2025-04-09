@@ -296,62 +296,6 @@ def load_final_ref_image(folder, sample, index):
     return reference_image
 
 
-one_contour = [
-    (APERO, "apero2023_tha_bioness_013_st46_d_n4_d1_1_sur_1"),
-    (APERO, "apero2023_tha_bioness_013_st46_d_n4_d2_1_sur_2"),
-    # (APERO, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2"), # also missing
-    (APERO, "apero2023_tha_bioness_013_st46_d_n5_d2_2_sur_2"),
-    (APERO, "apero2023_tha_bioness_013_st46_d_n6_d2_1_sur_2"),
-    (APERO, "apero2023_tha_bioness_013_st46_d_n6_d3"),
-    (APERO, "apero2023_tha_bioness_013_st46_d_n7_d2_1_sur_1"),
-    (APERO, "apero2023_tha_bioness_013_st46_d_n7_d3"),
-    (APERO, "apero2023_tha_bioness_013_st46_d_n8_d2_1_sur_1"),
-    (APERO, "apero2023_tha_bioness_013_st46_d_n8_d3"),
-    (APERO, "apero2023_tha_bioness_013_st46_d_n9_d3"),
-    (APERO, "apero2023_tha_bioness_014_st46_n_n1_d1_1_sur_1"),
-    (APERO, "apero2023_tha_bioness_014_st46_n_n2_d1_2_sur_2"),
-    (APERO, "apero2023_tha_bioness_014_st46_n_n4_d1_1_sur_1"),
-    (APERO, "apero2023_tha_bioness_014_st46_n_n4_d2_1_sur_2"),
-    (APERO, "apero2023_tha_bioness_014_st46_n_n7_d1_1_sur_4"),
-    (APERO, "apero2023_tha_bioness_014_st46_n_n7_d1_4_sur_4"),
-    (TRIATLAS, "m158_mn05_n1_d2"),
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n1_d2_1_sur_2"),
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n1_d2_2_sur_2"),
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n3_d3"),
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n4_d3"),
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n5_d2_1_sur_8"),
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n5_d3"),
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n7_d2_1_sur_4"),
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n8_d1_1_sur_1"),
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n8_d2_1_sur_1"),
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n9_d1_1_sur_1"),
-    (APERO1, "apero2023_tha_bioness_006_st20_n_n2_d2_3_sur_4"),
-    (APERO1, "apero2023_tha_bioness_006_st20_n_n2_d3"),
-    (APERO1, "apero2023_tha_bioness_006_st20_n_n3_d3"),
-    (APERO1, "apero2023_tha_bioness_006_st20_n_n5_d1_1_sur_1"),
-    # (APERO1, "apero2023_tha_bioness_006_st20_n_n7_d1_2_sur_2"), # also big diff
-    (APERO1, "apero2023_tha_bioness_006_st20_n_n7_d2_4_sur_4"),
-    (APERO1, "apero2023_tha_bioness_006_st20_n_n8_d2_3_sur_4"),
-    # (APERO1, "apero2023_tha_bioness_006_st20_n_n9_d2_1_sur_4"), # TODO: Check the image, 3,7M of contours
-    (APERO1, "apero2023_tha_bioness_006_st20_n_n9_d2_2_sur_4"),
-    (APERO1, "apero2023_tha_bioness_006_st20_n_n9_d2_4_sur_4"),
-    (APERO1, "apero2023_tha_bioness_017_st66_d_n1_d1_1_sur_1"),
-    (APERO1, "apero2023_tha_bioness_017_st66_d_n1_d2_4_sur_4"),
-    (APERO1, "apero2023_tha_bioness_017_st66_d_n1_d3"),
-    (APERO1, "apero2023_tha_bioness_017_st66_d_n2_d2_1_sur_1"),
-    # (APERO1, "apero2023_tha_bioness_017_st66_d_n3_d2_1_sur_1"), # Also in missing
-    (APERO1, "apero2023_tha_bioness_017_st66_d_n5_d2_1_sur_2"),
-    (APERO1, "apero2023_tha_bioness_017_st66_d_n5_d2_2_sur_2"),
-    (APERO1, "apero2023_tha_bioness_017_st66_d_n6_d2_1_sur_2"),
-    (APERO1, "apero2023_tha_bioness_017_st66_d_n9_d2_1_sur_2"),
-    (APERO1, "apero2023_tha_bioness_018_st66_n_n2_d1_1_sur_2"),
-    (APERO1, "apero2023_tha_bioness_018_st66_n_n6_d2_1_sur_2"),
-    (APERO1, "apero2023_tha_bioness_018_st66_n_n8_d2_2_sur_2"),
-    (APERO1, "apero2023_tha_bioness_018_st66_n_n9_d2_1_sur_2"),
-    (APERO1, "apero2023_tha_bioness_018_st66_n_n9_d2_2_sur_2"),
-    (APERO1, "apero2023_tha_bioness_018_st66_n_n9_d3"),
-]
-
 extra_big = [
     (APERO, "apero2023_tha_bioness_014_st46_n_n6_d1_1_sur_1"),
     (APERO, "apero2023_tha_bioness_014_st46_n_n7_d1_2_sur_4"),
@@ -390,11 +334,6 @@ stripes_in_thresholded = (
         (APERO1, "apero2023_tha_bioness_013_st46_d_n1_d1_1_sur_2"),
     ]
 )
-
-all_borders = [
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n2_d2_3_sur_4"),
-    (APERO1, "apero2023_tha_bioness_005_st20_d_n2_d2_4_sur_4"),
-]
 
 very_big = [(APERO1, "apero2023_tha_bioness_006_st20_n_n7_d1_2_sur_2")]
 
@@ -1563,6 +1502,10 @@ all_borders_unclosed = [
     k for (k, v) in closed_statuses.items() if v == "all_borders_unclosed"
 ]
 
+all_borders_closed = [
+    k for (k, v) in closed_statuses.items() if v == "all_borders_closed"
+]
+
 
 @pytest.mark.parametrize(
     "project, sample",
@@ -1616,7 +1559,19 @@ def assert_linear_response_time(projects, tmp_path, test_set):
         # Minimal & fast
         assert found_rois != []
         spent_times.append(spent)
+        if num_test % 10 == 0:
+            do_perf_stats(spent_times)
         print(f"test #{num_test}: spent time: {spent:.2f}s")
+    median, np_times, stddev = do_perf_stats(spent_times)
+    z_scores = (np_times - median) / stddev
+    max_zscore = 3
+    for a_sample, its_time, its_score in zip(test_set, spent_times, z_scores):
+        if abs(its_score) > max_zscore:
+            print("Fails for sample:", a_sample, "time:", its_time, "score:", its_score)
+    assert np.argmax(np.abs(z_scores) > max_zscore) == 0
+
+
+def do_perf_stats(spent_times):
     np_times = np.array(spent_times)
     min_, max_, mean, median, stddev = [
         round(m, 2)
@@ -1631,12 +1586,7 @@ def assert_linear_response_time(projects, tmp_path, test_set):
     print(
         "min:", min_, "max:", max_, "mean:", mean, "median:", median, "stddev:", stddev
     )
-    z_scores = (np_times - median) / stddev
-    max_zscore = 3
-    for a_sample, its_time, its_score in zip(test_set, spent_times, z_scores):
-        if abs(its_score) > max_zscore:
-            print("Fails for sample:", a_sample, "time:", its_time, "score:", its_score)
-    assert np.argmax(np.abs(z_scores) > max_zscore) == 0
+    return median, np_times, stddev
 
 
 @pytest.mark.parametrize(
