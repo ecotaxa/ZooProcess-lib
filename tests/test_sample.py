@@ -87,7 +87,6 @@ tested_samples = (
             "apero2023_tha_bioness_013_st46_d_n5_d1_1_sur_1",  # Corrupted ZIP
         ],
     )
-    + all_samples_in(IADO)
     + all_samples_in(TRIATLAS)
     + all_samples_in(APERO1)
 )

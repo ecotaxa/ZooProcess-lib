@@ -41,7 +41,7 @@ class ConnectedComponentsSegmenter:
         height, width = inv_mask.shape[:2]
         hnoise = self.horizontal_noise_ratio(inv_mask)  # takes a few tens of ms
         denoised = False
-        if hnoise >= 1:
+        if hnoise >= 10:
             before = self.denoise(inv_mask, s_p_min)
             denoised = True
             labels, retval, stats = self.extract_ccs(inv_mask)
@@ -234,9 +234,7 @@ class ConnectedComponentsSegmenter:
         return holes, sub_mask
 
     @staticmethod
-    def get_regions_using_floodfill(
-        labels: ndarray, cc_id: int, cc: CC
-    ) -> Tuple[ndarray, ndarray]:
+    def get_mask_framed_by_1(labels: ndarray, cc: CC, cc_id: int):
         if cc.touching:
             # The shape touches an image border
             sub_labels = cropnp(
@@ -246,7 +244,7 @@ class ConnectedComponentsSegmenter:
             obj_mask = (sub_labels == cc_id).astype(
                 np.uint8
             )  # 0=not in shape (either around shape or inside), 1=shape
-            # Draw lines around for the floodFill to spread all around
+            # Enlarge with 1 line around
             obj_mask = cv2.copyMakeBorder(
                 obj_mask, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
             )
@@ -263,6 +261,13 @@ class ConnectedComponentsSegmenter:
             obj_mask = (sub_labels == cc_id).astype(
                 np.uint8
             )  # 0=not in shape (either around shape or inside), 1=shape
+        return obj_mask
+
+    @staticmethod
+    def get_regions_using_floodfill(
+        labels: ndarray, cc_id: int, cc: CC
+    ) -> Tuple[ndarray, ndarray]:
+        obj_mask = ConnectedComponentsSegmenter.get_mask_framed_by_1(labels, cc, cc_id)
         holes = 1 - obj_mask  # 1=around 0=shape 1=holes
         cv2.floodFill(
             holes, mask=None, seedPoint=(0, 0), newVal=(0,)
@@ -333,7 +338,7 @@ class ConnectedComponentsSegmenter:
             # First case manifest itself as an inner contour filling nearly all the image. It's geometrically OK as it's a
             # hole inside the shape, but we need to get rid of it in decent time.
             print("4 borders closed")
-            contours = ConnectedComponentsSegmenter.remove_faulty_inside_contour(
+            contours = ConnectedComponentsSegmenter.remove_unwanted_inside_contour(
                 contours, big_area_threshold
             )
         else:
@@ -375,7 +380,8 @@ class ConnectedComponentsSegmenter:
                 return a_contour
         return None
 
-    def remove_faulty_inside_contour(
+    @staticmethod
+    def remove_unwanted_inside_contour(
         contours: Sequence[ndarray], big_area_threshold: int
     ) -> List[ndarray]:
         for contour_ndx in range(1, len(contours)):
@@ -402,13 +408,13 @@ class ConnectedComponentsSegmenter:
 
     @classmethod
     def horizontal_noise_ratio(cls, inv_mask: ndarray) -> int:
-        """Number of != pixels from one line to another, in 90% central region of the image"""
+        """ Per 1000 number of != pixels from one line to another, in 90% central region of the image"""
         height, width = inv_mask.shape[:2]
         excluded = int(height * 0.9) // 2
         orig = cropnp(image=inv_mask, top=excluded, bottom=-excluded)
         below = cropnp(image=inv_mask, top=excluded + 1, bottom=-excluded + 1)
         diff = orig ^ below
-        ret = int(np.sum(diff) * 100 / ((height - excluded) * width))
+        ret = int(np.sum(diff) * 1000 / ((height - excluded) * width))
         return ret
 
     @classmethod
@@ -431,9 +437,9 @@ class ConnectedComponentsSegmenter:
         saveimage(cc_image, Path(f"/tmp/zooprocess/cc_{cc_id}.png"))
 
     @staticmethod
-    def debug_cc_comp_contour(obj_mask, contours):
+    def debug_cc_comp_contour(obj_mask, contours, thickness):
         dbg_img = np.zeros_like(obj_mask)
         dbg_img_3chan = cv2.merge([dbg_img, dbg_img, dbg_img])
-        cv2.drawContours(dbg_img_3chan, contours[1:], -1, (255, 255, 0), 1)
-        cv2.drawContours(dbg_img_3chan, contours[0:1], -1, (255, 0, 0), 1)
+        cv2.drawContours(dbg_img_3chan, contours[0:1], -1, (255, 0, 0), thickness)
+        cv2.drawContours(dbg_img_3chan, contours[1:], -1, (255, 255, 0), thickness)
         saveimage(dbg_img_3chan, Path("/tmp/zooprocess/contours.tif"))
