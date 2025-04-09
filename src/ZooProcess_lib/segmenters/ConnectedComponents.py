@@ -117,19 +117,11 @@ class ConnectedComponentsSegmenter:
     @classmethod
     def prevent_inclusion(cls, labels: ndarray, mask: ndarray, cc: CC):
         """
-        Mark exclusion zone in shape. "0" in shape means allowed, so warp a bit outside.
+        Mark exclusion zone in shape. "0" in shape means allowed, so "1" is OK, as we never exclude anything
+        before the first CC.
         """
-        # assert np.unique(mask) == (0, 1)
-        # bef = np.count_nonzero(shape == 93581)
-        # shape[cc.y : cc.y + cc.h, cc.x : cc.x + cc.w] += mask.astype(np.uint32)*100000000
         sub_labels = labels[cc.y : cc.y + cc.h, cc.x : cc.x + cc.w]
-        # assert np.count_nonzero(sub_labels < 0) == 0
-        # sub_labels *= -mask
-        # sub_labels += mask.astype(np.uint32) * 100000000
         sub_labels[mask != 0] = 1
-        # assert np.count_nonzero(sub_labels < 0) == 1
-        # if np.count_nonzero(shape == 93581) != bef:
-        #     pass
 
     @classmethod
     def prefilter(
@@ -175,7 +167,7 @@ class ConnectedComponentsSegmenter:
         return ret, (holes_area_flt, area_flt, size_flt)
 
     @classmethod
-    def extract_ccs(cls, inv_mask):
+    def extract_ccs(cls, inv_mask: ndarray):
         (
             retval,
             labels,
@@ -320,10 +312,10 @@ class ConnectedComponentsSegmenter:
             labels, cc, cc_id
         )
         contours, _ = cv2.findContours(
-            obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
+            obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
         ext_contour = contours[0]
-        big_area_threshold = cc.h * cc.w * 8 / 10
+        big_area_threshold = cc.h * cc.w * 8 // 10
         if cv2.contourArea(ext_contour) > big_area_threshold:
             # Despite all the efforts made to avoid it (e.g. small holes in border lines so contour detection algo
             # can sneak inside particles area), sometimes the first contour is an _outer_ one. It can be fitting perfectly
@@ -338,9 +330,13 @@ class ConnectedComponentsSegmenter:
             # First case manifest itself as an inner contour filling nearly all the image. It's geometrically OK as it's a
             # hole inside the shape, but we need to get rid of it in decent time.
             print("4 borders closed")
+            contours, _ = cv2.findContours(
+                obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
+            )
             contours = ConnectedComponentsSegmenter.remove_unwanted_inside_contour(
                 contours, big_area_threshold
             )
+            contours = contours[1:]
         else:
             # We have an entire shape but its interior is not the full image.
             # Imagine a giant "U" covering 3 borders but not the top one,
@@ -352,9 +348,7 @@ class ConnectedComponentsSegmenter:
         # Note: It's a bit border-line as we use a drawing primitive on a non-image.
         cv2.drawContours(
             image=labels,
-            contours=contours[
-                1:
-            ],  # Omit the first one which is the shape itself, hence already "painted"
+            contours=contours,
             contourIdx=-1,
             color=(1,),
             thickness=cv2.FILLED,  # FILLED → inside + contour
