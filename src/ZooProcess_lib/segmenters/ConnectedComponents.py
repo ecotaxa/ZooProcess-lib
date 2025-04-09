@@ -64,11 +64,6 @@ class ConnectedComponentsSegmenter:
 
             cc = CC(x, y, w, h, width, height)
 
-            # if cc_id == 62388:
-            #     ConnectedComponentsSegmenter.debug_save_cc_image(self.image, cc, cc_id)
-
-            if x == 6170 and y == 41:
-                pass
             if cc.entire:
                 self.prevent_entire_cc_inclusion(labels, cc_id, cc)
                 filtering_stats[4] += 1
@@ -90,7 +85,7 @@ class ConnectedComponentsSegmenter:
                 self.prevent_inclusion(labels, holes, cc)
                 filtering_stats[6] += 1
                 continue
-            # Horizontal stripes from scanner bed movement
+            # Horizontal stripes from scanner carriage movement
             ratiobxby = w / h
             if ratiobxby > max_w_to_h_ratio:
                 filtering_stats[7] += 1
@@ -330,8 +325,10 @@ class ConnectedComponentsSegmenter:
             # First case manifest itself as an inner contour filling nearly all the image. It's geometrically OK as it's a
             # hole inside the shape, but we need to get rid of it in decent time.
             print("4 borders closed")
+            # Open a gap so the 4-borders doesn't have the annoying property anymore
+            cv2.line(obj_mask, (cc.w // 2, 0), (cc.w // 2, cc.h // 2), (0,), 1)
             contours, _ = cv2.findContours(
-                obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
+                obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
             contours = ConnectedComponentsSegmenter.remove_unwanted_inside_contour(
                 contours, big_area_threshold
@@ -341,7 +338,7 @@ class ConnectedComponentsSegmenter:
             # We have an entire shape but its interior is not the full image.
             # Imagine a giant "U" covering 3 borders but not the top one,
             #      or a giant "C" covering 3 borders but not the right one.
-            # We can paint the interior holes as "forbidden".
+            # We can paint the whole CC as "forbidden".
             print("4 borders not closed")
             # Disable the full shape, we're done
 
