@@ -11,6 +11,14 @@ from ..img_tools import cropnp, saveimage
 from ..tools import timeit, graph_connected_components
 
 
+# Left TODO:
+# Choix + rapide entre les 2 sous-cas "one contour"
+# rename cropnp to reflect it's returning pointer on data e.g. np_cropped
+# Benchmark choice b/w region finders
+# estim hnoise: essai de perf option bouclage sur les bincount np.for_each
+# rajouter cc_id dans classe CC
+
+
 class CC:
     __slots__ = "x", "y", "w", "h", "touching", "entire"
     x: int
