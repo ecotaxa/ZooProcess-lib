@@ -41,16 +41,14 @@ class Segmenter(object):
         sm_min = (3.1416 / 4) * pow(minsize, 2)
         sm_max = (3.1416 / 4) * pow(maxsize, 2)
         # s_p_* are in pixel^2
-        self.s_p_min:int = round(sm_min / (pow(pixel, 2)))
-        self.s_p_max:int = round(sm_max / (pow(pixel, 2)))
+        self.s_p_min: int = round(sm_min / (pow(pixel, 2)))
+        self.s_p_max: int = round(sm_max / (pow(pixel, 2)))
 
     def find_blobs(self, method: int) -> List[ROI]:
         # Threshold the source image to have a b&w mask
         thresh_max = self.THRESH_MAX
         # mask is white objects on black background
-        _th, inv_mask = cv2.threshold(
-            self.image, thresh_max, 1, cv2.THRESH_BINARY_INV
-        )
+        _th, inv_mask = cv2.threshold(self.image, thresh_max, 1, cv2.THRESH_BINARY_INV)
         # saveimage(inv_mask, "/tmp/inv_mask.tif")
         self.sanity_check(inv_mask)
         if method & self.LEGACY_COMPATIBLE:

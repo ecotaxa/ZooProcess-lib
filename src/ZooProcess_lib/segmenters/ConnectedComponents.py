@@ -209,10 +209,20 @@ class ConnectedComponentsSegmenter:
         labels = cls.paste_cc_parts(l_labels, r_labels)
 
         # Shift right stats X which are 0 based
-        # x, y, w, h, area_excl_holes
         r_stats[:, cv2.CC_STAT_LEFT] += split_w
+
         # Summary in stats[0]
         area_excl_holes = l_stats[0, cv2.CC_STAT_AREA] + r_stats[1, cv2.CC_STAT_AREA]
+        # stats = np.concatenate(
+        #     (
+        #         np.array([[0, 0, width, height, area_excl_holes]]),
+        #         l_stats[1:],
+        #         r_stats[1:],
+        #     )
+        # )
+        cls.join_cc_regions(
+            labels, l_half, l_labels, l_stats, r_half, r_labels, r_stats
+        )
         stats = np.concatenate(
             (
                 np.array([[0, 0, width, height, area_excl_holes]]),
@@ -220,8 +230,7 @@ class ConnectedComponentsSegmenter:
                 r_stats[1:],
             )
         )
-
-        cls.join_cc_regions(labels, l_half, l_labels, r_half, r_labels, split_w, stats)
+        # Count of CCs
         retval = l_retval + r_retval - 1  # first element stats[0] was removed
         return labels, retval, stats
 
@@ -262,7 +271,7 @@ class ConnectedComponentsSegmenter:
 
     @classmethod
     def join_cc_regions(
-        cls, labels, l_half, l_labels, r_half, r_labels, split_w, stats
+        cls, labels, l_half, l_labels, l_stats, r_half, r_labels, r_stats
     ):
         # Find common CCs, i.e. the ones in left part touching ones in right part
         zone_column_left = l_half[:, -1]
@@ -296,29 +305,40 @@ class ConnectedComponentsSegmenter:
         for a_group in groups:
             assert len(a_group) > 1
             a_group = list(a_group)
-            [cls.merge_ccs(labels, stats, a_group[0], a_cc) for a_cc in a_group[1:]]
+            [
+                cls.merge_ccs(labels, l_stats, r_stats, a_group[0], a_cc)
+                for a_cc in a_group[1:]
+            ]
 
     @classmethod
-    def merge_ccs(cls, labels, stats, cc1, cc2):
-        l1, t1, w1, h1, a1 = stats[cc1]
-        l2, t2, w2, h2, a2 = stats[cc2]
+    def merge_ccs(cls, labels, l_stats, r_stats, cc1, cc2):
+        if cc1 < len(l_stats):
+            cc1_stats, cc1_ndx = l_stats, cc1
+        else:
+            cc1_stats, cc1_ndx = r_stats, cc1 - len(l_stats) + 1
+        if cc2 < len(l_stats):
+            cc2_stats, cc2_ndx = l_stats, cc2
+        else:
+            cc2_stats, cc2_ndx = r_stats, cc2 - len(l_stats) + 1
+        l1, t1, w1, h1, a1 = cc1_stats[cc1_ndx]
+        l2, t2, w2, h2, a2 = cc2_stats[cc2_ndx]
         if w1 == 0 or w2 == 0:
             assert False
         t_fin = min(t1, t2)
         h_fin = max(t1 + h1, t2 + h2) - t_fin
         l_fin = min(l1, l2)
         w_fin = max(l1 + w1, l2 + w2) - l_fin
-        stats[cc1][cv2.CC_STAT_LEFT] = l_fin
-        stats[cc1][cv2.CC_STAT_TOP] = t_fin
-        stats[cc1][cv2.CC_STAT_WIDTH] = w_fin
-        stats[cc1][cv2.CC_STAT_HEIGHT] = h_fin
-        stats[cc1][cv2.CC_STAT_AREA] += a2
+        cc1_stats[cc1_ndx][cv2.CC_STAT_LEFT] = l_fin
+        cc1_stats[cc1_ndx][cv2.CC_STAT_TOP] = t_fin
+        cc1_stats[cc1_ndx][cv2.CC_STAT_WIDTH] = w_fin
+        cc1_stats[cc1_ndx][cv2.CC_STAT_HEIGHT] = h_fin
+        cc1_stats[cc1_ndx][cv2.CC_STAT_AREA] += a2
         cc2_labels = labels[t2 : t2 + h2, l2 : l2 + w2]
         cc2_labels[cc2_labels == cc2] = cc1
         # Nullify cc2
-        stats[cc2][cv2.CC_STAT_WIDTH] = 0
-        stats[cc2][cv2.CC_STAT_HEIGHT] = 1
-        stats[cc2][cv2.CC_STAT_AREA] = 1
+        cc2_stats[cc2_ndx][cv2.CC_STAT_WIDTH] = 0
+        cc2_stats[cc2_ndx][cv2.CC_STAT_HEIGHT] = 1
+        cc2_stats[cc2_ndx][cv2.CC_STAT_AREA] = 1
 
     @classmethod
     @timeit
@@ -493,7 +513,9 @@ class ConnectedComponentsSegmenter:
             ext_contours, _ = cv2.findContours(
                 inv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
-            contour_4_cc = ConnectedComponentsSegmenter.find_top_contour(ext_contours, cc)
+            contour_4_cc = ConnectedComponentsSegmenter.find_top_contour(
+                ext_contours, cc
+            )
             print("nb contour_4_cc after cut:", len(ext_contours))
         else:
             # We have an entire shape but its interior is not the full image.
