@@ -206,23 +206,15 @@ class ConnectedComponentsSegmenter:
         # Join results
 
         cls.shift_labels(r_labels, l_retval)
-        labels = cls.paste_cc_parts(l_labels, r_labels)
 
         # Shift right stats X which are 0 based
         r_stats[:, cv2.CC_STAT_LEFT] += split_w
 
+        cls.join_cc_regions(l_half, l_labels, l_stats, r_half, r_labels, r_stats)
+        labels = cls.paste_cc_parts(l_labels, r_labels)
+
         # Summary in stats[0]
         area_excl_holes = l_stats[0, cv2.CC_STAT_AREA] + r_stats[1, cv2.CC_STAT_AREA]
-        # stats = np.concatenate(
-        #     (
-        #         np.array([[0, 0, width, height, area_excl_holes]]),
-        #         l_stats[1:],
-        #         r_stats[1:],
-        #     )
-        # )
-        cls.join_cc_regions(
-            labels, l_half, l_labels, l_stats, r_half, r_labels, r_stats
-        )
         stats = np.concatenate(
             (
                 np.array([[0, 0, width, height, area_excl_holes]]),
@@ -270,9 +262,7 @@ class ConnectedComponentsSegmenter:
         return l_half, l_labels, l_retval, l_stats, r_half, r_labels, r_retval, r_stats
 
     @classmethod
-    def join_cc_regions(
-        cls, labels, l_half, l_labels, l_stats, r_half, r_labels, r_stats
-    ):
+    def join_cc_regions(cls, l_half, l_labels, l_stats, r_half, r_labels, r_stats):
         # Find common CCs, i.e. the ones in left part touching ones in right part
         zone_column_left = l_half[:, -1]
         zone_labels_left = l_labels[:, -1]
@@ -306,20 +296,22 @@ class ConnectedComponentsSegmenter:
             assert len(a_group) > 1
             a_group = list(a_group)
             [
-                cls.merge_ccs(labels, l_stats, r_stats, a_group[0], a_cc)
+                cls.merge_ccs(l_labels, l_stats, r_labels, r_stats, a_group[0], a_cc)
                 for a_cc in a_group[1:]
             ]
 
     @classmethod
-    def merge_ccs(cls, labels, l_stats, r_stats, cc1, cc2):
+    def merge_ccs(cls, l_labels, l_stats, r_labels, r_stats, cc1, cc2):
         if cc1 < len(l_stats):
             cc1_stats, cc1_ndx = l_stats, cc1
         else:
             cc1_stats, cc1_ndx = r_stats, cc1 - len(l_stats) + 1
         if cc2 < len(l_stats):
-            cc2_stats, cc2_ndx = l_stats, cc2
+            cc2_labels, cc2_stats, cc2_ndx = l_labels, l_stats, cc2
+            l2_offs = 0
         else:
-            cc2_stats, cc2_ndx = r_stats, cc2 - len(l_stats) + 1
+            cc2_labels, cc2_stats, cc2_ndx = r_labels, r_stats, cc2 - len(l_stats) + 1
+            l2_offs = l_labels.shape[1]  # width
         l1, t1, w1, h1, a1 = cc1_stats[cc1_ndx]
         l2, t2, w2, h2, a2 = cc2_stats[cc2_ndx]
         if w1 == 0 or w2 == 0:
@@ -333,8 +325,10 @@ class ConnectedComponentsSegmenter:
         cc1_stats[cc1_ndx][cv2.CC_STAT_WIDTH] = w_fin
         cc1_stats[cc1_ndx][cv2.CC_STAT_HEIGHT] = h_fin
         cc1_stats[cc1_ndx][cv2.CC_STAT_AREA] += a2
-        cc2_labels = labels[t2 : t2 + h2, l2 : l2 + w2]
-        cc2_labels[cc2_labels == cc2] = cc1
+        cc2_labels_to_change = cc2_labels[
+            t2 : t2 + h2, l2 - l2_offs : l2 - l2_offs + w2
+        ]
+        cc2_labels_to_change[cc2_labels_to_change == cc2] = cc1
         # Nullify cc2
         cc2_stats[cc2_ndx][cv2.CC_STAT_WIDTH] = 0
         cc2_stats[cc2_ndx][cv2.CC_STAT_HEIGHT] = 1
@@ -474,6 +468,24 @@ class ConnectedComponentsSegmenter:
                 color=(0,),
                 thickness=1,  # Remove contours borders
             )  # 0=not in hole, 1=hole
+        return holes, obj_mask
+
+    @staticmethod
+    def get_regions_using_cc(
+        labels: ndarray,
+        cc_id: int,
+        cc: CC,
+    ) -> Tuple[ndarray, ndarray]:
+        obj_mask = ConnectedComponentsSegmenter.get_mask_framed_by_1(labels, cc, cc_id)
+        retval, labels = cv2.connectedComponents(
+            image=1 - obj_mask, connectivity=4, ltype=cv2.CV_32S
+        )
+        labels = cropnp(image=labels, top=1, left=1, bottom=cc.h + 1, right=cc.w + 1)
+        # 0=object 1=background the rest is holes
+        holes = (labels > 1).astype(np.uint8)
+        obj_mask = cropnp(
+            image=obj_mask, top=1, left=1, bottom=cc.h + 1, right=cc.w + 1
+        )
         return holes, obj_mask
 
     @staticmethod
