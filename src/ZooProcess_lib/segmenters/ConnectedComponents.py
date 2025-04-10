@@ -8,6 +8,7 @@ from numpy import ndarray
 
 from ..ROI import ROI
 from ..img_tools import cropnp, saveimage
+from ..tools import timeit, graph_connected_components
 
 
 class CC:
@@ -40,15 +41,16 @@ class ConnectedComponentsSegmenter:
     ) -> List[ROI]:
         height, width = inv_mask.shape[:2]
         hnoise = self.horizontal_noise_ratio(inv_mask)  # Takes a few tens of ms
-        denoised = False
+        denoised, before = False, None
         if hnoise >= 10:
             # For noisy images (~10M potential particles), retrieving contours can jump to minutes
             before = self.denoise(inv_mask, s_p_min)
             denoised = True
-            labels, retval, stats = self.extract_ccs(inv_mask)
+
+        labels, retval, stats = self.extract_ccs_vertical_split(inv_mask)
+        if denoised:
             print("Noisy! number of initial CCs:", before, "then found: ", retval)
         else:
-            labels, retval, stats = self.extract_ccs(inv_mask)
             print("Number of cc found: ", retval)
         filtering_stats = [0] * 8
         maybe_kept, filtering_stats[0:3] = self.prefilter(stats, s_p_min, not denoised)
@@ -173,6 +175,150 @@ class ConnectedComponentsSegmenter:
             image=inv_mask, connectivity=8, ltype=cv2.CV_32S, ccltype=cv2.CCL_GRANA
         )
         return labels, retval, stats
+
+    @classmethod
+    def extract_ccs_vertical_split(cls, inv_mask: ndarray):
+        """
+        Extract connected components from the mask, but in 2 parts, in order to avoid
+        the 'entire image' problem described elsewhere. Basically mimic-ing the historical
+        implementation but fixing its problems.
+        """
+        height, width = inv_mask.shape
+        split_w = width // 2
+        (
+            l_half,
+            l_labels,
+            l_retval,
+            l_stats,
+            r_half,
+            r_labels,
+            r_retval,
+            r_stats,
+        ) = cls.extract_ccs_2_bands(inv_mask, height, width, split_w)
+        # Join results
+
+        cls.shift_labels(r_labels, l_retval)
+        labels = cls.paste_cc_parts(l_labels, r_labels)
+
+        # Shift right stats X which are 0 based
+        # x, y, w, h, area_excl_holes
+        r_stats[:, cv2.CC_STAT_LEFT] += split_w
+        # Summary in stats[0]
+        area_excl_holes = l_stats[0, cv2.CC_STAT_AREA] + r_stats[1, cv2.CC_STAT_AREA]
+        stats = np.concatenate(
+            (
+                np.array([[0, 0, width, height, area_excl_holes]]),
+                l_stats[1:],
+                r_stats[1:],
+            )
+        )
+
+        cls.join_cc_regions(labels, l_half, l_labels, r_half, r_labels, split_w, stats)
+        retval = l_retval + r_retval - 1  # first element stats[0] was removed
+        return labels, retval, stats
+
+    @classmethod
+    def paste_cc_parts(cls, l_labels, r_labels):
+        labels = np.concatenate((l_labels, r_labels), axis=1)
+        return labels
+
+    @classmethod
+    def shift_labels(cls, labels, l_retval):
+        # Shift right labels which are 0 based
+        labels[np.nonzero(labels)] += l_retval - 1
+
+    @classmethod
+    def extract_ccs_2_bands(cls, inv_mask, height, width, split_w):
+        l_half = cropnp(image=inv_mask, top=0, left=0, bottom=height, right=split_w)
+        l_height, l_width = l_half.shape
+        (
+            l_retval,
+            l_labels,
+            l_stats,
+            l_centroids,
+        ) = cv2.connectedComponentsWithStatsWithAlgorithm(
+            image=l_half, connectivity=8, ltype=cv2.CV_32S, ccltype=cv2.CCL_GRANA
+        )
+        r_half = cropnp(image=inv_mask, top=0, left=split_w, bottom=height, right=width)
+        r_height, r_width = r_half.shape
+        (
+            r_retval,
+            r_labels,
+            r_stats,
+            r_centroids,
+        ) = cv2.connectedComponentsWithStatsWithAlgorithm(
+            image=r_half, connectivity=8, ltype=cv2.CV_32S, ccltype=cv2.CCL_GRANA
+        )
+        assert l_width + r_width == width
+        return l_half, l_labels, l_retval, l_stats, r_half, r_labels, r_retval, r_stats
+
+    @classmethod
+    def join_cc_regions(
+        cls, labels, l_half, l_labels, r_half, r_labels, split_w, stats
+    ):
+        # Find common CCs, i.e. the ones in left part touching ones in right part
+        zone_column_left = l_half[:, -1]
+        zone_labels_left = l_labels[:, -1]
+        (l_dc,) = np.nonzero(zone_column_left)
+        zone_column_right = r_half[:, 0]
+        zone_labels_right = r_labels[:, 0]
+        (r_dc,) = np.nonzero(zone_column_right)
+        same_ccs = set()
+        for offs in (-1, 0, 1):  # 8 connectivity
+            in_contact = np.intersect1d(l_dc, r_dc + offs)
+            contact_labels_left = zone_labels_left[in_contact]
+            contact_labels_right = zone_labels_right[in_contact - offs]
+            same_ccs_offs = np.unique(
+                np.column_stack((contact_labels_left, contact_labels_right)), axis=0
+            )
+            same_ccs.update(list(map(tuple, same_ccs_offs)))
+        same_ccs = sorted(list(same_ccs))
+        # Do connected components (on the graph of CCs, that's confusing) to group CCs
+        connections = {}
+        for l_cc, r_cc in same_ccs:
+            if r_cc not in connections:
+                connections[r_cc] = {l_cc}
+            else:
+                connections[r_cc].add(l_cc)
+            if l_cc not in connections:
+                connections[l_cc] = {r_cc}
+            else:
+                connections[l_cc].add(r_cc)
+        groups = graph_connected_components(connections)
+        for a_group in groups:
+            assert len(a_group) > 1
+            a_group = list(a_group)
+            [cls.merge_ccs(labels, stats, a_group[0], a_cc) for a_cc in a_group[1:]]
+
+    @classmethod
+    def merge_ccs(cls, labels, stats, cc1, cc2):
+        l1, t1, w1, h1, a1 = stats[cc1]
+        l2, t2, w2, h2, a2 = stats[cc2]
+        if w1 == 0 or w2 == 0:
+            assert False
+        t_fin = min(t1, t2)
+        h_fin = max(t1 + h1, t2 + h2) - t_fin
+        l_fin = min(l1, l2)
+        w_fin = max(l1 + w1, l2 + w2) - l_fin
+        stats[cc1][cv2.CC_STAT_LEFT] = l_fin
+        stats[cc1][cv2.CC_STAT_TOP] = t_fin
+        stats[cc1][cv2.CC_STAT_WIDTH] = w_fin
+        stats[cc1][cv2.CC_STAT_HEIGHT] = h_fin
+        stats[cc1][cv2.CC_STAT_AREA] += a2
+        cc2_labels = labels[t2 : t2 + h2, l2 : l2 + w2]
+        cc2_labels[cc2_labels == cc2] = cc1
+        # Nullify cc2
+        stats[cc2][cv2.CC_STAT_WIDTH] = 0
+        stats[cc2][cv2.CC_STAT_HEIGHT] = 1
+        stats[cc2][cv2.CC_STAT_AREA] = 1
+
+    @classmethod
+    @timeit
+    def extract_holes_ccs(cls, inv_mask: ndarray):
+        retval, labels = cv2.connectedComponents(
+            image=1 - inv_mask, connectivity=4, ltype=cv2.CV_32S
+        )
+        return labels, retval
 
     @staticmethod
     def get_regions(
@@ -406,7 +552,7 @@ class ConnectedComponentsSegmenter:
 
     @classmethod
     def horizontal_noise_ratio(cls, inv_mask: ndarray) -> int:
-        """ Per 1000 number of != pixels from one line to another, in 90% central region of the image"""
+        """Per 1000 number of != pixels from one line to another, in 90% central region of the image"""
         height, width = inv_mask.shape[:2]
         excluded = int(height * 0.9) // 2
         orig = cropnp(image=inv_mask, top=excluded, bottom=-excluded)

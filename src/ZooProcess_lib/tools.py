@@ -70,3 +70,37 @@ def create_folder(path: Path):
 
 def is_file_exist(path):
     return os.path.exists(path)
+
+
+def graph_connected_components(graph):
+    """
+    Finds the connected components of an undirected graph. (straight from Gemini)
+
+    Args:
+        graph (dict): A dictionary representing the graph where keys are nodes
+                       and values are sets (or lists) of their neighbors.
+
+    Returns:
+        list: A list of sets, where each set represents a connected component
+              of the graph.
+    """
+    visited = set()
+    components = []
+
+    for node in graph:
+        if node not in visited:
+            component = set()
+            stack = [node]
+            visited.add(node)
+            component.add(node)
+
+            while stack:
+                current = stack.pop()
+                for neighbor in graph.get(current, []):
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        component.add(neighbor)
+                        stack.append(neighbor)
+            components.append(component)
+
+    return components
