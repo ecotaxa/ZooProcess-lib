@@ -10,13 +10,14 @@ from ..ROI import ROI
 from ..img_tools import cropnp, saveimage
 from ..tools import timeit, graph_connected_components
 
-
 # Left TODO:
 # Choix + rapide entre les 2 sous-cas "one contour"
 # rename cropnp to reflect it's returning pointer on data e.g. np_cropped
 # Benchmark choice b/w region finders
 # estim hnoise: essai de perf option bouclage sur les bincount np.for_each
 # rajouter cc_id dans classe CC
+
+R_MARKER = 1000000
 
 
 class CC:
@@ -192,7 +193,7 @@ class ConnectedComponentsSegmenter:
         implementation but fixing its problems.
         """
         height, width = inv_mask.shape
-        split_w = width // 2
+        split_w = width * 4 // 5  # Just to ensure we don't need equal slices
         (
             l_half,
             l_labels,
@@ -206,11 +207,11 @@ class ConnectedComponentsSegmenter:
         # Join results
 
         cls.shift_labels(r_labels, l_retval)
+        cls.join_cc_regions(l_half, l_labels, l_stats, r_half, r_labels, r_stats)
 
-        # Shift right stats X which are 0 based
+        # Shift right stats which are 0 based
         r_stats[:, cv2.CC_STAT_LEFT] += split_w
 
-        cls.join_cc_regions(l_half, l_labels, l_stats, r_half, r_labels, r_stats)
         labels = cls.paste_cc_parts(l_labels, r_labels)
 
         # Summary in stats[0]
@@ -302,31 +303,38 @@ class ConnectedComponentsSegmenter:
 
     @classmethod
     def merge_ccs(cls, l_labels, l_stats, r_labels, r_stats, cc1, cc2):
+        right_offs = l_labels.shape[1]  # width
         if cc1 < len(l_stats):
             cc1_stats, cc1_ndx = l_stats, cc1
+            l1_offs = 0
         else:
             cc1_stats, cc1_ndx = r_stats, cc1 - len(l_stats) + 1
+            l1_offs = right_offs
+        l1, t1, w1, h1, a1 = cc1_stats[cc1_ndx]
+        l1 += l1_offs
         if cc2 < len(l_stats):
             cc2_labels, cc2_stats, cc2_ndx = l_labels, l_stats, cc2
+            labels_offs = 0
             l2_offs = 0
         else:
             cc2_labels, cc2_stats, cc2_ndx = r_labels, r_stats, cc2 - len(l_stats) + 1
-            l2_offs = l_labels.shape[1]  # width
-        l1, t1, w1, h1, a1 = cc1_stats[cc1_ndx]
+            labels_offs = right_offs
+            l2_offs = right_offs
         l2, t2, w2, h2, a2 = cc2_stats[cc2_ndx]
+        l2 += l2_offs
         if w1 == 0 or w2 == 0:
             assert False
         t_fin = min(t1, t2)
         h_fin = max(t1 + h1, t2 + h2) - t_fin
         l_fin = min(l1, l2)
         w_fin = max(l1 + w1, l2 + w2) - l_fin
-        cc1_stats[cc1_ndx][cv2.CC_STAT_LEFT] = l_fin
+        cc1_stats[cc1_ndx][cv2.CC_STAT_LEFT] = l_fin - l1_offs
         cc1_stats[cc1_ndx][cv2.CC_STAT_TOP] = t_fin
         cc1_stats[cc1_ndx][cv2.CC_STAT_WIDTH] = w_fin
         cc1_stats[cc1_ndx][cv2.CC_STAT_HEIGHT] = h_fin
         cc1_stats[cc1_ndx][cv2.CC_STAT_AREA] += a2
         cc2_labels_to_change = cc2_labels[
-            t2 : t2 + h2, l2 - l2_offs : l2 - l2_offs + w2
+            t2 : t2 + h2, l2 - labels_offs : l2 - labels_offs + w2
         ]
         cc2_labels_to_change[cc2_labels_to_change == cc2] = cc1
         # Nullify cc2
