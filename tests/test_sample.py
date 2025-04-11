@@ -1534,7 +1534,7 @@ def assert_segmentation(projects, project, sample):
             assert_valid_diffs(segmenter, ref, found)
             return
         except AssertionError as e:
-            visual_diffs(ref, found, sample, vis1)
+            visual_diffs(ref, found, sample, vis1, found_rois)
     assert found == ref
 
 
@@ -1727,12 +1727,26 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     assert found == ref
 
 
-def visual_diffs(expected, actual, sample, tgt_img):
+def visual_diffs(expected, actual, sample, tgt_img, found_rois):
     different, not_in_ref, not_in_act = diff_dict_lists(expected, actual, feature_unq)
     for a_diff in different:
         a_ref, an_act = a_diff
         print(a_ref)
         print("<->", an_act)
+        cv2.rectangle(
+            tgt_img,
+            (an_act["BX"], an_act["BY"]),
+            (an_act["BX"] + an_act["Width"], an_act["BY"] + an_act["Height"]),
+            (0,),
+            1,
+        )
+        for a_roi in found_rois:
+            height, width = a_roi.mask.shape
+            if an_act["Width"] == width and an_act["Height"] == height:
+                tgt_img[
+                    an_act["BY"] + 100 : an_act["BY"] + 100 + height,
+                    an_act["BX"] - 150 : an_act["BX"] - 150 + width,
+                ] = a_roi.mask*255
     for num, an_act in enumerate(not_in_ref):
         # vig = cropnp(
         #     image=vis1,

@@ -193,7 +193,7 @@ class ConnectedComponentsSegmenter:
         implementation but fixing its problems.
         """
         height, width = inv_mask.shape
-        split_w = width * 4 // 5  # Just to ensure we don't need equal slices
+        split_w = width * 75 // 100
         (
             l_half,
             l_labels,
@@ -206,16 +206,29 @@ class ConnectedComponentsSegmenter:
         ) = cls.extract_ccs_2_bands(inv_mask, height, width, split_w)
         # Join results
 
-        cls.shift_labels(r_labels, l_retval)
-        cls.join_cc_regions(l_half, l_labels, l_stats, r_half, r_labels, r_stats)
+        groups = cls.find_common_cc_regions(
+            l_half, l_labels, l_stats, r_half, r_labels, r_stats
+        )
+
+        # Shift right labels matrix
+        cls.shift_labels(r_labels, l_retval - 1)
+
+        cls.apply_common_cc_regions(
+            groups=groups,
+            l_labels=l_labels,
+            l_stats=l_stats,
+            r_labels=r_labels,
+            r_stats=r_stats,
+            r_label_offs=l_retval - 1,
+        )
 
         # Shift right stats which are 0 based
         r_stats[:, cv2.CC_STAT_LEFT] += split_w
 
         labels = cls.paste_cc_parts(l_labels, r_labels)
 
-        # Summary in stats[0]
-        area_excl_holes = l_stats[0, cv2.CC_STAT_AREA] + r_stats[1, cv2.CC_STAT_AREA]
+        # Summary is in stats[0]
+        area_excl_holes = l_stats[0, cv2.CC_STAT_AREA] + r_stats[0, cv2.CC_STAT_AREA]
         stats = np.concatenate(
             (
                 np.array([[0, 0, width, height, area_excl_holes]]),
@@ -225,17 +238,18 @@ class ConnectedComponentsSegmenter:
         )
         # Count of CCs
         retval = l_retval + r_retval - 1  # first element stats[0] was removed
+        assert retval == len(stats)
         return labels, retval, stats
 
     @classmethod
-    def paste_cc_parts(cls, l_labels, r_labels):
+    def paste_cc_parts(cls, l_labels: ndarray, r_labels: ndarray):
         labels = np.concatenate((l_labels, r_labels), axis=1)
         return labels
 
     @classmethod
-    def shift_labels(cls, labels, l_retval):
-        # Shift right labels which are 0 based
-        labels[np.nonzero(labels)] += l_retval - 1
+    def shift_labels(cls, labels: ndarray, offset: int):
+        """Offset all valid labels inside given matrix"""
+        labels[np.nonzero(labels)] += offset
 
     @classmethod
     def extract_ccs_2_bands(cls, inv_mask, height, width, split_w):
@@ -263,13 +277,18 @@ class ConnectedComponentsSegmenter:
         return l_half, l_labels, l_retval, l_stats, r_half, r_labels, r_retval, r_stats
 
     @classmethod
-    def join_cc_regions(cls, l_half, l_labels, l_stats, r_half, r_labels, r_stats):
-        # Find common CCs, i.e. the ones in left part touching ones in right part
+    def find_common_cc_regions(
+        cls, l_half, l_labels, l_stats, r_half, r_labels, r_stats
+    ) -> List[Set]:
+        """Find common CCs, i.e. the ones in left part touching ones in right part
+        Return a list of connected CCs, left ones having their usual index, right ones shifted by
+        100M
+        """
         zone_column_left = l_half[:, -1]
         zone_labels_left = l_labels[:, -1]
         (l_dc,) = np.nonzero(zone_column_left)
         zone_column_right = r_half[:, 0]
-        zone_labels_right = r_labels[:, 0]
+        zone_labels_right = r_labels[:, 0] + R_MARKER
         (r_dc,) = np.nonzero(zone_column_right)
         same_ccs = set()
         for offs in (-1, 0, 1):  # 8 connectivity
@@ -281,7 +300,7 @@ class ConnectedComponentsSegmenter:
             )
             same_ccs.update(list(map(tuple, same_ccs_offs)))
         same_ccs = sorted(list(same_ccs))
-        # Do connected components (on the graph of CCs, that's confusing) to group CCs
+        # Do connected components (on the graph of neighbour CCs, that's confusing) to group CCs
         connections = {}
         for l_cc, r_cc in same_ccs:
             if r_cc not in connections:
@@ -293,33 +312,44 @@ class ConnectedComponentsSegmenter:
             else:
                 connections[l_cc].add(r_cc)
         groups = graph_connected_components(connections)
+        return groups
+
+    @classmethod
+    def apply_common_cc_regions(
+        cls, groups: List[Set], l_labels, l_stats, r_labels, r_stats, r_label_offs
+    ):
+        """:param r_label_offs: how to warp values in right labels space"""
         for a_group in groups:
             assert len(a_group) > 1
-            a_group = list(a_group)
+            a_group = sorted(list(a_group))
             [
-                cls.merge_ccs(l_labels, l_stats, r_labels, r_stats, a_group[0], a_cc)
+                cls.merge_ccs(a_group[0], a_cc, l_labels, l_stats, r_labels, r_label_offs, r_stats)
                 for a_cc in a_group[1:]
             ]
 
     @classmethod
-    def merge_ccs(cls, l_labels, l_stats, r_labels, r_stats, cc1, cc2):
+    def merge_ccs(cls, cc1, cc2, l_labels, l_stats, r_labels, r_label_offs, r_stats):
         right_offs = l_labels.shape[1]  # width
-        if cc1 < len(l_stats):
+        if cc1 < R_MARKER:
             cc1_stats, cc1_ndx = l_stats, cc1
             l1_offs = 0
+            cc1_offs = 0
         else:
-            cc1_stats, cc1_ndx = r_stats, cc1 - len(l_stats) + 1
+            cc1_stats, cc1_ndx = r_stats, cc1 - R_MARKER
             l1_offs = right_offs
+            cc1_offs = R_MARKER
         l1, t1, w1, h1, a1 = cc1_stats[cc1_ndx]
         l1 += l1_offs
-        if cc2 < len(l_stats):
+        if cc2 < R_MARKER:
             cc2_labels, cc2_stats, cc2_ndx = l_labels, l_stats, cc2
-            labels_offs = 0
             l2_offs = 0
+            cc2_offs = 0
+            cc2_labels_offs = 0
         else:
-            cc2_labels, cc2_stats, cc2_ndx = r_labels, r_stats, cc2 - len(l_stats) + 1
-            labels_offs = right_offs
+            cc2_labels, cc2_stats, cc2_ndx = r_labels, r_stats, cc2 - R_MARKER
             l2_offs = right_offs
+            cc2_offs = R_MARKER
+            cc2_labels_offs = r_label_offs
         l2, t2, w2, h2, a2 = cc2_stats[cc2_ndx]
         l2 += l2_offs
         if w1 == 0 or w2 == 0:
@@ -334,11 +364,13 @@ class ConnectedComponentsSegmenter:
         cc1_stats[cc1_ndx][cv2.CC_STAT_HEIGHT] = h_fin
         cc1_stats[cc1_ndx][cv2.CC_STAT_AREA] += a2
         cc2_labels_to_change = cc2_labels[
-            t2 : t2 + h2, l2 - labels_offs : l2 - labels_offs + w2
+            t2 : t2 + h2, l2 - l2_offs : l2 - l2_offs + w2
         ]
-        cc2_labels_to_change[cc2_labels_to_change == cc2] = cc1
+        src_cc_id = cc2 - cc2_offs + cc2_labels_offs
+        to_change = np.nonzero(cc2_labels_to_change == src_cc_id)
+        cc2_labels_to_change[to_change] = cc1 - cc1_offs
         # Nullify cc2
-        cc2_stats[cc2_ndx][cv2.CC_STAT_WIDTH] = 0
+        cc2_stats[cc2_ndx][cv2.CC_STAT_WIDTH] = 1
         cc2_stats[cc2_ndx][cv2.CC_STAT_HEIGHT] = 1
         cc2_stats[cc2_ndx][cv2.CC_STAT_AREA] = 1
 
