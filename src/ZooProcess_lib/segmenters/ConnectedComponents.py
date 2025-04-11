@@ -1,6 +1,6 @@
 import math
 from pathlib import Path
-from typing import List, Tuple, Optional, Sequence
+from typing import List, Tuple, Optional, Sequence, Set
 
 import cv2
 import numpy as np
@@ -11,31 +11,40 @@ from ..img_tools import cropnp, saveimage
 from ..tools import timeit, graph_connected_components
 
 # Left TODO:
-# Choix + rapide entre les 2 sous-cas "one contour"
+# Use actual threshold value not 243 (in tests)
+# Optimize find_region_using_contours with inverse image
+# hnoise perf: try bincount in a np.for_each loop instead of np.unique
+# faster denoise? uses np.unique which does a sort
 # rename cropnp to reflect it's returning pointer on data e.g. np_cropped
 # Benchmark choice b/w region finders
-# estim hnoise: essai de perf option bouclage sur les bincount np.for_each
-# rajouter cc_id dans classe CC
+# add cc_id into CC class as we use the pair quite often
+# faster criterium to determine full-contour type
 
-R_MARKER = 1000000
+R_MARKER = 100000000
 
 
 class CC:
-    __slots__ = "x", "y", "w", "h", "touching", "entire"
+    __slots__ = "x", "y", "w", "h", "touching", "entire", "local_entire"
     x: int
     y: int
     w: int
     h: int
     touching: bool  # The CC touches one border at least
     entire: bool  # The CC touches all borders
+    local_entire: bool  # The CC touches all borders in a sub-region
 
-    def __init__(self, x: int, y: int, w: int, h: int, width: int, height: int):
+    def __init__(
+        self, x: int, y: int, w: int, h: int, width: int, height: int, region_width: int
+    ):
         self.x = x
         self.y = y
         self.w = w
         self.h = h
         self.touching = x == 0 or y == 0 or x + w == width or y + h == height
-        self.entire = w == width and h == height
+        self.entire = (
+            w == width and h == height
+        )  # Note: Cannot happen with split approach
+        self.local_entire = w == region_width and h == height
 
     def is_at(self, x: int, y: int, w: int, h: int) -> bool:
         return self.x == x and self.y == y and self.w == w and self.h == h
@@ -49,76 +58,86 @@ class ConnectedComponentsSegmenter:
         self, inv_mask: ndarray, s_p_min: int, s_p_max: int, max_w_to_h_ratio: float
     ) -> List[ROI]:
         height, width = inv_mask.shape[:2]
+
         hnoise = self.horizontal_noise_ratio(inv_mask)  # Takes a few tens of ms
-        denoised, before = False, None
+        denoised = False
         if hnoise >= 10:
             # For noisy images (~10M potential particles), retrieving contours can jump to minutes
             before = self.denoise(inv_mask, s_p_min)
+            print("Noisy! number of initial CCs:", before)
             denoised = True
 
-        labels, retval, stats = self.extract_ccs_vertical_split(inv_mask)
-        if denoised:
-            print("Noisy! number of initial CCs:", before, "then found: ", retval)
-        else:
-            print("Number of cc found: ", retval)
         filtering_stats = [0] * 8
-        maybe_kept, filtering_stats[0:3] = self.prefilter(stats, s_p_min, not denoised)
         ret = []
-        # Note: The labels matrix is used for marking exclusion zones as well
-        for x, y, w, h, area_excl_holes, cc_id in maybe_kept:
-            # Proceed to more expensive filtering
 
-            cc_id_present = np.any(labels[y, x : x + w] == cc_id)
-            if not cc_id_present:
-                # Shape was erased, i.e. excluded
-                filtering_stats[3] += 1
-                continue
+        cc_regions = self.extract_ccs_vertical_split(inv_mask)
+        x_offsets = [0, -1, cc_regions[0][0].shape[1]]  # Stripes have local coordinates
 
-            cc = CC(x, y, w, h, width, height)
+        # We can have extracted CCs in 2 regions (sub-frames) + central one
+        for reg_num, (labels, retval, stats) in enumerate(cc_regions):
+            print(f"Region #{reg_num}, number of CCs found: ", retval)
+            maybe_kept, prefilter_stats = self.prefilter(stats, s_p_min, not denoised)
+            filtering_stats[0:3] = [
+                sum(x) for x in zip(filtering_stats[0:3], prefilter_stats)
+            ]
+            # Note: The labels matrix is used for marking exclusion zones as well
+            for x, y, w, h, area_excl_holes, cc_id in maybe_kept:
+                # Proceed to more expensive filtering
 
-            if cc.entire:
-                self.prevent_entire_cc_inclusion(inv_mask, labels, cc_id, cc)
-                filtering_stats[4] += 1
-                continue
+                cc_id_present = np.any(labels[y, x : x + w] == cc_id)
+                if not cc_id_present:
+                    # Shape was erased, i.e. excluded
+                    filtering_stats[3] += 1
+                    continue
 
-            holes, obj_mask = self.get_regions(labels, cc_id, cc, area_excl_holes)
-            area = area_excl_holes + np.count_nonzero(holes)
-            # Eliminate if touching any border ('entire' case treated above)
-            if cc.touching:
+                cc = CC(x, y, w, h, width, height, labels.shape[1])
+
+                if (
+                    cc.entire or cc.local_entire
+                ):  # local_entire means "touching" as sub-frame cover one border
+                    self.prevent_entire_cc_inclusion(inv_mask, labels, cc_id, cc)
+                    filtering_stats[4] += 1
+                    continue
+
+                holes, obj_mask = self.get_regions(labels, cc_id, cc, area_excl_holes)
+                area = area_excl_holes + np.count_nonzero(holes)
+                # Eliminate if touching any border ('entire' case treated above)
+                if cc.touching:
+                    self.prevent_inclusion(labels, holes, cc)
+                    filtering_stats[4] += 1
+                    continue
+                # Criteria from parameters
+                if area < s_p_min:
+                    filtering_stats[5] += 1
+                    continue
+                if area > s_p_max:
+                    self.prevent_inclusion(labels, holes, cc)
+                    filtering_stats[6] += 1
+                    continue
+                # Horizontal stripes from scanner carriage movement
+                ratiobxby = w / h
+                if ratiobxby > max_w_to_h_ratio:
+                    filtering_stats[7] += 1
+                    continue
+
                 self.prevent_inclusion(labels, holes, cc)
-                filtering_stats[4] += 1
-                continue
-            # Criteria from parameters
-            if area < s_p_min:
-                # print("Excluded region: ", w, h, area_excl_holes, area, s_p_min)
-                filtering_stats[5] += 1
-                continue
-            if area > s_p_max:
-                self.prevent_inclusion(labels, holes, cc)
-                filtering_stats[6] += 1
-                continue
-            # Horizontal stripes from scanner carriage movement
-            ratiobxby = w / h
-            if ratiobxby > max_w_to_h_ratio:
-                filtering_stats[7] += 1
-                continue
 
-            self.prevent_inclusion(labels, holes, cc)
-
-            ret.append(
-                ROI(
-                    features={
-                        "BX": int(x),
-                        "BY": int(y),
-                        "Width": int(w),
-                        "Height": int(h),
-                        "Area": int(area),
-                    },
-                    mask=obj_mask + holes,
-                    contour=None,
+                ret.append(
+                    ROI(
+                        features={
+                            "BX": int(x) + x_offsets[reg_num],
+                            "BY": int(y),
+                            "Width": int(w),
+                            "Height": int(h),
+                            "Area": int(area),
+                        },
+                        mask=obj_mask + holes,
+                        contour=None,
+                    )
                 )
+            print(
+                "Initial CCs", retval, "filter stats", filtering_stats, "left", len(ret)
             )
-        print("Initial CCs", retval, "filter stats", filtering_stats, "left", len(ret))
         return ret
 
     @classmethod
@@ -148,7 +167,6 @@ class ConnectedComponentsSegmenter:
             (len(cc_stats) - offs, 1),
         )
         ret = np.concatenate((cc_stats[offs:], indices), axis=1)
-        # return ret, (0, 0, 0)
         # Even if all pixels formed a 1-pixel-wide square, adding the hole inside would not make enough
         if do_square:
             min_pixels = int(math.sqrt(s_p_min))
@@ -186,10 +204,10 @@ class ConnectedComponentsSegmenter:
         return labels, retval, stats
 
     @classmethod
-    def extract_ccs_vertical_split(cls, inv_mask: ndarray):
+    def extract_ccs_vertical_split(cls, inv_mask: ndarray) -> List[Tuple]:
         """
         Extract connected components from the mask, but in 2 parts, in order to avoid
-        the 'entire image' problem described elsewhere. Basically mimic-ing the historical
+        the 'entire image' problem described elsewhere. Somehow mimic-ing the historical
         implementation but fixing its problems.
         """
         height, width = inv_mask.shape
@@ -204,11 +222,23 @@ class ConnectedComponentsSegmenter:
             r_retval,
             r_stats,
         ) = cls.extract_ccs_2_bands(inv_mask, height, width, split_w)
-        # Join results
 
+        # Find objects common b/w the 2 sub-frames
         groups = cls.find_common_cc_regions(
             l_half, l_labels, l_stats, r_half, r_labels, r_stats
         )
+
+        cls.remove_groups(groups, l_labels, l_stats, r_labels, r_stats)
+
+        c_labels = np.array([])
+        c_retval = 1
+        c_stats = np.array([[0, 0, 0, 0]])
+
+        return [
+            (l_labels, l_retval, l_stats),
+            (c_labels, c_retval, c_stats),
+            (r_labels, r_retval, r_stats),
+        ]
 
         # Shift right labels matrix
         cls.shift_labels(r_labels, l_retval - 1)
@@ -323,7 +353,9 @@ class ConnectedComponentsSegmenter:
             assert len(a_group) > 1
             a_group = sorted(list(a_group))
             [
-                cls.merge_ccs(a_group[0], a_cc, l_labels, l_stats, r_labels, r_label_offs, r_stats)
+                cls.merge_ccs(
+                    a_group[0], a_cc, l_labels, l_stats, r_labels, r_label_offs, r_stats
+                )
                 for a_cc in a_group[1:]
             ]
 
@@ -542,9 +574,9 @@ class ConnectedComponentsSegmenter:
         # Note: the returned contours _might_ include [truncated] neighbours as we look
         # in original mask, not in the masked-by-cc_id one like in get_regions_using_floodfill
         # TODO: The returned contours might as well include all interesting particles! both CC and
-        #  top-level contours info is fetched using openCV at this point.
+        #  top-level contours info is fetched using openCV at this point. Waste of CPU.
         contour_4_cc = ConnectedComponentsSegmenter.find_top_contour(ext_contours, cc)
-        print("nb contour_4_cc:", len(ext_contours))
+        # print("nb contour_4_cc:", len(ext_contours))
         assert contour_4_cc is not None, "Touching shape not found"
         if cc.entire and cv2.contourArea(contour_4_cc) > 0.9 * cc.w * cc.h:
             # Despite all the efforts made to avoid it (e.g. small holes in border lines so contour detection algo
@@ -645,12 +677,12 @@ class ConnectedComponentsSegmenter:
 
     @classmethod
     def denoise(cls, inv_mask: ndarray, s_p_min: float) -> int:
-        """Erase connected components which cannot end up in final result"""
+        """Erase connected components which cannot end up in final result.
+        :return the number of potential particles _before_ denoise"""
         min_pixels = int(math.sqrt(s_p_min))
         retval, labels = cv2.connectedComponents(
             image=inv_mask, connectivity=8, ltype=cv2.CV_32S
         )
-
         _unique, counts = np.unique(labels, return_counts=True)
         to_erase = np.nonzero(counts <= min_pixels)
         labels2 = np.isin(labels, to_erase)
@@ -669,3 +701,22 @@ class ConnectedComponentsSegmenter:
         cv2.drawContours(dbg_img_3chan, contours[0:1], -1, (255, 0, 0), thickness)
         cv2.drawContours(dbg_img_3chan, contours[1:], -1, (255, 255, 0), thickness)
         saveimage(dbg_img_3chan, Path("/tmp/zooprocess/contours.tif"))
+
+    @classmethod
+    def remove_groups(cls, groups, l_labels, l_stats, r_labels, r_stats):
+        for a_group in groups:
+            assert len(a_group) > 1
+            for a_cc in a_group:
+                dbg_cc = a_cc
+                if a_cc < R_MARKER:
+                    x, y, w, h, a = l_stats[a_cc]
+                    sub_labels = cropnp(l_labels, x, y, w, h)
+                    stats = l_stats
+                else:
+                    a_cc -= R_MARKER
+                    x, y, w, h, a = r_stats[a_cc]
+                    sub_labels = cropnp(r_labels, x, y, w, h)
+                    stats = r_stats
+                # print(f"Removing CC #{dbg_cc}", x, y, w, h, a)
+                # sub_labels[sub_labels == a_cc] = 0 # Voiding stats is enough
+                stats[a_cc, cv2.CC_STAT_AREA] = 0

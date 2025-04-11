@@ -201,8 +201,8 @@ def loadimage(
         image = cv2.imread(new_filename, type)
     # assert image is not None, f"file {new_filename} could not be read, check with os.path.exists()"
     # assert image is not None
-    if image is None:
-        raise Exception(f"file: {filename} don't exist\nat path {new_filename}")
+    if image is None: # TODO: wrong diag if format issue or any
+        raise Exception(f"file: {filename} doesn't exist\nat path {new_filename}")
     return image
 
 
