@@ -160,6 +160,8 @@ class ImageJLikeResizer(object):
             :param dst_height: The destination height.
         Returns:
             Resized image.
+        TODO: It's probably more efficient to proceed the other way round: build destination lines
+        in a loop on source ones.
         """
         assert self.image.dtype == np.uint8
 

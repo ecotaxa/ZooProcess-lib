@@ -1,3 +1,4 @@
+import dataclasses
 import math
 from pathlib import Path
 from typing import List, Tuple, Optional, Sequence, Set
@@ -6,6 +7,7 @@ import cv2
 import numpy as np
 from numpy import ndarray
 
+from .CCUtils import enclosing_rect, all_relative_to, all_translated_by
 from ..ROI import ROI
 from ..img_tools import cropnp, saveimage
 from ..tools import timeit, graph_connected_components
@@ -24,30 +26,67 @@ R_MARKER = 100000000
 
 
 class CC:
-    __slots__ = "x", "y", "w", "h", "touching", "entire", "local_entire"
+    __slots__ = (
+        "x",
+        "y",
+        "w",
+        "h",
+        "touching",
+        "local_touching",
+        "entire",
+        "local_entire",
+    )
     x: int
     y: int
     w: int
     h: int
-    touching: bool  # The CC touches one border at least
-    entire: bool  # The CC touches all borders
-    local_entire: bool  # The CC touches all borders in a sub-region
+    touching: bool  # The CC touches one image (not region) border at least
+    local_touching: bool  # The CC touches one region border at least
+    entire: bool  # The CC touches all image borders
+    local_entire: bool  # The CC touches all borders in a region
 
     def __init__(
-        self, x: int, y: int, w: int, h: int, width: int, height: int, region_width: int
+        self,
+        x: int,
+        y: int,
+        w: int,
+        h: int,
+        width: int,
+        height: int,
+        x_offset: int,
+        y_offset: int,
+        reg_height: int,
+        reg_width: int,
     ):
         self.x = x
         self.y = y
         self.w = w
         self.h = h
-        self.touching = x == 0 or y == 0 or x + w == width or y + h == height
+        self.touching = (
+            x + x_offset == 0
+            or y + y_offset == 0
+            or x + x_offset + w == width
+            or y + y_offset + h == height
+        )
+        self.local_touching = (
+            x == 0 or y == 0 or x + w == reg_width or y + h == reg_height
+        )
         self.entire = (
             w == width and h == height
         )  # Note: Cannot happen with split approach
-        self.local_entire = w == region_width and h == height
+        self.local_entire = w == reg_width and h == reg_height
 
     def is_at(self, x: int, y: int, w: int, h: int) -> bool:
         return self.x == x and self.y == y and self.w == w and self.h == h
+
+
+@dataclasses.dataclass()
+class Stripe(object):
+    labels: ndarray
+    retval: int  # TODO: redundant, is len(stats)
+    stats: ndarray
+    x_offset: int  # coordinates of the stripe inside the full image
+    y_offset: int
 
 
 class ConnectedComponentsSegmenter:
@@ -70,17 +109,18 @@ class ConnectedComponentsSegmenter:
         filtering_stats = [0] * 8
         ret = []
 
-        cc_regions = self.extract_ccs_vertical_split(inv_mask)
-        x_offsets = [0, -1, cc_regions[0][0].shape[1]]  # Stripes have local coordinates
+        stripes = self.extract_ccs_vertical_split(inv_mask)
 
         # We can have extracted CCs in 2 regions (sub-frames) + central one
-        for reg_num, (labels, retval, stats) in enumerate(cc_regions):
-            print(f"Region #{reg_num}, number of CCs found: ", retval)
+        for stripe_num, a_stripe in enumerate(stripes):
+            labels, stats, retval = a_stripe.labels, a_stripe.stats, a_stripe.retval
+            print(f"Stripe #{stripe_num}, number of CCs found: ", retval)
             maybe_kept, prefilter_stats = self.prefilter(stats, s_p_min, not denoised)
             filtering_stats[0:3] = [
                 sum(x) for x in zip(filtering_stats[0:3], prefilter_stats)
             ]
             # Note: The labels matrix is used for marking exclusion zones as well
+            reg_height, reg_width = a_stripe.labels.shape
             for x, y, w, h, area_excl_holes, cc_id in maybe_kept:
                 # Proceed to more expensive filtering
 
@@ -90,12 +130,35 @@ class ConnectedComponentsSegmenter:
                     filtering_stats[3] += 1
                     continue
 
-                cc = CC(x, y, w, h, width, height, labels.shape[1])
+                cc = CC(
+                    x,
+                    y,
+                    w,
+                    h,
+                    width,
+                    height,
+                    a_stripe.x_offset,
+                    a_stripe.y_offset,
+                    reg_height,
+                    reg_width,
+                )
 
                 if (
                     cc.entire or cc.local_entire
                 ):  # local_entire means "touching" as sub-frame cover one border
-                    self.prevent_entire_cc_inclusion(inv_mask, labels, cc_id, cc)
+                    local_cc = CC(
+                        x + a_stripe.x_offset,
+                        y + a_stripe.y_offset,
+                        w,
+                        h,
+                        width,
+                        height,
+                        a_stripe.x_offset,
+                        a_stripe.y_offset,
+                        reg_height,
+                        reg_width,
+                    )
+                    self.prevent_entire_cc_inclusion(inv_mask, labels, cc_id, local_cc)
                     filtering_stats[4] += 1
                     continue
 
@@ -125,8 +188,8 @@ class ConnectedComponentsSegmenter:
                 ret.append(
                     ROI(
                         features={
-                            "BX": int(x) + x_offsets[reg_num],
-                            "BY": int(y),
+                            "BX": int(x + a_stripe.x_offset),
+                            "BY": int(y + a_stripe.y_offset),
                             "Width": int(w),
                             "Height": int(h),
                             "Area": int(area),
@@ -192,7 +255,7 @@ class ConnectedComponentsSegmenter:
         return ret, (holes_area_flt, area_flt, size_flt)
 
     @classmethod
-    def extract_ccs(cls, inv_mask: ndarray):
+    def extract_ccs(cls, inv_mask: ndarray) -> Stripe:
         (
             retval,
             labels,
@@ -201,10 +264,12 @@ class ConnectedComponentsSegmenter:
         ) = cv2.connectedComponentsWithStatsWithAlgorithm(
             image=inv_mask, connectivity=8, ltype=cv2.CV_32S, ccltype=cv2.CCL_GRANA
         )
-        return labels, retval, stats
+        return Stripe(labels, retval, stats, 0, 0)
 
     @classmethod
-    def extract_ccs_vertical_split(cls, inv_mask: ndarray) -> List[Tuple]:
+    def extract_ccs_vertical_split(
+        cls, inv_mask: ndarray, for_test: bool = False
+    ) -> List[Stripe]:
         """
         Extract connected components from the mask, but in 2 parts, in order to avoid
         the 'entire image' problem described elsewhere. Somehow mimic-ing the historical
@@ -228,48 +293,50 @@ class ConnectedComponentsSegmenter:
             l_half, l_labels, l_stats, r_half, r_labels, r_stats
         )
 
-        cls.remove_groups(groups, l_labels, l_stats, r_labels, r_stats)
-
-        c_labels = np.array([])
-        c_retval = 1
-        c_stats = np.array([[0, 0, 0, 0]])
-
-        return [
-            (l_labels, l_retval, l_stats),
-            (c_labels, c_retval, c_stats),
-            (r_labels, r_retval, r_stats),
-        ]
-
-        # Shift right labels matrix
-        cls.shift_labels(r_labels, l_retval - 1)
-
-        cls.apply_common_cc_regions(
-            groups=groups,
-            l_labels=l_labels,
-            l_stats=l_stats,
-            r_labels=r_labels,
-            r_stats=r_stats,
-            r_label_offs=l_retval - 1,
-        )
-
-        # Shift right stats which are 0 based
-        r_stats[:, cv2.CC_STAT_LEFT] += split_w
-
-        labels = cls.paste_cc_parts(l_labels, r_labels)
-
-        # Summary is in stats[0]
-        area_excl_holes = l_stats[0, cv2.CC_STAT_AREA] + r_stats[0, cv2.CC_STAT_AREA]
-        stats = np.concatenate(
-            (
-                np.array([[0, 0, width, height, area_excl_holes]]),
-                l_stats[1:],
-                r_stats[1:],
+        if not for_test:
+            central_stripe = cls.build_central_stripe(
+                groups, l_labels, l_stats, r_labels, r_stats
             )
-        )
-        # Count of CCs
-        retval = l_retval + r_retval - 1  # first element stats[0] was removed
-        assert retval == len(stats)
-        return labels, retval, stats
+            return [
+                central_stripe,
+                Stripe(l_labels, l_retval, l_stats, 0, 0),
+                Stripe(r_labels, r_retval, r_stats, split_w, 0),
+            ]
+        else:
+            # Assert validity of split, test mode
+
+            # Shift right labels matrix
+            cls.shift_labels(r_labels, l_retval - 1)
+
+            cls.apply_common_cc_regions(
+                groups=groups,
+                l_labels=l_labels,
+                l_stats=l_stats,
+                r_labels=r_labels,
+                r_stats=r_stats,
+                r_label_offs=l_retval - 1,
+            )
+
+            # Shift right stats which are 0 based
+            r_stats[:, cv2.CC_STAT_LEFT] += split_w
+
+            labels = cls.paste_cc_parts(l_labels, r_labels)
+
+            # Summary is in stats[0]
+            area_excl_holes = (
+                l_stats[0, cv2.CC_STAT_AREA] + r_stats[0, cv2.CC_STAT_AREA]
+            )
+            stats = np.concatenate(
+                (
+                    np.array([[0, 0, width, height, area_excl_holes]]),
+                    l_stats[1:],
+                    r_stats[1:],
+                )
+            )
+            # Count of CCs
+            retval = l_retval + r_retval - 1  # first element stats[0] was removed
+            assert retval == len(stats)
+            return [Stripe(labels, retval, stats, 0, 0)]
 
     @classmethod
     def paste_cc_parts(cls, l_labels: ndarray, r_labels: ndarray):
@@ -463,7 +530,7 @@ class ConnectedComponentsSegmenter:
 
     @staticmethod
     def get_mask_framed_by_1(labels: ndarray, cc: CC, cc_id: int):
-        if cc.touching:
+        if cc.local_touching:
             # The shape touches an image border
             sub_labels = cropnp(
                 image=labels, top=cc.y, left=cc.x, bottom=cc.y + cc.h, right=cc.x + cc.w
@@ -521,7 +588,7 @@ class ConnectedComponentsSegmenter:
         )  # 0=not in shape (either around shape or inside), 1=shape
         contours, _ = cv2.findContours(
             obj_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
-        )  # Holes, if any, are in second level of RETR_CCOMP method output
+        )  # Holes, if any, are in second level of RETR_CCOMP method output. It's 'cheap' here, on a mask with 3 kinds of zone only
         holes = np.zeros_like(obj_mask)
         if len(contours) > 1:
             cv2.drawContours(
@@ -703,20 +770,128 @@ class ConnectedComponentsSegmenter:
         saveimage(dbg_img_3chan, Path("/tmp/zooprocess/contours.tif"))
 
     @classmethod
-    def remove_groups(cls, groups, l_labels, l_stats, r_labels, r_stats):
+    def build_central_stripe(
+        cls, groups, l_labels, l_stats, r_labels, r_stats
+    ) -> Stripe:
+        """
+        Return a stripe with objects cut by the separation line.
+        """
+        c_stats = []
+        x_separation = l_labels.shape[1]
+
+        # TODO: stats->rect
+        group_left_stats, group_right_stats = [], []
         for a_group in groups:
-            assert len(a_group) > 1
+            dest_cc = len(group_left_stats) + 1
+
+            left_ccs = [a_cc for a_cc in a_group if a_cc < R_MARKER]
+            left_stats = [l_stats[a_cc] for a_cc in left_ccs]  # in l_labels coordinates
+            left_stat = enclosing_rect(left_stats)
+            group_left_stats.append(left_stat)
+
+            for a_cc, a_stat in zip(left_ccs, left_stats):
+                cc_labels = l_labels[
+                    a_stat[1] : a_stat[1] + a_stat[3], a_stat[0] : a_stat[0] + a_stat[2]
+                ]
+                cc_labels[cc_labels == a_cc] = dest_cc
+
+            right_ccs = [a_cc - R_MARKER for a_cc in a_group if a_cc > R_MARKER]
+            right_stats = [
+                r_stats[a_cc] for a_cc in right_ccs
+            ]  # in r_labels coordinates
+            right_stat = enclosing_rect(right_stats)
+            group_right_stats.append(right_stat)
+
+            for a_cc, a_stat in zip(right_ccs, right_stats):
+                cc_labels = r_labels[
+                    a_stat[1] : a_stat[1] + a_stat[3], a_stat[0] : a_stat[0] + a_stat[2]
+                ]
+                cc_labels[cc_labels == a_cc] = dest_cc
+
             for a_cc in a_group:
-                dbg_cc = a_cc
                 if a_cc < R_MARKER:
-                    x, y, w, h, a = l_stats[a_cc]
-                    sub_labels = cropnp(l_labels, x, y, w, h)
-                    stats = l_stats
+                    side_stats = l_stats
                 else:
                     a_cc -= R_MARKER
-                    x, y, w, h, a = r_stats[a_cc]
-                    sub_labels = cropnp(r_labels, x, y, w, h)
-                    stats = r_stats
-                # print(f"Removing CC #{dbg_cc}", x, y, w, h, a)
-                # sub_labels[sub_labels == a_cc] = 0 # Voiding stats is enough
-                stats[a_cc, cv2.CC_STAT_AREA] = 0
+                    side_stats = r_stats
+                side_stats[a_cc, cv2.CC_STAT_AREA] = 0
+
+        left_rect_in_left_coords = enclosing_rect(group_left_stats)
+        right_rect_in_right_coords = enclosing_rect(group_right_stats)
+        (right_rect_in_left_coords,) = all_translated_by(
+            [right_rect_in_right_coords], x_separation
+        )
+
+        zone_rect_in_left_coords = enclosing_rect(
+            [left_rect_in_left_coords, right_rect_in_left_coords]
+        )
+        zone_rect_in_left_coords[cv2.CC_STAT_HEIGHT] += 1 # TODO: why?
+
+        (left_rect_in_zone_coords,) = all_relative_to(
+            [left_rect_in_left_coords], zone_rect_in_left_coords
+        )
+        left_group_in_zone_rect_coords = all_relative_to(
+            group_left_stats, zone_rect_in_left_coords
+        )
+
+        (right_rect_in_zone_coords,) = all_relative_to(
+            [right_rect_in_left_coords], zone_rect_in_left_coords
+        )
+        right_group_in_zone_rect_coords = all_relative_to(
+            all_translated_by(group_right_stats, x_separation), zone_rect_in_left_coords
+        )
+
+        for l_stat, r_stat in zip(
+            left_group_in_zone_rect_coords, right_group_in_zone_rect_coords
+        ):
+            c_stats.append(enclosing_rect([l_stat, r_stat]))
+
+        left_contact_zone = cropnp(
+            l_labels,
+            left_rect_in_left_coords[1],
+            left_rect_in_left_coords[0],
+            left_rect_in_left_coords[1] + left_rect_in_left_coords[3],
+            left_rect_in_left_coords[0] + left_rect_in_left_coords[2],
+        )
+        right_contact_zone = cropnp(
+            r_labels,
+            right_rect_in_right_coords[1],
+            right_rect_in_right_coords[0],
+            right_rect_in_right_coords[1] + right_rect_in_right_coords[3],
+            right_rect_in_right_coords[0] + right_rect_in_right_coords[2],
+        )
+
+        # Allocate a minimal labels matrix
+        labels = np.zeros(
+            (
+                zone_rect_in_left_coords[cv2.CC_STAT_HEIGHT],
+                zone_rect_in_left_coords[cv2.CC_STAT_WIDTH],
+            ),
+            dtype=np.int32,
+        )
+        # Copy both sides labels
+        labels[
+            left_rect_in_zone_coords[1] : left_rect_in_zone_coords[1]
+            + left_rect_in_zone_coords[3],
+            left_rect_in_zone_coords[0] : left_rect_in_zone_coords[0]
+            + left_rect_in_zone_coords[2],
+        ] = left_contact_zone
+        labels[
+            right_rect_in_zone_coords[1] : right_rect_in_zone_coords[1]
+            + right_rect_in_zone_coords[3],
+            right_rect_in_zone_coords[0] : right_rect_in_zone_coords[0]
+            + right_rect_in_zone_coords[2],
+        ] = right_contact_zone
+
+        c_labels = labels  # FakeLabel(cum_stat, l_labels, r_labels)
+        c_retval = len(groups)
+        c_stats.insert(
+            0,
+            np.asarray(
+                [0, 0, labels.shape[1], labels.shape[0], zone_rect_in_left_coords[4]]
+            ),
+        )
+        c_stats = np.asarray(c_stats)
+        x_offset = int(zone_rect_in_left_coords[cv2.CC_STAT_LEFT])
+        y_offset = int(zone_rect_in_left_coords[cv2.CC_STAT_TOP])
+        return Stripe(c_labels, c_retval, c_stats, x_offset, y_offset)
