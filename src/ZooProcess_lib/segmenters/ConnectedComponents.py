@@ -119,6 +119,7 @@ class ConnectedComponentsSegmenter:
         else:
             stripes = self.extract_ccs(inv_mask)
 
+        excluded = np.zeros_like(inv_mask, dtype=np.uint8)
         # We can have extracted CCs in 2 regions (sub-frames) + central one
         for stripe_num, a_stripe in enumerate(stripes):
             labels, stats, retval = a_stripe.labels, a_stripe.stats, a_stripe.retval
@@ -129,11 +130,18 @@ class ConnectedComponentsSegmenter:
             ]
             # Note: The labels matrix is used for marking exclusion zones as well
             reg_height, reg_width = a_stripe.labels.shape
+            stripe_excluded = cropnp(
+                excluded,
+                a_stripe.y_offset,
+                a_stripe.x_offset,
+                a_stripe.y_offset + reg_height,
+                a_stripe.x_offset + reg_width,
+            )
             for x, y, w, h, area_excl_holes, cc_id in maybe_kept:
                 # Proceed to more expensive filtering
 
-                cc_id_present = np.any(labels[y, x : x + w] == cc_id)
-                if not cc_id_present:
+                x_start = np.argmax(labels[y, x : x + w] == cc_id)
+                if stripe_excluded[y, x + x_start] == 1:
                     # Shape was erased, i.e. excluded
                     filtering_stats[3] += 1
                     continue
@@ -166,7 +174,7 @@ class ConnectedComponentsSegmenter:
                         reg_height,
                         reg_width,
                     )
-                    self.prevent_entire_cc_inclusion(inv_mask, labels, cc_id, local_cc)
+                    self.prevent_entire_cc_inclusion(inv_mask, stripe_excluded, cc_id, local_cc)
                     filtering_stats[4] += 1
                     continue
 
@@ -174,7 +182,7 @@ class ConnectedComponentsSegmenter:
                 area = area_excl_holes + np.count_nonzero(holes)
                 # Eliminate if touching any border ('entire' case treated above)
                 if cc.touching:
-                    self.prevent_inclusion(labels, holes, cc)
+                    self.prevent_inclusion(stripe_excluded, holes, cc)
                     filtering_stats[4] += 1
                     continue
                 # Criteria from parameters
@@ -182,7 +190,7 @@ class ConnectedComponentsSegmenter:
                     filtering_stats[5] += 1
                     continue
                 if area > s_p_max:
-                    self.prevent_inclusion(labels, holes, cc)
+                    self.prevent_inclusion(stripe_excluded, holes, cc)
                     filtering_stats[6] += 1
                     continue
                 # Horizontal stripes from scanner carriage movement
@@ -191,7 +199,7 @@ class ConnectedComponentsSegmenter:
                     filtering_stats[7] += 1
                     continue
 
-                self.prevent_inclusion(labels, holes, cc)
+                self.prevent_inclusion(stripe_excluded, holes, cc)
 
                 ret.append(
                     ROI(
@@ -238,6 +246,8 @@ class ConnectedComponentsSegmenter:
             (len(cc_stats) - offs, 1),
         )
         ret = np.concatenate((cc_stats[offs:], indices), axis=1)
+        # Remove our fake/tagged stats
+        ret = ret[ret[:, cv2.CC_STAT_AREA] > 0]
         # Even if all pixels formed a 1-pixel-wide square, adding the hole inside would not make enough
         if do_square:
             min_pixels = int(math.sqrt(s_p_min))
@@ -328,7 +338,7 @@ class ConnectedComponentsSegmenter:
             # Shift right stats which are 0 based
             r_stats[:, cv2.CC_STAT_LEFT] += split_w
 
-            labels = cls.paste_cc_parts(l_labels, r_labels)
+            full_labels = cls.paste_cc_parts(l_labels, r_labels)
 
             # Summary is in stats[0]
             area_excl_holes = (
@@ -344,7 +354,7 @@ class ConnectedComponentsSegmenter:
             # Count of CCs
             retval = l_retval + r_retval - 1  # first element stats[0] was removed
             assert retval == len(stats)
-            return [Stripe(labels, retval, stats, 0, 0)]
+            return [Stripe(full_labels, retval, stats, 0, 0)]
 
     @classmethod
     def paste_cc_parts(cls, l_labels: ndarray, r_labels: ndarray):
@@ -812,7 +822,8 @@ class ConnectedComponentsSegmenter:
             ):
                 # Case when the reconstituted shape is around the full image, closed or not.
                 # Just leave the 2 other stripes deal with it
-                continue
+                pass
+                # continue
 
             # Reuse CC IDs from right, assuming there are fewer CCs on this side
             dest_cc = min(right_ccs)

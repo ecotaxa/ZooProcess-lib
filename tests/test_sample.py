@@ -1513,7 +1513,9 @@ all_borders_closed = [
     ids=[sample for (_prj, sample) in tested_samples],
 )
 def test_segmentation(projects, tmp_path, project, sample):
-    assert_segmentation(projects, project, sample, Segmenter.METH_CONNECTED_COMPONENTS_SPLIT)
+    assert_segmentation(
+        projects, project, sample, Segmenter.METH_CONNECTED_COMPONENTS_SPLIT
+    )
 
 
 def assert_segmentation(projects, project, sample, method):

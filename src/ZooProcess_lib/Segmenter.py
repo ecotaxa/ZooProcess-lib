@@ -30,8 +30,8 @@ class Segmenter(object):
 
     METH_TOP_CONTOUR = 1
     METH_CONTOUR_TREE = 2
-    METH_CONNECTED_COMPONENTS = 3
-    METH_CONNECTED_COMPONENTS_SPLIT = 4
+    METH_CONNECTED_COMPONENTS = 4
+    METH_CONNECTED_COMPONENTS_SPLIT = 8
     LEGACY_COMPATIBLE = 16
 
     def __init__(self, image: ndarray, minsize: float, maxsize: float):
