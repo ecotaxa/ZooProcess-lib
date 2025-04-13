@@ -814,6 +814,9 @@ class ConnectedComponentsSegmenter:
                 # Just leave the 2 other stripes deal with it
                 continue
 
+            # Reuse CC IDs from right, assuming there are fewer CCs on this side
+            dest_cc = min(right_ccs)
+
             group_left_stats.append(left_stat)
             group_right_stats.append(right_stat)
             ids_for_groups.append(dest_cc)
@@ -875,13 +878,6 @@ class ConnectedComponentsSegmenter:
 
         c_labels = labels
         c_retval = len(groups)
-        c_stats.insert(
-            0,
-            np.asarray(
-                [0, 0, labels.shape[1], labels.shape[0], zone_rect_in_left_coords[4]]
-            ),
-        )
-        c_stats = np.asarray(c_stats)
         x_offset = int(zone_rect_in_left_coords[cv2.CC_STAT_LEFT])
         y_offset = int(zone_rect_in_left_coords[cv2.CC_STAT_TOP])
         print(
