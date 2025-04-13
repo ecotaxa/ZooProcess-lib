@@ -29,8 +29,9 @@ class Segmenter(object):
     max_w_to_h_ratio = 40
 
     METH_TOP_CONTOUR = 1
-    METH_CONNECTED_COMPONENTS = 2
-    METH_CONTOUR_TREE = 4
+    METH_CONTOUR_TREE = 2
+    METH_CONNECTED_COMPONENTS = 3
+    METH_CONNECTED_COMPONENTS_SPLIT = 4
     LEGACY_COMPATIBLE = 16
 
     def __init__(self, image: ndarray, minsize: float, maxsize: float):
@@ -103,7 +104,19 @@ class Segmenter(object):
         if method & self.METH_CONNECTED_COMPONENTS:
             # Most reliable from execution/complexity points of view
             return ConnectedComponentsSegmenter(self.image).find_particles_via_cc(
-                inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio
+                inv_mask,
+                self.s_p_min,
+                self.s_p_max,
+                self.max_w_to_h_ratio,
+                with_split=False,
+            )
+        elif method & self.METH_CONNECTED_COMPONENTS_SPLIT:
+            return ConnectedComponentsSegmenter(self.image).find_particles_via_cc(
+                inv_mask,
+                self.s_p_min,
+                self.s_p_max,
+                self.max_w_to_h_ratio,
+                with_split=True,
             )
         elif method & self.METH_CONTOUR_TREE:
             # Universal, but very slow on noisy images, collapses from seconds to ten of minutes

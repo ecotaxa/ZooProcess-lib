@@ -18,7 +18,8 @@ def enclosing_rect(stats: List[ndarray]) -> ndarray:
         max_y = max(max_y, y + height)
         sum_area += area
     return np.asarray(
-        [min_x, min_y, max_x - min_x, max_y - min_y, sum_area], dtype=np.uint32
+        [min_x, min_y, max_x - min_x, max_y - min_y, sum_area],
+        dtype=np.uint32,  # Fails when max_x or max_y is -1 and that's very OK
     )
 
 

@@ -1513,10 +1513,10 @@ all_borders_closed = [
     ids=[sample for (_prj, sample) in tested_samples],
 )
 def test_segmentation(projects, tmp_path, project, sample):
-    assert_segmentation(projects, project, sample)
+    assert_segmentation(projects, project, sample, Segmenter.METH_CONNECTED_COMPONENTS_SPLIT)
 
 
-def assert_segmentation(projects, project, sample):
+def assert_segmentation(projects, project, sample, method):
     folder = ZooscanFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
     vis1 = load_final_ref_image(folder, sample, index)
@@ -1524,7 +1524,7 @@ def assert_segmentation(projects, project, sample):
     ref = read_measurements(folder, sample, index)
     # TODO: Add threshold (AKA 'upper= 243' in config) here
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
-    found_rois = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
+    found_rois = segmenter.find_blobs(method)
     segmenter.split_by_blobs(found_rois)
 
     found = [a_roi.features for a_roi in found_rois]
@@ -1554,7 +1554,7 @@ def assert_linear_response_time(projects, tmp_path, test_set):
         # TODO: Add threshold (AKA 'upper= 243' in config) here
         segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
         spent, found_rois = measure_time(
-            segmenter.find_blobs, Segmenter.METH_CONNECTED_COMPONENTS
+            segmenter.find_blobs, Segmenter.METH_CONNECTED_COMPONENTS_SPLIT
         )
         # Minimal & fast
         assert found_rois != []
@@ -1746,7 +1746,9 @@ def visual_diffs(expected, actual, sample, tgt_img, found_rois):
                 tgt_img[
                     an_act["BY"] + 100 : an_act["BY"] + 100 + height,
                     an_act["BX"] - 150 : an_act["BX"] - 150 + width,
-                ] = a_roi.mask*255
+                ] = (
+                    a_roi.mask * 255
+                )
     for num, an_act in enumerate(not_in_ref):
         # vig = cropnp(
         #     image=vis1,

@@ -25,9 +25,8 @@ class ExternalContoursSegmenter:
         )
         if len(contours) <= 1:
             print("0 or 1 contour!")
-            return ConnectedComponentsSegmenter.find_particles_via_cc(
-                inv_mask, s_p_min, s_p_max, max_w_to_h_ratio
-            )
+            from ..Segmenter import Segmenter
+            return ConnectedComponentsSegmenter.find_particles_via_cc(inv_mask, s_p_min, s_p_max, max_w_to_h_ratio, Segmenter.METH_CONNECTED_COMPONENTS_SPLIT)
 
         print("Number of RETR_EXTERNAL Contours found = " + str(len(contours)))
         ret: List[ROI] = []

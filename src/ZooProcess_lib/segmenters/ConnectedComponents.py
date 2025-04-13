@@ -14,13 +14,13 @@ from ..tools import timeit, graph_connected_components
 
 # Left TODO:
 # Use actual threshold value not 243 (in tests)
+# Do specialized prevent_inclusion which does not need holes & see if faster
 # Optimize find_region_using_contours with inverse image
 # hnoise perf: try bincount in a np.for_each loop instead of np.unique
 # faster denoise? uses np.unique which does a sort
 # rename cropnp to reflect it's returning pointer on data e.g. np_cropped
 # Benchmark choice b/w region finders
 # add cc_id into CC class as we use the pair quite often
-# faster criterium to determine full-contour type
 
 R_MARKER = 100000000
 
@@ -94,7 +94,12 @@ class ConnectedComponentsSegmenter:
         self.image = image
 
     def find_particles_via_cc(
-        self, inv_mask: ndarray, s_p_min: int, s_p_max: int, max_w_to_h_ratio: float
+        self,
+        inv_mask: ndarray,
+        s_p_min: int,
+        s_p_max: int,
+        max_w_to_h_ratio: float,
+        with_split,
     ) -> List[ROI]:
         height, width = inv_mask.shape[:2]
 
@@ -109,7 +114,10 @@ class ConnectedComponentsSegmenter:
         filtering_stats = [0] * 8
         ret = []
 
-        stripes = self.extract_ccs_vertical_split(inv_mask)
+        if with_split:
+            stripes = self.extract_ccs_vertical_split(inv_mask)
+        else:
+            stripes = self.extract_ccs(inv_mask)
 
         # We can have extracted CCs in 2 regions (sub-frames) + central one
         for stripe_num, a_stripe in enumerate(stripes):
@@ -255,7 +263,7 @@ class ConnectedComponentsSegmenter:
         return ret, (holes_area_flt, area_flt, size_flt)
 
     @classmethod
-    def extract_ccs(cls, inv_mask: ndarray) -> Stripe:
+    def extract_ccs(cls, inv_mask: ndarray) -> List[Stripe]:
         (
             retval,
             labels,
@@ -264,7 +272,7 @@ class ConnectedComponentsSegmenter:
         ) = cv2.connectedComponentsWithStatsWithAlgorithm(
             image=inv_mask, connectivity=8, ltype=cv2.CV_32S, ccltype=cv2.CCL_GRANA
         )
-        return Stripe(labels, retval, stats, 0, 0)
+        return [Stripe(labels, retval, stats, 0, 0)]
 
     @classmethod
     def extract_ccs_vertical_split(
@@ -673,7 +681,7 @@ class ConnectedComponentsSegmenter:
             # Imagine a giant "U" covering 3 borders but not the top one,
             #      or a giant "C" covering 3 borders but not the right one.
             # We can paint the whole CC as "forbidden".
-            print("4 borders not closed")
+            print("4 borders not closed, nb contours:", len(ext_contours))
             # Disable the full shape, we're done
 
         # Note: It's a bit border-line as we use a drawing primitive on a non-image.
@@ -778,6 +786,8 @@ class ConnectedComponentsSegmenter:
         """
         c_stats = []
         x_separation = l_labels.shape[1]
+        full_width = l_labels.shape[1] + r_labels.shape[1]
+        full_height = l_labels.shape[0]
 
         # TODO: stats->rect
         group_left_stats, group_right_stats = [], []
@@ -787,34 +797,40 @@ class ConnectedComponentsSegmenter:
             left_ccs = [a_cc for a_cc in a_group if a_cc < R_MARKER]
             left_stats = [l_stats[a_cc] for a_cc in left_ccs]  # in l_labels coordinates
             left_stat = enclosing_rect(left_stats)
-            group_left_stats.append(left_stat)
-
-            for a_cc, a_stat in zip(left_ccs, left_stats):
-                cc_labels = l_labels[
-                    a_stat[1] : a_stat[1] + a_stat[3], a_stat[0] : a_stat[0] + a_stat[2]
-                ]
-                cc_labels[cc_labels == a_cc] = dest_cc
 
             right_ccs = [a_cc - R_MARKER for a_cc in a_group if a_cc > R_MARKER]
             right_stats = [
                 r_stats[a_cc] for a_cc in right_ccs
             ]  # in r_labels coordinates
             right_stat = enclosing_rect(right_stats)
+
+            (right_stat_in_left_coords,) = all_translated_by([right_stat], x_separation)
+            joined_stat = enclosing_rect([left_stat, right_stat_in_left_coords])
+            # print("joined group", joined_stat)
+            if (
+                joined_stat[cv2.CC_STAT_WIDTH] == full_width
+                and joined_stat[cv2.CC_STAT_HEIGHT] == full_height
+            ):
+                # Case when the reconstituted shape is around the full image, closed or not.
+                # Just leave the 2 other stripes deal with it
+                continue
+
+            group_left_stats.append(left_stat)
             group_right_stats.append(right_stat)
 
-            for a_cc, a_stat in zip(right_ccs, right_stats):
-                cc_labels = r_labels[
-                    a_stat[1] : a_stat[1] + a_stat[3], a_stat[0] : a_stat[0] + a_stat[2]
-                ]
-                cc_labels[cc_labels == a_cc] = dest_cc
+            cls.renumber_ccs(l_labels, left_ccs, left_stats, dest_cc)
+            cls.renumber_ccs(r_labels, right_ccs, right_stats, dest_cc)
 
-            for a_cc in a_group:
-                if a_cc < R_MARKER:
-                    side_stats = l_stats
-                else:
-                    a_cc -= R_MARKER
-                    side_stats = r_stats
-                side_stats[a_cc, cv2.CC_STAT_AREA] = 0
+            # Invalidate management of this CC in other stripes
+            for a_cc in left_ccs:
+                l_stats[a_cc, cv2.CC_STAT_AREA] = 0
+            for a_cc in right_ccs:
+                r_stats[a_cc, cv2.CC_STAT_AREA] = 0
+
+        if len(group_left_stats) == 0:
+            # All was filtered
+            c_stats = np.asarray([[0, 0, 1, 1, 0]])
+            return Stripe(np.zeros((1, 1)), 1, c_stats, 0, 0)
 
         left_rect_in_left_coords = enclosing_rect(group_left_stats)
         right_rect_in_right_coords = enclosing_rect(group_right_stats)
@@ -825,7 +841,6 @@ class ConnectedComponentsSegmenter:
         zone_rect_in_left_coords = enclosing_rect(
             [left_rect_in_left_coords, right_rect_in_left_coords]
         )
-        zone_rect_in_left_coords[cv2.CC_STAT_HEIGHT] += 1 # TODO: why?
 
         (left_rect_in_zone_coords,) = all_relative_to(
             [left_rect_in_left_coords], zone_rect_in_left_coords
@@ -846,44 +861,17 @@ class ConnectedComponentsSegmenter:
         ):
             c_stats.append(enclosing_rect([l_stat, r_stat]))
 
-        left_contact_zone = cropnp(
+        labels = cls.import_into_stripe(
             l_labels,
-            left_rect_in_left_coords[1],
-            left_rect_in_left_coords[0],
-            left_rect_in_left_coords[1] + left_rect_in_left_coords[3],
-            left_rect_in_left_coords[0] + left_rect_in_left_coords[2],
-        )
-        right_contact_zone = cropnp(
+            left_rect_in_left_coords,
+            left_rect_in_zone_coords,
             r_labels,
-            right_rect_in_right_coords[1],
-            right_rect_in_right_coords[0],
-            right_rect_in_right_coords[1] + right_rect_in_right_coords[3],
-            right_rect_in_right_coords[0] + right_rect_in_right_coords[2],
+            right_rect_in_right_coords,
+            right_rect_in_zone_coords,
+            zone_rect_in_left_coords,
         )
 
-        # Allocate a minimal labels matrix
-        labels = np.zeros(
-            (
-                zone_rect_in_left_coords[cv2.CC_STAT_HEIGHT],
-                zone_rect_in_left_coords[cv2.CC_STAT_WIDTH],
-            ),
-            dtype=np.int32,
-        )
-        # Copy both sides labels
-        labels[
-            left_rect_in_zone_coords[1] : left_rect_in_zone_coords[1]
-            + left_rect_in_zone_coords[3],
-            left_rect_in_zone_coords[0] : left_rect_in_zone_coords[0]
-            + left_rect_in_zone_coords[2],
-        ] = left_contact_zone
-        labels[
-            right_rect_in_zone_coords[1] : right_rect_in_zone_coords[1]
-            + right_rect_in_zone_coords[3],
-            right_rect_in_zone_coords[0] : right_rect_in_zone_coords[0]
-            + right_rect_in_zone_coords[2],
-        ] = right_contact_zone
-
-        c_labels = labels  # FakeLabel(cum_stat, l_labels, r_labels)
+        c_labels = labels
         c_retval = len(groups)
         c_stats.insert(
             0,
@@ -894,4 +882,65 @@ class ConnectedComponentsSegmenter:
         c_stats = np.asarray(c_stats)
         x_offset = int(zone_rect_in_left_coords[cv2.CC_STAT_LEFT])
         y_offset = int(zone_rect_in_left_coords[cv2.CC_STAT_TOP])
+        print(
+            f"Central stripe: {c_retval} CCs h:{labels.shape[0]} w:{labels.shape[1]} VS {full_width}"
+        )
         return Stripe(c_labels, c_retval, c_stats, x_offset, y_offset)
+
+    @classmethod
+    def renumber_ccs(cls, labels: ndarray, ccs, stats, dest_cc: int):
+        """We found out that all CCs belong to same shape, reflect this fact in labels sub-matrices.
+        After this operation, labels on both sides might become inconsistent for the previous numbers,
+        as there are areas with same label which are _not_ connected. But as the areas are also copied
+        in central zone, and we invalidate the stats AKA pointer to CCs, it's OK."""
+        for a_cc, a_stat in zip(ccs, stats):
+            if a_cc == dest_cc:
+                continue
+            cc_labels = labels[
+                a_stat[1] : a_stat[1] + a_stat[3], a_stat[0] : a_stat[0] + a_stat[2]
+            ]
+            cc_labels[cc_labels == a_cc] = dest_cc
+
+    @classmethod
+    def import_into_stripe(
+        cls,
+        l_labels,
+        left_from,
+        left_rect_to,
+        r_labels,
+        right_from,
+        right_rect_to,
+        zone_rect,
+    ):
+        left_contact_zone = cropnp(
+            l_labels,
+            left_from[1],
+            left_from[0],
+            left_from[1] + left_from[3],
+            left_from[0] + left_from[2],
+        )
+        right_contact_zone = cropnp(
+            r_labels,
+            right_from[1],
+            right_from[0],
+            right_from[1] + right_from[3],
+            right_from[0] + right_from[2],
+        )
+        # Allocate a minimal labels matrix
+        labels = np.zeros(
+            (
+                zone_rect[cv2.CC_STAT_HEIGHT],
+                zone_rect[cv2.CC_STAT_WIDTH],
+            ),
+            dtype=np.int32,
+        )
+        # Copy both sides labels
+        labels[
+            left_rect_to[1] : left_rect_to[1] + left_rect_to[3],
+            left_rect_to[0] : left_rect_to[0] + left_rect_to[2],
+        ] = left_contact_zone
+        labels[
+            right_rect_to[1] : right_rect_to[1] + right_rect_to[3],
+            right_rect_to[0] : right_rect_to[0] + right_rect_to[2],
+        ] = right_contact_zone
+        return labels
