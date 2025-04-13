@@ -784,16 +784,15 @@ class ConnectedComponentsSegmenter:
         """
         Return a stripe with objects cut by the separation line.
         """
-        c_stats = []
+        c_stats = np.copy(r_stats)  # re_use right 'namespace'
+        c_stats[:, cv2.CC_STAT_AREA] = 0
+
         x_separation = l_labels.shape[1]
         full_width = l_labels.shape[1] + r_labels.shape[1]
         full_height = l_labels.shape[0]
 
-        # TODO: stats->rect
-        group_left_stats, group_right_stats = [], []
+        group_left_stats, group_right_stats, ids_for_groups = [], [], []
         for a_group in groups:
-            dest_cc = len(group_left_stats) + 1
-
             left_ccs = [a_cc for a_cc in a_group if a_cc < R_MARKER]
             left_stats = [l_stats[a_cc] for a_cc in left_ccs]  # in l_labels coordinates
             left_stat = enclosing_rect(left_stats)
@@ -817,11 +816,12 @@ class ConnectedComponentsSegmenter:
 
             group_left_stats.append(left_stat)
             group_right_stats.append(right_stat)
+            ids_for_groups.append(dest_cc)
 
             cls.renumber_ccs(l_labels, left_ccs, left_stats, dest_cc)
             cls.renumber_ccs(r_labels, right_ccs, right_stats, dest_cc)
 
-            # Invalidate management of this CC in other stripes
+            # Invalidate management of origin CCs in other stripes
             for a_cc in left_ccs:
                 l_stats[a_cc, cv2.CC_STAT_AREA] = 0
             for a_cc in right_ccs:
@@ -856,10 +856,12 @@ class ConnectedComponentsSegmenter:
             all_translated_by(group_right_stats, x_separation), zone_rect_in_left_coords
         )
 
-        for l_stat, r_stat in zip(
-            left_group_in_zone_rect_coords, right_group_in_zone_rect_coords
+        for l_stat, r_stat, cc_id in zip(
+            left_group_in_zone_rect_coords,
+            right_group_in_zone_rect_coords,
+            ids_for_groups,
         ):
-            c_stats.append(enclosing_rect([l_stat, r_stat]))
+            c_stats[cc_id] = enclosing_rect([l_stat, r_stat])
 
         labels = cls.import_into_stripe(
             l_labels,
@@ -888,11 +890,12 @@ class ConnectedComponentsSegmenter:
         return Stripe(c_labels, c_retval, c_stats, x_offset, y_offset)
 
     @classmethod
-    def renumber_ccs(cls, labels: ndarray, ccs, stats, dest_cc: int):
+    def renumber_ccs(cls, labels: ndarray, ccs: List, stats, dest_cc: int):
         """We found out that all CCs belong to same shape, reflect this fact in labels sub-matrices.
         After this operation, labels on both sides might become inconsistent for the previous numbers,
         as there are areas with same label which are _not_ connected. But as the areas are also copied
-        in central zone, and we invalidate the stats AKA pointer to CCs, it's OK."""
+        in central zone, and we invalidate the stats AKA pointer to left&right CCs, it's OK.
+        """
         for a_cc, a_stat in zip(ccs, stats):
             if a_cc == dest_cc:
                 continue
