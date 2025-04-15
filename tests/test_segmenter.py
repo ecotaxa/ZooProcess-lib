@@ -53,9 +53,6 @@ def test_holes_62388():
     # This image biggest particle has a pattern in holes, their contour touches the particle itself
     image = loadimage(SEGMENTER_DIR / "cc_62388.png")
     image = cv2.copyMakeBorder(image, 4, 4, 4, 4, cv2.BORDER_CONSTANT, value=(255,))
-    part = Segmenter(image, 0.1, 100000).find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
-    areas = sorted([p.features["Area"] for p in part], reverse=True)
-    assert areas == [1675, 342, 244, 207]
     part = Segmenter(image, 0.1, 100000).find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
     features = sorted([p.features for p in part], key=feature_unq, reverse=True)
     assert features == [
@@ -66,3 +63,120 @@ def test_holes_62388():
         {"Area": 1675, "BX": 4, "BY": 4, "Height": 148, "Width": 258},
     ]
 
+
+def geoloc(stats) -> Dict[Tuple, Tuple]:
+    ret = {}
+    for ndx, (x_ref, y_ref, w_ref, h_ref, a_ref) in enumerate(stats):
+        key = (int(x_ref), int(y_ref), int(w_ref), int(h_ref))
+        ret[key] = (a_ref, ndx)
+    return ret
+
+
+def mask_at(labels: np.ndarray, coords, label):
+    x, y, w, h = coords
+    sub_labels = labels[y : y + h, x : x + w]
+    return sub_labels == label
+
+
+def cc_from_coord(coord) -> CC:
+    x, y, w, h = coord
+    return CC(x, y, w, h, -1, -1, 0, 0, 1000, 1000)
+
+
+def test_splitting_image_conserves_data():
+    # Assert validity of splitting an image vertically in 2 and reconstructing the CCs
+    thresh_max = 243
+    image = loadimage(SEGMENTER_DIR / "s_17_3_tot_1_vis1.png")
+    image = loadimage(
+        SEGMENTER_DIR / "apero2023_tha_bioness_013_st46_d_n8_d3_1_vis1.png"
+    )
+    print("loaded")
+    _th, inv_mask = cv2.threshold(image, thresh_max, 1, cv2.THRESH_BINARY_INV)
+    (stripe,) = ConnectedComponentsSegmenter.extract_ccs(inv_mask)
+    print("ccs1 done.")
+    ref_labels, retval1, ref_stats = stripe.labels, stripe.retval, stripe.stats
+    vs_stripe = ConnectedComponentsSegmenter.extract_ccs_vertical_split(
+        inv_mask, for_test=True
+    )[0]
+    (
+        vs_labels,
+        retval2,
+        vs_stats,
+    ) = (
+        vs_stripe.labels,
+        vs_stripe.retval,
+        vs_stripe.stats,
+    )
+    assert retval2 >= retval1  # Split objects appear at least twice
+    # Equivalence of outputs
+    ref_stats_by_coord = geoloc(ref_stats)
+    vs_stats_by_coord = geoloc(vs_stats)
+    print("cc2 done, comparing")
+    for coord in ref_stats_by_coord.keys():
+        ref_area, ref_ndx = ref_stats_by_coord[coord]
+        vs_area, vs_ndx = vs_stats_by_coord[coord]
+        # 'feature' equivalence
+        assert ref_area == vs_area
+        # Masks equality
+        ref_mask = mask_at(inv_mask, coord, ref_ndx)
+        ref_pix_count = np.count_nonzero(ref_mask)
+        vs_mask = mask_at(inv_mask, coord, vs_ndx)
+        vs_pix_count = np.count_nonzero(vs_mask)
+        np.testing.assert_equal(ref_mask, vs_mask)
+        assert ref_pix_count == vs_pix_count
+        #
+        cc = cc_from_coord(coord)
+        holes_ref, submask_ref = ConnectedComponentsSegmenter.get_regions(
+            ref_labels, ref_ndx, cc, ref_area
+        )
+        holes_vs, submask_vs = ConnectedComponentsSegmenter.get_regions(
+            vs_labels, vs_ndx, cc, vs_area
+        )
+        if np.any(submask_ref != submask_vs):
+            print(f"submask diff for {ref_ndx} AKA {vs_ndx}")
+        if np.any(holes_ref != holes_vs):
+            print(f"holes mask diff for {ref_ndx} AKA {vs_ndx}")
+        np.testing.assert_equal(holes_ref, holes_vs)
+        np.testing.assert_equal(submask_ref, submask_vs)
+    for coord in vs_stats_by_coord.keys():
+        if coord in ref_stats_by_coord:
+            continue
+        print(coord, vs_stats_by_coord[coord])
+
+
+def test_simplified_scan():
+    thresh_max = 243
+    image = loadimage(
+        SEGMENTER_DIR / "apero2023_tha_bioness_013_st46_d_n8_d3_1_vis1.png"
+    )
+    # image = loadimage(
+    #     Path("/tmp/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_vis1.png")
+    # )
+    segmenter = Segmenter(image, 0.3, 100)
+
+    found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS_SPLIT)
+    found_feats_new = [a_roi.features for a_roi in found_rois_new]
+    sort_by_coords(found_feats_new)
+
+    found_rois_old = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
+    found_feats_compat = [a_roi.features for a_roi in found_rois_old]
+    sort_by_coords(found_feats_compat)
+
+    assert found_feats_compat == found_feats_new
+    if found_feats_compat != found_feats_new:
+        assert_valid_diffs(segmenter, found_feats_compat, found_feats_new)
+
+
+def test_split_image():
+    # Assert validity of splitting an image vertically in 2 and reconstructing the CCs
+    thresh_max = 243
+    image = loadimage(SEGMENTER_DIR / "s_17_3_tot_1_vis1.png")
+    _th, inv_mask = cv2.threshold(image, thresh_max, 1, cv2.THRESH_BINARY_INV)
+    ref_labels, retval1, ref_stats = ConnectedComponentsSegmenter.extract_ccs(inv_mask)
+    regions = ConnectedComponentsSegmenter.extract_ccs_vertical_split(inv_mask)
+    (l_labels, l_ret, l_stats) = regions[0]
+    (c_labels, c_ret, c_stats) = regions[1]
+    (r_labels, r_ret, r_stats) = regions[2]
+    assert (
+        l_ret + c_ret + r_ret >= retval1
+    )  # Split objects appear at least twice but filtered out

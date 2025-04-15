@@ -1514,7 +1514,10 @@ all_borders_closed = [
 )
 def test_segmentation(projects, tmp_path, project, sample):
     assert_segmentation(
-        projects, project, sample, Segmenter.METH_CONNECTED_COMPONENTS_SPLIT
+        projects,
+        project,
+        sample,
+        Segmenter.METH_TOP_CONTOUR_SPLIT,
     )
 
 
@@ -1541,10 +1544,11 @@ def assert_segmentation(projects, project, sample, method):
 
 
 def test_linear_response_time(projects, tmp_path):
-    assert_linear_response_time(projects, tmp_path, tested_samples)
+    method = Segmenter.METH_TOP_CONTOUR | Segmenter.LEGACY_COMPATIBLE
+    assert_linear_response_time(projects, tmp_path, tested_samples, method)
 
 
-def assert_linear_response_time(projects, tmp_path, test_set):
+def assert_linear_response_time(projects, tmp_path, test_set, method):
     """Assert that response time does not explode, even for tricky/unusual cases.
     Note: Cannot be done in pytest parametrized test, which are isolated"""
     spent_times = []
@@ -1556,7 +1560,7 @@ def assert_linear_response_time(projects, tmp_path, test_set):
         # TODO: Add threshold (AKA 'upper= 243' in config) here
         segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
         spent, found_rois = measure_time(
-            segmenter.find_blobs, Segmenter.METH_CONNECTED_COMPONENTS_SPLIT
+            segmenter.find_blobs, method
         )
         # Minimal & fast
         assert found_rois != []

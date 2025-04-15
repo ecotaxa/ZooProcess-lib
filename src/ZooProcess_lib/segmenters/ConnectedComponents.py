@@ -211,7 +211,6 @@ class ConnectedComponentsSegmenter:
                             "Area": int(area),
                         },
                         mask=obj_mask + holes,
-                        contour=None,
                     )
                 )
             print(
