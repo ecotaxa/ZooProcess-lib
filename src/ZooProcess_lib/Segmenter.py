@@ -29,10 +29,11 @@ class Segmenter(object):
     max_w_to_h_ratio = 40
 
     METH_TOP_CONTOUR = 1
-    METH_CONTOUR_TREE = 2
-    METH_CONNECTED_COMPONENTS = 4
-    METH_CONNECTED_COMPONENTS_SPLIT = 8
-    LEGACY_COMPATIBLE = 16
+    METH_TOP_CONTOUR_SPLIT = 2
+    METH_CONTOUR_TREE = 4
+    METH_CONNECTED_COMPONENTS = 8
+    METH_CONNECTED_COMPONENTS_SPLIT = 16
+    LEGACY_COMPATIBLE = 64
 
     def __init__(self, image: ndarray, minsize: float, maxsize: float):
         assert image.dtype == np.uint8
@@ -120,16 +121,18 @@ class Segmenter(object):
             )
         elif method & self.METH_CONTOUR_TREE:
             # Universal, but very slow on noisy images, collapses from seconds to ten of minutes
-            # saveimage(inv_mask, "/tmp/bef_denoised.tif")
-            #
-            # self.denoise_particles_via_cc(inv_mask, self.s_p_min)
-            # saveimage(inv_mask, "/tmp/aft_denoised.tif")
             return RecursiveContoursSegmenter.find_particles_contour_tree(
                 inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio
             )
-        else:
+        elif method & self.METH_TOP_CONTOUR_SPLIT:
+            # Avoid the borders problem
             return ExternalContoursSegmenter.find_particles_contours(
-                inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio
+                inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio, split=True
+            )
+        else:
+            # Fails on 4-borders images (0 contour found)
+            return ExternalContoursSegmenter.find_particles_contours(
+                inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio, split=False
             )
 
     @staticmethod
@@ -193,12 +196,12 @@ class Segmenter(object):
             image=inv_mask, connectivity=8, ltype=cv2.CV_32S, ccltype=cv2.CCL_GRANA
         )
         assert (
-            cv2.CC_STAT_LEFT,
-            cv2.CC_STAT_TOP,
-            cv2.CC_STAT_WIDTH,
-            cv2.CC_STAT_HEIGHT,
-            cv2.CC_STAT_AREA,
-        ) == (0, 1, 2, 3, 4)
+                   cv2.CC_STAT_LEFT,
+                   cv2.CC_STAT_TOP,
+                   cv2.CC_STAT_WIDTH,
+                   cv2.CC_STAT_HEIGHT,
+                   cv2.CC_STAT_AREA,
+               ) == (0, 1, 2, 3, 4)
         ret = []
         print("cc filter, initial: ", retval)
         eliminated_1 = 0
@@ -227,8 +230,8 @@ class Segmenter(object):
                 sub_mask = (sub_labels == cc_id).astype(
                     dtype=np.uint8
                 ) * 255  # 255=shape, 0=not in shape
-                inv_mask[y : y + h, x : x + w] = np.bitwise_xor(
-                    inv_mask[y : y + h, x : x + w], sub_mask
+                inv_mask[y: y + h, x: x + w] = np.bitwise_xor(
+                    inv_mask[y: y + h, x: x + w], sub_mask
                 )
                 eliminated_r += 1
                 continue
@@ -254,6 +257,8 @@ class Segmenter(object):
             vignette = cropnp(
                 self.image, top=by, left=bx, bottom=by + height, right=bx + width
             )
+            if not np.count_nonzero(a_roi.mask) == features["Area"]:
+                pass
             # Whiten background -> push to 255 as min is black
             vignette = np.bitwise_or(vignette, 255 - a_roi.mask * 255)
             # Compute more features

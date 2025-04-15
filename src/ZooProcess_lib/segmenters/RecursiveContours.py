@@ -49,7 +49,7 @@ class RecursiveContoursSegmenter(object):
         approx = (
             cv2.CHAIN_APPROX_TC89_KCOS
         )  # 4 min on complicated image (and different output)
-        approx = cv2.CHAIN_APPROX_NONE  # 4 min on complicated image
+        approx = cv2.CHAIN_APPROX_SIMPLE  # 4 min on complicated image
         contours, (hierarchy,) = cv2.findContours(inv_mask, cv2.RETR_TREE, approx)
         # return []
         # root_children_contours = []

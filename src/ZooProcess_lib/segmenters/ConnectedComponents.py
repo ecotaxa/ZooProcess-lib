@@ -106,7 +106,7 @@ class ConnectedComponentsSegmenter:
         hnoise = self.horizontal_noise_ratio(inv_mask)  # Takes a few tens of ms
         denoised = False
         if hnoise >= 10:
-            # For noisy images (~10M potential particles), retrieving contours can jump to minutes
+            # For noisy images (~10M potential particles), retrieving CCs can jump to minutes
             before = self.denoise(inv_mask, s_p_min)
             print("Noisy! number of initial CCs:", before)
             denoised = True
@@ -129,7 +129,7 @@ class ConnectedComponentsSegmenter:
                 sum(x) for x in zip(filtering_stats[0:3], prefilter_stats)
             ]
             # Note: The labels matrix is used for marking exclusion zones as well
-            reg_height, reg_width = a_stripe.labels.shape
+            reg_height, reg_width = labels.shape
             stripe_excluded = cropnp(
                 excluded,
                 a_stripe.y_offset,
@@ -308,7 +308,7 @@ class ConnectedComponentsSegmenter:
 
         # Find objects common b/w the 2 sub-frames
         groups = cls.find_common_cc_regions(
-            l_half, l_labels, l_stats, r_half, r_labels, r_stats
+            l_half, l_labels, r_half, r_labels
         )
 
         if not for_test:
@@ -393,7 +393,7 @@ class ConnectedComponentsSegmenter:
 
     @classmethod
     def find_common_cc_regions(
-        cls, l_half, l_labels, l_stats, r_half, r_labels, r_stats
+        cls, l_half, l_labels, r_half, r_labels
     ) -> List[Set]:
         """Find common CCs, i.e. the ones in left part touching ones in right part
         Return a list of connected CCs, left ones having their usual index, right ones shifted by
@@ -416,18 +416,23 @@ class ConnectedComponentsSegmenter:
             same_ccs.update(list(map(tuple, same_ccs_offs)))
         same_ccs = sorted(list(same_ccs))
         # Do connected components (on the graph of neighbour CCs, that's confusing) to group CCs
-        connections = {}
-        for l_cc, r_cc in same_ccs:
-            if r_cc not in connections:
-                connections[r_cc] = {l_cc}
-            else:
-                connections[r_cc].add(l_cc)
-            if l_cc not in connections:
-                connections[l_cc] = {r_cc}
-            else:
-                connections[l_cc].add(r_cc)
+        connections = cls.prepare_graph(same_ccs)
         groups = graph_connected_components(connections)
         return groups
+
+    @classmethod
+    def prepare_graph(cls, same_ids):
+        connections = dict()
+        for l_id, r_id in same_ids:
+            if r_id not in connections:
+                connections[r_id] = {l_id}
+            else:
+                connections[r_id].add(l_id)
+            if l_id not in connections:
+                connections[l_id] = {r_id}
+            else:
+                connections[l_id].add(r_id)
+        return connections
 
     @classmethod
     def apply_common_cc_regions(
@@ -503,13 +508,13 @@ class ConnectedComponentsSegmenter:
     def get_regions(
         labels: ndarray, cc_id: int, cc: CC, area_excl: int
     ) -> Tuple[ndarray, ndarray]:
-        assert not cc.entire
+        # assert not cc.entire
         # before = time.time()
         empty_ratio = cc.h * cc.w // area_excl
         # if np.count_nonzero(labels == cc_id) != area_excl:
         #     pass
         # Compute filled area
-        if empty_ratio > 200:
+        if empty_ratio > 200 and not cc.local_entire:
             # It's faster to draw the hole shapes inside very sparse shapes
             holes, sub_mask = ConnectedComponentsSegmenter.get_regions_using_contours(
                 labels, cc_id, cc
@@ -628,7 +633,7 @@ class ConnectedComponentsSegmenter:
         return holes, obj_mask
 
     @staticmethod
-    def get_regions_using_cc(
+    def get_regions_using_cc_on_inverse(
         labels: ndarray,
         cc_id: int,
         cc: CC,
@@ -678,10 +683,13 @@ class ConnectedComponentsSegmenter:
             # hole inside the shape, but we need to get rid of it in decent time.
             print("4 borders closed")
             # Open a gap so the 4-borders doesn't have the annoying property anymore
-            cv2.line(inv_mask, (cc.w // 2, 0), (cc.w // 2, cc.h // 2), (0,), 1)
+            np_line = (slice(0, cc.h), slice(cc.w // 2, cc.w // 2 + 1))
+            line_sav = np.copy(inv_mask[np_line])
+            inv_mask[np_line] = 0
             ext_contours, _ = cv2.findContours(
                 inv_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
+            inv_mask[np_line] = line_sav
             contour_4_cc = ConnectedComponentsSegmenter.find_top_contour(
                 ext_contours, cc
             )
@@ -715,13 +723,19 @@ class ConnectedComponentsSegmenter:
 
     @staticmethod
     def find_top_contour(contours: Sequence[ndarray], cc: CC) -> Optional[ndarray]:
-        """Find top-level contour, the one enclosing all the rest"""
+        """Find top-level contour, the one enclosing all the rest,
+        largest one if the perfect one is absent"""
         w, h = cc.w, cc.h
+        max_contour, max_area = None, 0
         for a_contour in reversed(contours):  # Enclosing ones are at the end
             _x_c, _y_c, w_c, h_c = cv2.boundingRect(a_contour)
+            area = w_c * h_c
             if w == w_c and h_c == h_c:
                 return a_contour
-        return None
+            if area > max_area:
+                max_contour = a_contour
+        else:
+            return max_contour
 
     @staticmethod
     def remove_unwanted_inside_contour(
@@ -885,6 +899,7 @@ class ConnectedComponentsSegmenter:
             right_rect_in_right_coords,
             right_rect_in_zone_coords,
             zone_rect_in_left_coords,
+            ids_for_groups,
         )
 
         c_labels = labels
@@ -921,6 +936,7 @@ class ConnectedComponentsSegmenter:
         right_from,
         right_rect_to,
         zone_rect,
+        valid_cc_ids,
     ):
         left_contact_zone = cropnp(
             l_labels,
@@ -936,7 +952,7 @@ class ConnectedComponentsSegmenter:
             right_from[1] + right_from[3],
             right_from[0] + right_from[2],
         )
-        # Allocate a minimal labels matrix
+        # Allocate an enclosing labels matrix
         labels = np.zeros(
             (
                 zone_rect[cv2.CC_STAT_HEIGHT],

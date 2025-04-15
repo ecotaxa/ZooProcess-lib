@@ -34,7 +34,6 @@ feature_unq = lambda f: (f["BX"], f["BY"], f["Width"], f["Height"])
 class ROI(object):
     features: Features
     mask: ndarray  # convention: 0=not in particle, 1=particle and inside
-    contour: Optional[ndarray] = None
 
 
 def features_are_at_same_coord(features: Features, another_blob: Features):

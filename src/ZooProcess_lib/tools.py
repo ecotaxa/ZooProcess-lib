@@ -4,6 +4,9 @@ import time
 from pathlib import Path
 from typing import Callable, Any, Tuple
 
+import numpy as np
+from numpy import ndarray
+
 
 def nameit(func):
     from functools import wraps
@@ -104,3 +107,20 @@ def graph_connected_components(graph):
             components.append(component)
 
     return components
+
+
+class ColumnTemporarilySet(object):
+    """Draw a column in an image and restore it on exit."""
+
+    def __init__(self, image: ndarray, col_x: int, value: int):
+        self.image = image
+        self.col_x = col_x
+        self.value = value
+
+    def __enter__(self):
+        self.line_sav = np.copy(self.image[:, self.col_x : self.col_x + 1])
+        self.image[:, self.col_x : self.col_x + 1] = self.value
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.image[:, self.col_x : self.col_x + 1] = self.line_sav

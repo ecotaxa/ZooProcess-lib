@@ -25,8 +25,8 @@ def enclosing_rect(stats: List[ndarray]) -> ndarray:
 
 def all_relative_to(stats: List[ndarray], enclosing: ndarray) -> List[ndarray]:
     ret = []
+    x_ncl, y_ncl = enclosing[:2]
     for a_stat in stats:
-        x_ncl, y_ncl = enclosing[:2]
         a_stat_copy = a_stat.copy()
         a_stat_copy[cv2.CC_STAT_LEFT] -= x_ncl
         a_stat_copy[cv2.CC_STAT_TOP] -= y_ncl
