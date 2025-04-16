@@ -19,12 +19,13 @@ class Contour:
     h: int
 
     def __init__(
-        self,
-        contour: Optional[ndarray] = None,
+        self, contour: Optional[ndarray] = None, dimension: Optional[List[int]] = None
     ):
         if contour is not None:
             self.contours = [contour]
-            self.x, self.y, self.w, self.h = cv2.boundingRect(contour)
+            self.x, self.y, self.w, self.h = (
+                dimension if dimension is not None else cv2.boundingRect(contour)
+            )
         else:
             self.contours = []
             self.x, self.y, self.w, self.h = 0, 0, 0, 0
@@ -45,6 +46,12 @@ class Contour:
         ret = f"{self.__class__.__name__}({self.x}, {self.y}, {self.w}, {self.h}):"
         ret += str([cv2.boundingRect(a_c) for a_c in self.contours])
         return ret
+
+    @classmethod
+    def from_contours_and_dimensions(
+        cls, contours_and_dims: List[Tuple[ndarray, List[int]]]
+    ):
+        return [Contour(contour, dimension) for contour, dimension in contours_and_dims]
 
 
 class ExternalContoursSegmenter:
@@ -83,7 +90,7 @@ class ExternalContoursSegmenter:
 
         print(
             "Number of RETR_EXTERNAL Contours found = ",
-            len(contours) + filtering_stats[0]
+            len(contours) + filtering_stats[0],
         )
         ret: List[ROI] = []
         excluded_labels = np.zeros_like(inv_mask, dtype=np.uint32)
@@ -132,7 +139,7 @@ class ExternalContoursSegmenter:
             )
         print(
             "Initial contours",
-            len(contours),
+            len(contours) + filtering_stats[0],
             "filter stats",
             filtering_stats,
             "left",
@@ -158,7 +165,9 @@ class ExternalContoursSegmenter:
         height, width = inv_mask.shape
         if not split:
             raw = cls.find_contours_in_stripe(inv_mask, 0, width)
-            found, saved = cls.filter_not_a_particle(raw, -1)
+            dimensions = [cv2.boundingRect(a_contour) for a_contour in raw]
+            found, saved = cls.filter_not_a_particle(raw, dimensions, -1)
+            found = Contour.from_contours_and_dimensions(found)
             stats[0] += saved
             return found
 
@@ -168,7 +177,9 @@ class ExternalContoursSegmenter:
         # findContours has an indeterminate behaviour around borders, arrange it's not the case
         with ColumnTemporarilySet(inv_mask, split_w + 1, 0):
             raw = cls.find_contours_in_stripe(inv_mask, 0, split_w + 1)
-            found, saved = cls.filter_not_a_particle(raw, split_w + 1)
+            dimensions = [cv2.boundingRect(a_contour) for a_contour in raw]
+            found, saved = cls.filter_not_a_particle(raw, dimensions, split_w + 1)
+            found = Contour.from_contours_and_dimensions(found)
             stats[0] += saved
             left_contours = list(enumerate(found))
         left_touching_right = [
@@ -179,7 +190,9 @@ class ExternalContoursSegmenter:
 
         with ColumnTemporarilySet(inv_mask, split_w, 0):
             raw = cls.find_contours_in_stripe(inv_mask, split_w, width)
-            found, saved = cls.filter_not_a_particle(raw, split_w + 1)
+            dimensions = [cv2.boundingRect(a_contour) for a_contour in raw]
+            found, saved = cls.filter_not_a_particle(raw, dimensions, split_w + 1)
+            found = Contour.from_contours_and_dimensions(found)
             stats[0] += saved
             right_contours = list(
                 enumerate(
@@ -234,7 +247,9 @@ class ExternalContoursSegmenter:
         saveimage(255 - dbg * 255, f"/tmp/zooprocess/contours{len(contours)}.jpg")
 
     @classmethod
-    def find_contours_in_stripe(cls, inv_mask: ndarray, from_x: int, to_x: int) -> List[Contour]:
+    def find_contours_in_stripe(
+        cls, inv_mask: ndarray, from_x: int, to_x: int
+    ) -> List[ndarray]:
         """Find the contours in the stripe defined by from_x:to_x.
         All returned contours are in inv_mask coordinate system."""
         height, width = inv_mask.shape
@@ -245,7 +260,7 @@ class ExternalContoursSegmenter:
             cv2.CHAIN_APPROX_SIMPLE,
             offset=(from_x, 0),
         )
-        return [Contour(a_contour) for a_contour in contours]
+        return contours
 
     @staticmethod
     def draw_contour(contour: Contour) -> np.ndarray:
@@ -288,16 +303,16 @@ class ExternalContoursSegmenter:
 
     @classmethod
     def filter_not_a_particle(
-        cls, contours: Sequence[Contour], border: int
-    ) -> Tuple[List[Contour], int]:
+        cls, contours: Sequence[ndarray], dimensions: List[List[int]], border: int
+    ) -> tuple[list[tuple[ndarray, list[int]]], int]:
         length_before = len(contours)
         ret = [
-            a_contour
-            for a_contour in contours
-            if a_contour.contours[0].shape
+            (a_contour, a_dimension)
+            for a_contour, a_dimension in zip(contours, dimensions)
+            if a_contour.shape
             not in (cls.single_point_contour_shape, cls.single_line_contour_shape)
-            or a_contour.x == border
-            or a_contour.x + a_contour.w == border
+            or a_dimension[0] == border  # x
+            or a_dimension[0] + a_dimension[2] == border  # x + w
         ]
         return ret, length_before - len(ret)
 
