@@ -9,7 +9,7 @@ import pytest
 from ZooProcess_lib.Background import Background
 from ZooProcess_lib.Border import Border
 from ZooProcess_lib.ImageJLike import images_difference
-from ZooProcess_lib.ROI import Features, feature_unq
+from ZooProcess_lib.ROI import Features, feature_unq, ROI
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
@@ -1532,6 +1532,8 @@ def assert_segmentation(projects, project, sample, method):
     found_rois = segmenter.find_blobs(method)
     segmenter.split_by_blobs(found_rois)
 
+    [draw_roi_mask(vis1, a_roi) for a_roi in found_rois]
+
     found = [a_roi.features for a_roi in found_rois]
     sort_by_coords(found)
     if found != ref:
@@ -1559,9 +1561,7 @@ def assert_linear_response_time(projects, tmp_path, test_set, method):
         conf = folder.zooscan_config.read()
         # TODO: Add threshold (AKA 'upper= 243' in config) here
         segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
-        spent, found_rois = measure_time(
-            segmenter.find_blobs, method
-        )
+        spent, found_rois = measure_time(segmenter.find_blobs, method)
         # Minimal & fast
         assert found_rois != []
         spent_times.append(spent)
@@ -1688,6 +1688,20 @@ def draw_roi(image: np.ndarray, features: Features, thickness: int = 1):
         (features["BX"] + features["Width"], features["BY"] + features["Height"]),
         (0,),
         thickness,
+    )
+
+
+def draw_roi_mask(image: np.ndarray, roi: ROI):
+    (whole, _) = cv2.findContours(roi.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    x, y = roi.features["BX"], roi.features["BY"]
+    assert len(whole) == 1
+    cv2.drawContours(
+        image=image,
+        contours=whole,
+        contourIdx=-1,
+        color=(10,),
+        thickness=5,
+        offset=(x, y),
     )
 
 
