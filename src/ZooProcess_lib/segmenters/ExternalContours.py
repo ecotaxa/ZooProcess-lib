@@ -66,7 +66,9 @@ class ExternalContoursSegmenter:
         # 'exclude' is 'Exclude on hedges'
         # -> circularity is never used as a filter
         height, width = inv_mask.shape[:2]
-        contours = cls.find_contours(inv_mask, split)
+
+        filtering_stats = [0] * 8
+        contours = cls.find_contours(inv_mask, split, filtering_stats)
         if len(contours) <= 1:
             print("0 or 1 contour!")
             from ..Segmenter import Segmenter
@@ -79,17 +81,14 @@ class ExternalContoursSegmenter:
                 Segmenter.METH_CONNECTED_COMPONENTS_SPLIT,
             )
 
-        print("Number of RETR_EXTERNAL Contours found = " + str(len(contours)))
+        print(
+            "Number of RETR_EXTERNAL Contours found = ",
+            len(contours) + filtering_stats[0]
+        )
         ret: List[ROI] = []
-        filtering_stats = [0] * 8
         excluded_labels = np.zeros_like(inv_mask, dtype=np.uint32)
         for a_contour in contours:
-            if (
-                a_contour.contours[0].shape == cls.single_point_contour_shape
-                and len(a_contour.contours) == 1
-            ):  # Cannot participate in a particle
-                filtering_stats[0] += 1
-                continue
+            # Basic numpy shape-based filtering was done in find_contours
             if a_contour.touching(height, width):
                 filtering_stats[1] += 1
                 continue
@@ -153,22 +152,24 @@ class ExternalContoursSegmenter:
         return ret
 
     @classmethod
-    def find_contours(cls, inv_mask: ndarray, split: bool) -> List[Contour]:
+    def find_contours(
+        cls, inv_mask: ndarray, split: bool, stats: List[int]
+    ) -> List[Contour]:
         height, width = inv_mask.shape
         if not split:
-            return cls.find_contours_in_stripe(inv_mask, 0, width)
+            raw = cls.find_contours_in_stripe(inv_mask, 0, width)
+            found, saved = cls.filter_not_a_particle(raw, -1)
+            stats[0] += saved
+            return found
 
-        split_w = width * 50 // 100 - 10
         # Note: Column split_w is conventionally included in _left_ part
-
-        # TODO: use prefilter on found contours before all this.
-        # but no prefiltering on contours around the border
+        split_w = width * 50 // 100
 
         # findContours has an indeterminate behaviour around borders, arrange it's not the case
         with ColumnTemporarilySet(inv_mask, split_w + 1, 0):
-            found = cls.filter_not_a_particle(
-                cls.find_contours_in_stripe(inv_mask, 0, split_w + 1), split_w + 1
-            )
+            raw = cls.find_contours_in_stripe(inv_mask, 0, split_w + 1)
+            found, saved = cls.filter_not_a_particle(raw, split_w + 1)
+            stats[0] += saved
             left_contours = list(enumerate(found))
         left_touching_right = [
             (idx, contour)
@@ -177,9 +178,9 @@ class ExternalContoursSegmenter:
         ]
 
         with ColumnTemporarilySet(inv_mask, split_w, 0):
-            found = cls.filter_not_a_particle(
-                cls.find_contours_in_stripe(inv_mask, split_w, width), split_w + 1
-            )
+            raw = cls.find_contours_in_stripe(inv_mask, split_w, width)
+            found, saved = cls.filter_not_a_particle(raw, split_w + 1)
+            stats[0] += saved
             right_contours = list(
                 enumerate(
                     found,
@@ -233,7 +234,7 @@ class ExternalContoursSegmenter:
         saveimage(255 - dbg * 255, f"/tmp/zooprocess/contours{len(contours)}.jpg")
 
     @classmethod
-    def find_contours_in_stripe(cls, inv_mask: ndarray, from_x: int, to_x: int):
+    def find_contours_in_stripe(cls, inv_mask: ndarray, from_x: int, to_x: int) -> List[Contour]:
         """Find the contours in the stripe defined by from_x:to_x.
         All returned contours are in inv_mask coordinate system."""
         height, width = inv_mask.shape
@@ -249,9 +250,6 @@ class ExternalContoursSegmenter:
     @staticmethod
     def draw_contour(contour: Contour) -> np.ndarray:
         contour_canvas = np.zeros((contour.h, contour.w), np.uint8)
-        contour_canvas = cv2.copyMakeBorder(
-            contour_canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=(0,)
-        )  # In case the contours touch a border, painting it is not reliable
         for idx, a_contour in enumerate(contour.contours):
             # contour_canvas[:,:] = 0
             # Contours overlap so sending the whole gives wrong results, see note in opencv doc
@@ -261,7 +259,7 @@ class ExternalContoursSegmenter:
                 contourIdx=-1,
                 color=(1,),
                 thickness=cv2.FILLED,
-                offset=(-contour.x + 1, -contour.y + 1),
+                offset=(-contour.x, -contour.y),
             )
             # saveimage(
             #     contour_canvas * 255,
@@ -282,13 +280,6 @@ class ExternalContoursSegmenter:
                 color=(1,),
                 thickness=cv2.FILLED,
             )
-        contour_canvas = cropnp(
-            image=contour_canvas,
-            top=1,
-            left=1,
-            bottom=contour.h + 1,
-            right=contour.w + 1,
-        )
         # saveimage(
         #     contour_canvas * 255,
         #     f"/tmp/zooprocess/contour_{contour.x}_{contour.y}_p{idx}.png",
@@ -298,16 +289,17 @@ class ExternalContoursSegmenter:
     @classmethod
     def filter_not_a_particle(
         cls, contours: Sequence[Contour], border: int
-    ) -> List[Contour]:
-        return contours  # TODO
-        return [
+    ) -> Tuple[List[Contour], int]:
+        length_before = len(contours)
+        ret = [
             a_contour
             for a_contour in contours
             if a_contour.contours[0].shape
-            != cls.single_point_contour_shape  # cls.single_line_contour_shape)
-            and a_contour.x != border
-            and a_contour.x + a_contour.w != border
+            not in (cls.single_point_contour_shape, cls.single_line_contour_shape)
+            or a_contour.x == border
+            or a_contour.x + a_contour.w == border
         ]
+        return ret, length_before - len(ret)
 
     @classmethod
     def find_common_contours(
