@@ -165,11 +165,8 @@ class ExternalContoursSegmenter:
         height, width = inv_mask.shape
         if not split:
             raw = cls.find_contours_in_stripe(inv_mask, 0, width)
-            dimensions = [cv2.boundingRect(a_contour) for a_contour in raw]
-            found, saved = cls.filter_not_a_particle(raw, dimensions, -1)
-            found = Contour.from_contours_and_dimensions(found)
-            stats[0] += saved
-            return found
+            found = cls.fllter_and_objectize(raw, -2, stats, 0)
+            return [contour for _, contour in found]
 
         # Note: Column split_w is conventionally included in _left_ part
         split_w = width * 50 // 100
@@ -177,11 +174,7 @@ class ExternalContoursSegmenter:
         # findContours has an indeterminate behaviour around borders, arrange it's not the case
         with ColumnTemporarilySet(inv_mask, split_w + 1, 0):
             raw = cls.find_contours_in_stripe(inv_mask, 0, split_w + 1)
-            dimensions = [cv2.boundingRect(a_contour) for a_contour in raw]
-            found, saved = cls.filter_not_a_particle(raw, dimensions, split_w + 1)
-            found = Contour.from_contours_and_dimensions(found)
-            stats[0] += saved
-            left_contours = list(enumerate(found))
+        left_contours = cls.fllter_and_objectize(raw, split_w + 1, stats, 0)
         left_touching_right = [
             (idx, contour)
             for (idx, contour) in left_contours
@@ -190,16 +183,9 @@ class ExternalContoursSegmenter:
 
         with ColumnTemporarilySet(inv_mask, split_w, 0):
             raw = cls.find_contours_in_stripe(inv_mask, split_w, width)
-            dimensions = [cv2.boundingRect(a_contour) for a_contour in raw]
-            found, saved = cls.filter_not_a_particle(raw, dimensions, split_w + 1)
-            found = Contour.from_contours_and_dimensions(found)
-            stats[0] += saved
-            right_contours = list(
-                enumerate(
-                    found,
-                    start=len(left_contours),
-                )
-            )
+        right_contours = cls.fllter_and_objectize(
+            raw, split_w + 1, stats, len(left_contours)
+        )
         right_touching_left = [
             (idx, contour)
             for (idx, contour) in right_contours
@@ -222,15 +208,24 @@ class ExternalContoursSegmenter:
         useless_idxs = set()
         for a_center_contour in center_contours:
             common = sorted(a_center_contour, reverse=False)
-            theo = cls.compose_contour([contours[c] for c in common])
+            cover = cls.compose_contour([contours[c] for c in common])
             # print("__>", theo)
-            contours[common[0]] = theo
+            contours[common[0]] = cover
             useless_idxs.update(common[1:])
 
         for idx in sorted(useless_idxs, reverse=True):
             del contours[idx]
 
         return contours
+
+    @classmethod
+    def fllter_and_objectize(cls, raw, border_x, stats, idx_start):
+        dimensions = [cv2.boundingRect(a_contour) for a_contour in raw]
+        found, saved = cls.filter_not_a_particle(raw, dimensions, border_x)
+        found = Contour.from_contours_and_dimensions(found)
+        stats[0] += saved
+        ret = list(enumerate(found, start=idx_start))
+        return ret
 
     @classmethod
     def dbg_contours(cls, inv_mask, contours):
