@@ -1532,8 +1532,6 @@ def assert_segmentation(projects, project, sample, method):
     found_rois = segmenter.find_blobs(method)
     segmenter.split_by_blobs(found_rois)
 
-    [draw_roi_mask(vis1, a_roi) for a_roi in found_rois]
-
     found = [a_roi.features for a_roi in found_rois]
     sort_by_coords(found)
     if found != ref:
@@ -1541,6 +1539,7 @@ def assert_segmentation(projects, project, sample, method):
             assert_valid_diffs(segmenter, ref, found)
             return
         except AssertionError as e:
+            [draw_roi_mask(vis1, a_roi) for a_roi in found_rois]
             visual_diffs(ref, found, sample, vis1, found_rois)
     assert found == ref
 
