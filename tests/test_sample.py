@@ -1546,7 +1546,7 @@ def assert_segmentation(projects, project, sample, method):
 
 
 def test_linear_response_time(projects, tmp_path):
-    method = Segmenter.METH_TOP_CONTOUR | Segmenter.LEGACY_COMPATIBLE
+    method = Segmenter.METH_TOP_CONTOUR_SPLIT
     assert_linear_response_time(projects, tmp_path, tested_samples, method)
 
 
@@ -1763,6 +1763,7 @@ def visual_diffs(expected, actual, sample, tgt_img, found_rois):
         for a_roi in found_rois:
             height, width = a_roi.mask.shape
             if an_act["Width"] == width and an_act["Height"] == height:
+                # Signal the diff with the mask shifted a bit
                 tgt_img[
                     an_act["BY"] + 100 : an_act["BY"] + 100 + height,
                     an_act["BX"] - 150 : an_act["BX"] - 150 + width,

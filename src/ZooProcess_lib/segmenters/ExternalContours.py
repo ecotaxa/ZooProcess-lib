@@ -10,7 +10,16 @@ from ..img_tools import cropnp, saveimage
 from ..tools import graph_connected_components, ColumnTemporarilySet
 
 
-class Contour:
+# TODO:
+#  If while joining left&right a touching object is seen, don't join the bitmaps?
+#  A code profiler better than IntelliJ one
+#  draw_contours: if split shape, don't FLOOD_FILL before another FLOOD_FILL same place
+#  RectOfI constructor is weird
+
+
+class RectOfI:
+    """Another rectangular region with interesting information"""
+
     __slots__ = ("contours", "x", "y", "w", "h")
     contours: List[ndarray]  # from openCV
     x: int
@@ -42,6 +51,14 @@ class Contour:
     def area(self):
         return self.w * self.h
 
+    def is_inside(self, other: "RectOfI") -> bool:
+        return (
+            self.x > other.x
+            and self.y > other.y
+            and self.x + self.w < other.x + other.w
+            and self.y + self.h < other.y + other.h
+        )
+
     def __repr__(self):
         ret = f"{self.__class__.__name__}({self.x}, {self.y}, {self.w}, {self.h}):"
         ret += str([cv2.boundingRect(a_c) for a_c in self.contours])
@@ -51,7 +68,10 @@ class Contour:
     def from_contours_and_dimensions(
         cls, contours_and_dims: List[Tuple[ndarray, List[int]]]
     ):
-        return [Contour(contour, dimension) for contour, dimension in contours_and_dims]
+        return [RectOfI(contour, dimension) for contour, dimension in contours_and_dims]
+
+
+PotentialROI_T = Tuple[RectOfI, ndarray, int]
 
 
 class ExternalContoursSegmenter:
@@ -92,19 +112,20 @@ class ExternalContoursSegmenter:
             "Number of RETR_EXTERNAL Contours found = ",
             len(contours) + filtering_stats[0],
         )
-        ret: List[ROI] = []
-        excluded_labels = np.zeros_like(inv_mask, dtype=np.uint32)
-        for a_contour in contours:
+        potential_ROIs: List[PotentialROI_T] = []
+        split_rects = set()
+        for a_rect in contours:
             # Basic numpy shape-based filtering was done in find_contours
-            if a_contour.touching(height, width):
+            if a_rect.touching(height, width):
                 filtering_stats[1] += 1
                 continue
+
             # Even if contour was around a filled rectangle it would not meet min criterion
             # -> don't bother drawing the contour, which is expensive
-            if a_contour.area < s_p_min:
+            if a_rect.area < s_p_min:
                 filtering_stats[2] += 1
                 continue
-            contour_mask = cls.draw_contour(a_contour)
+            contour_mask = cls.draw_contour(a_rect)
             area = np.count_nonzero(contour_mask)
             if area < s_p_min:
                 filtering_stats[5] += 1
@@ -112,31 +133,34 @@ class ExternalContoursSegmenter:
             if area > s_p_max:
                 filtering_stats[6] += 1
                 continue
-            ratiobxby = a_contour.w / a_contour.h
+            ratiobxby = a_rect.w / a_rect.h
             if ratiobxby > max_w_to_h_ratio:
                 filtering_stats[7] += 1
                 continue
 
             # With 'split' method, small particles completely embedded in split ones
             # can appear wrongly in the output, as they are at the same external level
-            # if considering split sub-images, but are ignored if considering whole one.
-            if split and len(a_contour.contours) > 1:
-                cls.prevent_holes_inclusion(
-                    excluded_labels, contour_mask, a_contour, len(ret)
-                )
+            # if considering split sub-images, but are ignored if considering the whole one.
+            if split and len(a_rect.contours) > 1:
+                split_rects.add(a_rect)
 
-            ret.append(
-                ROI(
-                    features={
-                        "BX": a_contour.x,
-                        "BY": a_contour.y,
-                        "Width": a_contour.w,
-                        "Height": a_contour.h,
-                        "Area": area,
-                    },
-                    mask=contour_mask,
-                )
+            potential_ROIs.append((a_rect, contour_mask, area))
+
+        # Remove particles inside split ones (by side effect of split)
+        final_ROIs = cls.remove_if_embedded(potential_ROIs, split_rects)
+        ret = [
+            ROI(
+                features={
+                    "BX": contour.x,
+                    "BY": contour.y,
+                    "Width": contour.w,
+                    "Height": contour.h,
+                    "Area": area,
+                },
+                mask=contour_mask,
             )
+            for (contour, contour_mask, area) in final_ROIs
+        ]
         print(
             "Initial contours",
             len(contours) + filtering_stats[0],
@@ -147,25 +171,16 @@ class ExternalContoursSegmenter:
         )
         # image_3channels = draw_contours(self.image, self.contours)
         # saveimage(image_3channels, Path("/tmp/contours.tif"))
-        if split:
-            # Remove included
-            ret2 = []
-            for idx, a_roi in enumerate(ret):
-                x_start = a_roi.features["BX"] + int(np.argmax(a_roi.mask != 0))
-                if excluded_labels[a_roi.features["BY"], x_start] not in (0, idx):
-                    continue
-                ret2.append(a_roi)
-            return ret2
         return ret
 
     @classmethod
     def find_contours(
         cls, inv_mask: ndarray, split: bool, stats: List[int]
-    ) -> List[Contour]:
+    ) -> List[RectOfI]:
         height, width = inv_mask.shape
         if not split:
             raw = cls.find_contours_in_stripe(inv_mask, 0, width)
-            found = cls.fllter_and_objectize(raw, -2, stats, 0)
+            found = cls.filter_and_objectify(raw, -2, stats, 0)
             return [contour for _, contour in found]
 
         # Note: Column split_w is conventionally included in _left_ part
@@ -174,7 +189,7 @@ class ExternalContoursSegmenter:
         # findContours has an indeterminate behaviour around borders, arrange it's not the case
         with ColumnTemporarilySet(inv_mask, split_w + 1, 0):
             raw = cls.find_contours_in_stripe(inv_mask, 0, split_w + 1)
-        left_contours = cls.fllter_and_objectize(raw, split_w + 1, stats, 0)
+        left_contours = cls.filter_and_objectify(raw, split_w + 1, stats, 0)
         left_touching_right = [
             (idx, contour)
             for (idx, contour) in left_contours
@@ -183,7 +198,7 @@ class ExternalContoursSegmenter:
 
         with ColumnTemporarilySet(inv_mask, split_w, 0):
             raw = cls.find_contours_in_stripe(inv_mask, split_w, width)
-        right_contours = cls.fllter_and_objectize(
+        right_contours = cls.filter_and_objectify(
             raw, split_w + 1, stats, len(left_contours)
         )
         right_touching_left = [
@@ -219,27 +234,15 @@ class ExternalContoursSegmenter:
         return contours
 
     @classmethod
-    def fllter_and_objectize(cls, raw, border_x, stats, idx_start):
+    def filter_and_objectify(cls, raw, border_x, stats, idx_start):
+        """Basically just join contours with their most useful
+        calculated information AKA bounding rectangle"""
         dimensions = [cv2.boundingRect(a_contour) for a_contour in raw]
         found, saved = cls.filter_not_a_particle(raw, dimensions, border_x)
-        found = Contour.from_contours_and_dimensions(found)
+        found = RectOfI.from_contours_and_dimensions(found)
         stats[0] += saved
         ret = list(enumerate(found, start=idx_start))
         return ret
-
-    @classmethod
-    def dbg_contours(cls, inv_mask, contours):
-        dbg = np.zeros_like(inv_mask, dtype=np.uint8)
-        for a_contour in contours:
-            for a_ocv in a_contour.contours:
-                cv2.drawContours(
-                    image=dbg,
-                    contours=[a_ocv],
-                    contourIdx=0,
-                    color=(1,),
-                    thickness=1,
-                )
-        saveimage(255 - dbg * 255, f"/tmp/zooprocess/contours{len(contours)}.jpg")
 
     @classmethod
     def find_contours_in_stripe(
@@ -258,7 +261,7 @@ class ExternalContoursSegmenter:
         return contours
 
     @staticmethod
-    def draw_contour(contour: Contour) -> np.ndarray:
+    def draw_contour(contour: RectOfI) -> np.ndarray:
         contour_canvas = np.zeros((contour.h, contour.w), np.uint8)
         for idx, a_contour in enumerate(contour.contours):
             # contour_canvas[:,:] = 0
@@ -276,7 +279,7 @@ class ExternalContoursSegmenter:
             #     f"/tmp/zooprocess/contour_{contour.x}_{contour.y}_p{idx}.png",
             # )
         if len(contour.contours) > 1:
-            # There can we holes at the frontier of the split contour, they
+            # There can be holes at the frontier of the split contour, they
             # appear inside the whole shape but can be outside of split ones
             # incase they are on the separation line
             (whole, _) = cv2.findContours(
@@ -314,8 +317,8 @@ class ExternalContoursSegmenter:
     @classmethod
     def find_common_contours(
         cls,
-        l_contours: List[Tuple[int, Contour]],
-        r_contours: List[Tuple[int, Contour]],
+        l_contours: List[Tuple[int, RectOfI]],
+        r_contours: List[Tuple[int, RectOfI]],
         frontier: int,
         height: int,
     ) -> List[Set[int]]:
@@ -371,7 +374,7 @@ class ExternalContoursSegmenter:
             from_x, from_y = to_x, to_y
 
     @classmethod
-    def compose_contour(cls, contours: List[Contour]) -> Contour:
+    def compose_contour(cls, contours: List[RectOfI]) -> RectOfI:
         """Return a pseudo-contour enclosing all given ones"""
         min_x, min_y = 1000000, 1000000
         max_x, max_y = -1, -1
@@ -386,26 +389,46 @@ class ExternalContoursSegmenter:
         for a_contour in all_contours:
             cp = np.copy(a_contour)
             contours_cp.append(cp)
-        ret = Contour()
+        ret = RectOfI()
         ret.contours = contours_cp
         ret.x, ret.y, ret.w, ret.h = min_x, min_y, max_x - min_x, max_y - min_y
         return ret
 
     @classmethod
-    def prevent_holes_inclusion(
-        cls,
-        labels: ndarray,
-        mask: ndarray,
-        contour: Contour,
-        mark_with: int,
-    ):
-        """
-        Mark exclusion zone in labels, with particle ID.
-        """
-        x_start = contour.x + int(np.argmax(mask != 0))
-        if labels[contour.y, x_start] != 0:  # Already tagged
-            return
-        sub_labels = labels[
-            contour.y : contour.y + contour.h, contour.x : contour.x + contour.w
-        ]
-        sub_labels[mask != 0] = mark_with
+    def remove_if_embedded(
+        cls, potentialROIs: List[PotentialROI_T], split_rects: Set
+    ) -> List[PotentialROI_T]:
+        """Remove from potentialROIs the elements included in split_rects."""
+        # Optimize by sorting by area, bigger area cannot be included in smaller one
+        p_rois = sorted(potentialROIs, key=lambda p_roi: p_roi[2], reverse=True)
+        to_remove = set()
+        for i, mbder in enumerate(p_rois):
+            rect_of_i_big, mask_big, _ = mbder
+            if rect_of_i_big not in split_rects:
+                continue
+            for j in range(i, len(p_rois)):
+                rect_of_i_small, mask_small, _ = p_rois[j]
+                if not rect_of_i_small.is_inside(rect_of_i_big):
+                    continue
+                x_start = int(np.argmax(mask_small != 0))
+                small_in_big_x, small_in_big_y = (
+                    rect_of_i_small.x - rect_of_i_big.x,
+                    rect_of_i_small.y - rect_of_i_big.y,
+                )
+                if mask_big[small_in_big_y, small_in_big_x + x_start] != 0:
+                    to_remove.add(rect_of_i_small)
+        return [a_p_roi for a_p_roi in potentialROIs if a_p_roi[0] not in to_remove]
+
+    @classmethod
+    def debug_contours(cls, inv_mask, contours):
+        dbg = np.zeros_like(inv_mask, dtype=np.uint8)
+        for a_contour in contours:
+            for a_ocv in a_contour.contours:
+                cv2.drawContours(
+                    image=dbg,
+                    contours=[a_ocv],
+                    contourIdx=0,
+                    color=(1,),
+                    thickness=1,
+                )
+        saveimage(255 - dbg * 255, f"/tmp/zooprocess/contours{len(contours)}.jpg")
