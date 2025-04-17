@@ -5,12 +5,14 @@ import cv2
 import numpy as np
 import pytest
 
+from ZooProcess_lib.Features import legacy_features_list_from_roi_list
 from ZooProcess_lib.ROI import feature_unq
 from ZooProcess_lib.img_tools import loadimage
 from ZooProcess_lib.segmenters.ConnectedComponents import (
     ConnectedComponentsSegmenter,
     CC,
 )
+from ZooProcess_lib.segmenters.ExternalContours import ExternalContoursSegmenter
 from .test_sample import sort_by_coords, assert_valid_diffs
 
 HERE = Path(__file__).parent
@@ -53,8 +55,10 @@ def test_holes_62388():
     # This image biggest particle has a pattern in holes, their contour touches the particle itself
     image = loadimage(SEGMENTER_DIR / "cc_62388.png")
     image = cv2.copyMakeBorder(image, 4, 4, 4, 4, cv2.BORDER_CONSTANT, value=(255,))
-    part = Segmenter(image, 0.1, 100000).find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
-    features = sorted([p.features for p in part], key=feature_unq, reverse=True)
+    parts = Segmenter(image, 0.1, 100000).find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
+    features = sorted(
+        legacy_features_list_from_roi_list(image, parts), key=feature_unq, reverse=True
+    )
     assert features == [
         {"Area": 244, "BX": 146, "BY": 91, "Height": 26, "Width": 81},
         {"Area": 1407, "BX": 102, "BY": 110, "Height": 34, "Width": 67},
@@ -62,6 +66,28 @@ def test_holes_62388():
         {"Area": 342, "BX": 14, "BY": 96, "Height": 30, "Width": 25},
         {"Area": 1675, "BX": 4, "BY": 4, "Height": 148, "Width": 258},
     ]
+
+
+def test_simplified_scan():
+    image = loadimage(
+        SEGMENTER_DIR / "apero2023_tha_bioness_013_st46_d_n8_d3_1_vis1.png"
+    )
+    # image = loadimage(
+    #     Path("/tmp/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_vis1.png")
+    # )
+    segmenter = Segmenter(image, 0.3, 100)
+
+    found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS_SPLIT)
+    found_feats_new = legacy_features_list_from_roi_list(image, found_rois_new)
+    sort_by_coords(found_feats_new)
+
+    found_rois_old = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
+    found_feats_compat = legacy_features_list_from_roi_list(image, found_rois_old)
+    sort_by_coords(found_feats_compat)
+
+    assert found_feats_compat == found_feats_new
+    if found_feats_compat != found_feats_new:
+        assert_valid_diffs(segmenter, found_feats_compat, found_feats_new)
 
 
 def geoloc(stats) -> Dict[Tuple, Tuple]:
@@ -81,6 +107,21 @@ def mask_at(labels: np.ndarray, coords, label):
 def cc_from_coord(coord) -> CC:
     x, y, w, h = coord
     return CC(x, y, w, h, -1, -1, 0, 0, 1000, 1000)
+
+
+def test_split_image():
+    # Assert validity of splitting an image vertically in 2 and reconstructing the CCs
+    thresh_max = 243
+    image = loadimage(SEGMENTER_DIR / "s_17_3_tot_1_vis1.png")
+    _th, inv_mask = cv2.threshold(image, thresh_max, 1, cv2.THRESH_BINARY_INV)
+    ref_labels, retval1, ref_stats = ConnectedComponentsSegmenter.extract_ccs(inv_mask)
+    regions = ConnectedComponentsSegmenter.extract_ccs_vertical_split(inv_mask)
+    (l_labels, l_ret, l_stats) = regions[0]
+    (c_labels, c_ret, c_stats) = regions[1]
+    (r_labels, r_ret, r_stats) = regions[2]
+    assert (
+        l_ret + c_ret + r_ret >= retval1
+    )  # Split objects appear at least twice but filtered out
 
 
 def test_splitting_image_conserves_data():

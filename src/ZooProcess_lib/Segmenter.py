@@ -7,6 +7,7 @@ import numpy as np
 from numpy import ndarray
 
 from .EllipseFitter import EllipseFitter
+from .Features import Features
 from .ROI import ROI, feature_unq
 from .img_tools import cropnp
 from .segmenters.ConnectedComponents import ConnectedComponentsSegmenter
@@ -249,30 +250,28 @@ class Segmenter(object):
     def split_by_blobs(self, rois: List[ROI]):
         assert rois, "No ROIs"
         for ndx, a_roi in enumerate(rois):
-            features = a_roi.features
-            width = features["Width"]
-            height = features["Height"]
-            bx = features["BX"]
-            by = features["BY"]
-            vignette = cropnp(
-                self.image, top=by, left=bx, bottom=by + height, right=bx + width
-            )
-            if not np.count_nonzero(a_roi.mask) == features["Area"]:
-                pass
+            features = Features(self.image, a_roi, self.THRESH_MAX)
+            # vignette = cropnp(
+            #     self.image,
+            #     top=features.by,
+            #     left=features.bx,
+            #     bottom=features.by + features.height,
+            #     right=features.bx + features.width,
+            # )
             # Whiten background -> push to 255 as min is black
-            vignette = np.bitwise_or(vignette, 255 - a_roi.mask * 255)
+            # vignette = np.bitwise_or(vignette, 255 - a_roi.mask * 255)
             # Compute more features
             # Xstart
             # First white pixel in first line of shape seems OK for this measurement
-            x_start = features["BX"] + int(np.argmax(a_roi.mask != 0))
-            features["XStart"] = x_start
-            features["YStart"] = features["BY"]
+            # x_start = features["BX"] + int(np.argmax(a_roi.mask != 0))
+            # features["XStart"] = x_start
+            # features["YStart"] = features["BY"]
             # %Area
-            nb_holes = np.count_nonzero(vignette <= self.THRESH_MAX)
-            pct_area = (
-                100 - Decimal(nb_holes * 100) / features["Area"]
-            )  # Need exact arithmetic due to some Java<->python rounding diff
-            features["%Area"] = float(round(pct_area, 3))
+            # nb_holes = np.count_nonzero(vignette <= self.THRESH_MAX)
+            # pct_area = (
+            #     100 - Decimal(nb_holes * 100) / features["Area"]
+            # )  # Need exact arithmetic due to some Java<->python rounding diff
+            # features["%Area"] = float(round(pct_area, 3))
             # major, minor, angle
             if False:
                 # Very different from ref. and drawing them gives strange results sometimes
@@ -304,11 +303,11 @@ class Segmenter(object):
                     thickness=1,
                 )
             # Port of ImageJ algo
-            fitter = EllipseFitter()
-            fitter.fit(a_roi.mask)
-            features["Major"] = round(fitter.major, 3)
-            features["Minor"] = round(fitter.minor, 3)
-            features["Angle"] = round(fitter.angle, 3)
+            # fitter = EllipseFitter()
+            # fitter.fit(a_roi.mask)
+            # features["Major"] = round(fitter.major, 3)
+            # features["Minor"] = round(fitter.minor, 3)
+            # features["Angle"] = round(fitter.angle, 3)
             # fitter.draw_ellipse(vignette)
             # vignette = cv2.ellipse(
             #     img=vignette,
@@ -321,4 +320,7 @@ class Segmenter(object):
             #     thickness=2,
             # )
 
-            # saveimage(vignette, "/tmp/vignette_%s.png" % ndx)
+            # x, y = features["BX"], features["BY"]
+
+            # saveimage(vignette, Path(f"/tmp/zooprocess/vignettes/vignette_{x}_{y}.png"))
+            # saveimage(a_roi.mask * 255, Path(f"/tmp/zooprocess/vignettes/mask_{x}_{y}.png"))

@@ -149,16 +149,7 @@ class ExternalContoursSegmenter:
         # Remove particles inside split ones (by side effect of split)
         final_ROIs = cls.remove_if_embedded(potential_ROIs, split_rects)
         ret = [
-            ROI(
-                features={
-                    "BX": contour.x,
-                    "BY": contour.y,
-                    "Width": contour.w,
-                    "Height": contour.h,
-                    "Area": area,
-                },
-                mask=contour_mask,
-            )
+            ROI(mask=contour_mask, x=contour.x, y=contour.y)
             for (contour, contour_mask, area) in final_ROIs
         ]
         print(

@@ -8,8 +8,9 @@ import pytest
 
 from ZooProcess_lib.Background import Background
 from ZooProcess_lib.Border import Border
+from ZooProcess_lib.Features import Features, legacy_features_list_from_roi_list
 from ZooProcess_lib.ImageJLike import images_difference
-from ZooProcess_lib.ROI import Features, feature_unq, ROI
+from ZooProcess_lib.ROI import feature_unq, ROI
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
@@ -36,6 +37,8 @@ from .test_utils import (
     diff_actual_with_ref_and_source,
     read_result_csv,
 )
+
+THRESHOLD = 243
 
 
 # from tests.projects_for_test import APERO2000_REDUCED as APERO2000
@@ -1526,20 +1529,25 @@ def assert_segmentation(projects, project, sample, method):
     index = 1  # TODO: should come from get_names() below
     vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
-    ref = read_measurements(folder, sample, index)
+    ref = round_measurements(read_measurements(folder, sample, index))
     # TODO: Add threshold (AKA 'upper= 243' in config) here
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
     found_rois = segmenter.find_blobs(method)
     segmenter.split_by_blobs(found_rois)
 
-    found = [a_roi.features for a_roi in found_rois]
+    found = round_measurements(
+        legacy_features_list_from_roi_list(vis1, found_rois, THRESHOLD)
+    )
     sort_by_coords(found)
     if found != ref:
         try:
             assert_valid_diffs(segmenter, ref, found)
             return
         except AssertionError as e:
-            [draw_roi_mask(vis1, a_roi) for a_roi in found_rois]
+            [
+                draw_roi_mask(vis1, a_roi, features)
+                for a_roi, features in zip(found_rois, found)
+            ]
             visual_diffs(ref, found, sample, vis1, found_rois)
     assert found == ref
 
@@ -1613,13 +1621,17 @@ def test_algo_diff(projects, tmp_path, project, sample):
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
 
     found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
-    found_feats_new = [a_roi.features for a_roi in found_rois_new]
+    found_feats_new = legacy_features_list_from_roi_list(
+        vis1, found_rois_new, THRESHOLD
+    )
     sort_by_coords(found_feats_new)
 
     found_rois_compat = segmenter.find_blobs(
         Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR
     )
-    found_feats_compat = [a_roi.features for a_roi in found_rois_compat]
+    found_feats_compat = legacy_features_list_from_roi_list(
+        vis1, found_rois_compat, THRESHOLD
+    )
     sort_by_coords(found_feats_compat)
 
     if found_feats_compat != found_feats_new:
@@ -1690,9 +1702,9 @@ def draw_roi(image: np.ndarray, features: Features, thickness: int = 1):
     )
 
 
-def draw_roi_mask(image: np.ndarray, roi: ROI):
+def draw_roi_mask(image: np.ndarray, roi: ROI, features: Dict):
     (whole, _) = cv2.findContours(roi.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    x, y = roi.features["BX"], roi.features["BY"]
+    x, y = features["BX"], features["BY"]
     assert len(whole) == 1
     cv2.drawContours(
         image=image,
@@ -1832,17 +1844,16 @@ def read_measurements(project_folder, sample, index):
         if a_ref["Width"] / a_ref["Height"] < Segmenter.max_w_to_h_ratio
     ]
     sort_by_coords(ref)
-    if "%Area" in measures_types:
-        for a_ref in ref:
-            a_ref["%Area"] = round(
-                a_ref["%Area"], 3
-            )  # Sometimes there are more decimals in measurements
-    if "Angle" in measures_types:
-        for a_ref in ref:
-            a_ref["Angle"] = round(
-                a_ref["Angle"], 3
-            )  # Sometimes there are more decimals in measurements
     return ref
+
+
+def round_measurements(features_list):
+    rounded_to_3 = ["%Area", "Angle", "Major", "Minor"]
+    for a_features in features_list:
+        for a_round in rounded_to_3:
+            if a_round in a_features:
+                a_features[a_round] = round(a_features[a_round], 3)
+    return features_list
 
 
 def diff_dict_lists(

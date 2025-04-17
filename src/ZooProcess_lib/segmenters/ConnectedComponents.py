@@ -174,7 +174,9 @@ class ConnectedComponentsSegmenter:
                         reg_height,
                         reg_width,
                     )
-                    self.prevent_entire_cc_inclusion(inv_mask, stripe_excluded, cc_id, local_cc)
+                    self.prevent_entire_cc_inclusion(
+                        inv_mask, stripe_excluded, cc_id, local_cc
+                    )
                     filtering_stats[4] += 1
                     continue
 
@@ -203,14 +205,9 @@ class ConnectedComponentsSegmenter:
 
                 ret.append(
                     ROI(
-                        features={
-                            "BX": int(x + a_stripe.x_offset),
-                            "BY": int(y + a_stripe.y_offset),
-                            "Width": int(w),
-                            "Height": int(h),
-                            "Area": int(area),
-                        },
                         mask=obj_mask + holes,
+                        x=int(x + a_stripe.x_offset),
+                        y=int(y + a_stripe.y_offset),
                     )
                 )
             print(
@@ -306,9 +303,7 @@ class ConnectedComponentsSegmenter:
         ) = cls.extract_ccs_2_bands(inv_mask, height, width, split_w)
 
         # Find objects common b/w the 2 sub-frames
-        groups = cls.find_common_cc_regions(
-            l_half, l_labels, r_half, r_labels
-        )
+        groups = cls.find_common_cc_regions(l_half, l_labels, r_half, r_labels)
 
         if not for_test:
             central_stripe = cls.build_central_stripe(
@@ -391,9 +386,7 @@ class ConnectedComponentsSegmenter:
         return l_half, l_labels, l_retval, l_stats, r_half, r_labels, r_retval, r_stats
 
     @classmethod
-    def find_common_cc_regions(
-        cls, l_half, l_labels, r_half, r_labels
-    ) -> List[Set]:
+    def find_common_cc_regions(cls, l_half, l_labels, r_half, r_labels) -> List[Set]:
         """Find common CCs, i.e. the ones in left part touching ones in right part
         Return a list of connected CCs, left ones having their usual index, right ones shifted by
         100M
