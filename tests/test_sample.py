@@ -1530,8 +1530,7 @@ def assert_segmentation(projects, project, sample, method):
     vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
     ref = round_measurements(read_measurements(folder, sample, index))
-    # TODO: Add threshold (AKA 'upper= 243' in config) here
-    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
+    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
     found_rois = segmenter.find_blobs(method)
     segmenter.split_by_blobs(found_rois)
 
@@ -1566,8 +1565,7 @@ def assert_linear_response_time(projects, tmp_path, test_set, method):
         index = 1  # TODO: should come from get_names() below
         vis1 = load_final_ref_image(folder, sample, index)
         conf = folder.zooscan_config.read()
-        # TODO: Add threshold (AKA 'upper= 243' in config) here
-        segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
+        segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
         spent, found_rois = measure_time(segmenter.find_blobs, method)
         # Minimal & fast
         assert found_rois != []
@@ -1617,8 +1615,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
     vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
 
-    # TODO: Add threshold (AKA 'upper= 243' in config) here
-    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
+    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
 
     found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
     found_feats_new = legacy_features_list_from_roi_list(
@@ -1740,8 +1737,7 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
     ref = read_measurements(folder, sample, index)
-    # TODO: Add threshold (AKA 'upper= 243' in config) here
-    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm)
+    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
     # found_rois = segmenter.find_blobs(
     #     Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
     # )
@@ -1835,6 +1831,8 @@ def read_measurements(project_folder, sample, index):
         "Major": float,
         "Minor": float,
         "Angle": float,
+        "Feret": float,
+        # "Fractal": float, TODO once EDM issue is over
     }
     ref = read_result_csv(measures, measures_types)
     # This filter is _after_ measurements in ImageJ
@@ -1848,11 +1846,15 @@ def read_measurements(project_folder, sample, index):
 
 
 def round_measurements(features_list):
-    rounded_to_3 = ["%Area", "Angle", "Major", "Minor"]
+    rounded_to_3 = ["%Area", "Angle", "Major", "Minor", "Feret"]
+    rounded_to_1 = ["Fractal"]
     for a_features in features_list:
         for a_round in rounded_to_3:
             if a_round in a_features:
                 a_features[a_round] = round(a_features[a_round], 3)
+        for a_round in rounded_to_1:
+            if a_round in a_features:
+                a_features[a_round] = round(a_features[a_round], 1)
     return features_list
 
 

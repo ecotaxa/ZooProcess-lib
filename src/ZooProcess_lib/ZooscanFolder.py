@@ -78,6 +78,7 @@ class ZooscanFolder:
 class ZooscanConfig:
     minsizeesd_mm: float
     maxsizeesd_mm: float
+    upper: int
 
 
 class Zooscan_config_Folder:

@@ -6,8 +6,10 @@ from typing import Dict, TypedDict, List, Callable, Any
 import numpy as np
 from numpy import ndarray
 
-from ZooProcess_lib.EllipseFitter import EllipseFitter
 from ZooProcess_lib.ROI import ROI
+from ZooProcess_lib.calculators.Calculater import Calculater
+from ZooProcess_lib.calculators.Custom import fractal_mp
+from ZooProcess_lib.calculators.EllipseFitter import EllipseFitter
 from ZooProcess_lib.img_tools import cropnp
 
 TO_LEGACY = {}
@@ -54,6 +56,8 @@ class Features(object):
         self.threshold = threshold
         # cache
         self._ellipse_fitter = None
+        self._crop = None  # AKA vignette
+        self._mask_with_holes = None
 
     def as_legacy(self) -> Dict[str, int | float]:
         """Return present object as a legacy dictionary, for comparison & other needs"""
@@ -106,19 +110,11 @@ class Features(object):
     @legacy("%Area")
     def pct_area(self):
         """Percentage of object’s surface area that is comprised of holes, defined as the background grey level"""
-        crop = cropnp(
-            self.image,
-            top=self.by,
-            left=self.bx,
-            bottom=self.by + self.height,
-            right=self.bx + self.width,
-        )
-        crop = np.bitwise_or(crop, 255 - self.mask * 255)
-        nb_holes = np.count_nonzero(crop <= self.threshold)
+        nb_holes = np.count_nonzero(self.crop() <= self.threshold)
         ret = (
             100 - Decimal(nb_holes * 100) / self.area
-        )  # Need exact arithmetic due to some Java<->python rounding diff
-        return float(ret)
+        )  # Need exact arithmetic due to some Java<->python rounding method diff
+        return float(round(ret, 3))
 
     @property
     @legacy("Major")
@@ -138,16 +134,50 @@ class Features(object):
         """Angle between the primary axis and a line parallel to the x-axis of the image"""
         return self.ellipse_fitter().angle
 
+    @property
+    @legacy("Feret")
+    def feret(self):
+        """Maximum feret diameter, i.e., the longest distance between any two points along the object boundary"""
+        feret_calc = Calculater(self.mask, True)
+        feret_calc.calculate_minferet()
+        feret_calc.calculate_maxferet()
+        return float(feret_calc.maxf)
+
+    @property
+    # @legacy("Fractal")
+    def fractal(self):
+        """fractal dimension of object boundary (Berube and Jebrak 1999), calculated using the ‘Sausage’ method and the Minkowski dimension"""
+        ret, _ = fractal_mp(self.mask_with_holes())
+        return round(ret, 1)  # TODO, see test_calculators.test_ij_like_EDM
+
     def ellipse_fitter(self):
         if self._ellipse_fitter is None:
             self._ellipse_fitter = EllipseFitter()
             self._ellipse_fitter.fit(self.mask)
         return self._ellipse_fitter
 
+    def crop(self):
+        if self._crop is None:
+            self._crop = cropnp(
+                self.image,
+                top=self.by,
+                left=self.bx,
+                bottom=self.by + self.height,
+                right=self.bx + self.width,
+            )
+            self._crop = np.bitwise_or(self._crop, 255 - self.mask * 255)
+        return self._crop
+
+    def mask_with_holes(self):
+        if self._mask_with_holes is None:
+            self._mask_with_holes = 1 - (self.crop() > self.threshold).astype(np.uint8)
+        return self._mask_with_holes
+
 
 FeaturesListT = List[Features]
 
 
-def legacy_features_list_from_roi_list(image: ndarray, roi_list: List[ROI], threshold: int) -> list[
-    dict[str, int | float]]:
+def legacy_features_list_from_roi_list(
+    image: ndarray, roi_list: List[ROI], threshold: int
+) -> list[dict[str, int | float]]:
     return [Features(image, p, threshold).as_legacy() for p in roi_list]

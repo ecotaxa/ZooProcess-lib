@@ -6,7 +6,6 @@ import cv2
 import numpy as np
 from numpy import ndarray
 
-from .EllipseFitter import EllipseFitter
 from .Features import Features
 from .ROI import ROI, feature_unq
 from .img_tools import cropnp
@@ -20,7 +19,6 @@ class Segmenter(object):
     Divide an image into segments and store the result sub-images.
     """
 
-    THRESH_MAX = 243
     RESOLUTION = 2400
     # Constants for 2-image processing. Historical.
     Wlimit = 20000
@@ -36,7 +34,7 @@ class Segmenter(object):
     METH_CONNECTED_COMPONENTS_SPLIT = 16
     LEGACY_COMPATIBLE = 64
 
-    def __init__(self, image: ndarray, minsize: float, maxsize: float):
+    def __init__(self, image: ndarray, minsize: float, maxsize: float, threshold: int):
         assert image.dtype == np.uint8
         self.image = image
         self.height, self.width = image.shape[:2]
@@ -46,12 +44,12 @@ class Segmenter(object):
         # s_p_* are in pixel^2
         self.s_p_min: int = round(sm_min / (pow(pixel, 2)))
         self.s_p_max: int = round(sm_max / (pow(pixel, 2)))
+        self.threshold = threshold
 
     def find_blobs(self, method: int) -> List[ROI]:
         # Threshold the source image to have a b&w mask
-        thresh_max = self.THRESH_MAX
         # mask is white objects on black background
-        _th, inv_mask = cv2.threshold(self.image, thresh_max, 1, cv2.THRESH_BINARY_INV)
+        _th, inv_mask = cv2.threshold(self.image, self.threshold, 1, cv2.THRESH_BINARY_INV)
         # saveimage(inv_mask, "/tmp/inv_mask.tif")
         self.sanity_check(inv_mask)
         if method & self.LEGACY_COMPATIBLE:
@@ -250,16 +248,7 @@ class Segmenter(object):
     def split_by_blobs(self, rois: List[ROI]):
         assert rois, "No ROIs"
         for ndx, a_roi in enumerate(rois):
-            features = Features(self.image, a_roi, self.THRESH_MAX)
-            # vignette = cropnp(
-            #     self.image,
-            #     top=features.by,
-            #     left=features.bx,
-            #     bottom=features.by + features.height,
-            #     right=features.bx + features.width,
-            # )
-            # Whiten background -> push to 255 as min is black
-            # vignette = np.bitwise_or(vignette, 255 - a_roi.mask * 255)
+            features = Features(self.image, a_roi, self.threshold)
             # Compute more features
             # Xstart
             # First white pixel in first line of shape seems OK for this measurement
@@ -321,6 +310,16 @@ class Segmenter(object):
             # )
 
             # x, y = features["BX"], features["BY"]
-
-            # saveimage(vignette, Path(f"/tmp/zooprocess/vignettes/vignette_{x}_{y}.png"))
-            # saveimage(a_roi.mask * 255, Path(f"/tmp/zooprocess/vignettes/mask_{x}_{y}.png"))
+            # from .img_tools import saveimage
+            # from pathlib import Path
+            # vignette = cropnp(
+            #     self.image,
+            #     top=features.by,
+            #     left=features.bx,
+            #     bottom=features.by + features.height,
+            #     right=features.bx + features.width,
+            # )
+            # Whiten background -> push to 255 as min is black
+            # vignette = np.bitwise_or(vignette, 255 - a_roi.mask * 255)
+            # saveimage(vignette, Path(f"/tmp/zooprocess/vignettes/vignette_{features.bx}_{features.by}.png"))
+            # saveimage(a_roi.mask * 255, Path(f"/tmp/zooprocess/vignettes/mask_{features.bx}_{features.by}.png"))

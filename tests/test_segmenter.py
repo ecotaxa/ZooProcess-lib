@@ -19,6 +19,7 @@ HERE = Path(__file__).parent
 DATA_DIR = HERE / "data"
 IMAGES_DIR = DATA_DIR / "images"
 SEGMENTER_DIR = IMAGES_DIR / "segmenter"
+FEATURES_DIR = IMAGES_DIR / "measures"
 
 from ZooProcess_lib.Segmenter import Segmenter
 
