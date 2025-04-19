@@ -1819,6 +1819,11 @@ def visual_diffs(expected, actual, sample, tgt_img, found_rois):
 def read_measurements(project_folder, sample, index):
     work_files = project_folder.zooscan_scan.work.get_files(sample, index)
     measures = work_files["meas"]
+    ref = read_measures_from_file(measures)
+    return ref
+
+
+def read_measures_from_file(measures):
     measures_types = {
         "BX": int,
         "BY": int,
@@ -1836,7 +1841,7 @@ def read_measurements(project_folder, sample, index):
         "Perim.": float,
     }
     ref = read_result_csv(measures, measures_types)
-    # This filter is _after_ measurements in ImageJ
+    # This filter is _after_ measurements in Legacy
     ref = [
         a_ref
         for a_ref in ref

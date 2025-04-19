@@ -19,7 +19,8 @@ HERE = Path(__file__).parent
 DATA_DIR = HERE / "data"
 IMAGES_DIR = DATA_DIR / "images"
 SEGMENTER_DIR = IMAGES_DIR / "segmenter"
-FEATURES_DIR = IMAGES_DIR / "measures"
+FEATURES_DIR = IMAGES_DIR / "measures" # TODO: swap!
+MEASURES_DIR = DATA_DIR / "features"
 
 from ZooProcess_lib.Segmenter import Segmenter
 
