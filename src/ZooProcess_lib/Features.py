@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Dict, TypedDict, List, Callable, Any
+from typing import Dict, TypedDict, List, Callable, Any, Set, Optional
 
 import numpy as np
 from numpy import ndarray
@@ -62,10 +62,12 @@ class Features(object):
         self._crop = None  # AKA vignette
         self._mask_with_holes = None
 
-    def as_legacy(self) -> Dict[str, int | float]:
+    def as_legacy(self, only: Optional[Set[str]] = None) -> Dict[str, int | float]:
         """Return present object as a legacy dictionary, for comparison & other needs"""
         ret = {}
         for leg, fct in TO_LEGACY.items():
+            if only and leg not in only:
+                continue
             ret[leg] = fct(self)
         return ret
 
@@ -188,6 +190,6 @@ FeaturesListT = List[Features]
 
 
 def legacy_features_list_from_roi_list(
-    image: ndarray, roi_list: List[ROI], threshold: int
+    image: ndarray, roi_list: List[ROI], threshold: int, only: Optional[Set[str]] = None
 ) -> list[dict[str, int | float]]:
-    return [Features(image, p, threshold).as_legacy() for p in roi_list]
+    return [Features(image, p, threshold).as_legacy(only) for p in roi_list]

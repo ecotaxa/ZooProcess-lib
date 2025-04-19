@@ -5,7 +5,7 @@ import numpy as np
 from numpy import ndarray
 
 from ..ROI import ROI
-from ..segmenters.ExternalContours import ExternalContoursSegmenter
+from ..segmenters.ExternalContours import ExternalContoursSegmenter, RectOfI
 
 
 class RecursiveContoursSegmenter(object):
@@ -100,7 +100,7 @@ class RecursiveContoursSegmenter(object):
             if w * h < s_p_min:
                 continue
             # Compute filled area
-            contour_mask = ExternalContoursSegmenter.draw_contour(a_contour, x, y, w, h)
+            contour_mask = ExternalContoursSegmenter.draw_contour(RectOfI(a_contour))
             area = np.count_nonzero(contour_mask)
             if area < s_p_min:
                 continue
@@ -114,20 +114,6 @@ class RecursiveContoursSegmenter(object):
             ratiobxby = w / h
             if ratiobxby > max_w_to_h_ratio:
                 continue
-            roi = ROI(
-                features={
-                    "BX": x,
-                    "BY": y,
-                    "Width": w,
-                    "Height": h,
-                    "Area": area,
-                },
-                mask=contour_mask,
-                contour=a_contour,
-            )
+            roi = ROI(x, y, contour_mask)
             ret.append(roi)
-            # image_3channels = draw_contours(self.image, self.contours)
-            # saveimage(image_3channels, Path("/tmp/contours.tif"))
         return ret
-
-

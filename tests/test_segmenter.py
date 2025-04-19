@@ -12,14 +12,13 @@ from ZooProcess_lib.segmenters.ConnectedComponents import (
     ConnectedComponentsSegmenter,
     CC,
 )
-from ZooProcess_lib.segmenters.ExternalContours import ExternalContoursSegmenter
-from .test_sample import sort_by_coords, assert_valid_diffs
+from .test_sample import sort_by_coords, assert_valid_diffs, round_measurements
 
 HERE = Path(__file__).parent
 DATA_DIR = HERE / "data"
 IMAGES_DIR = DATA_DIR / "images"
 SEGMENTER_DIR = IMAGES_DIR / "segmenter"
-FEATURES_DIR = IMAGES_DIR / "measures" # TODO: swap!
+FEATURES_DIR = IMAGES_DIR / "measures"  # TODO: swap!
 MEASURES_DIR = DATA_DIR / "features"
 
 from ZooProcess_lib.Segmenter import Segmenter
@@ -57,10 +56,17 @@ def test_holes_62388():
     # This image biggest particle has a pattern in holes, their contour touches the particle itself
     image = loadimage(SEGMENTER_DIR / "cc_62388.png")
     image = cv2.copyMakeBorder(image, 4, 4, 4, 4, cv2.BORDER_CONSTANT, value=(255,))
-    parts = Segmenter(image, 0.1, 100000).find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
-    features = sorted(
-        legacy_features_list_from_roi_list(image, parts), key=feature_unq, reverse=True
+    parts = Segmenter(image, 0.1, 100000, 243).find_blobs(
+        Segmenter.METH_TOP_CONTOUR_SPLIT
     )
+    features = sorted(
+        legacy_features_list_from_roi_list(
+            image, parts, 243, {"Area", "BX", "BY", "Height", "Width"}
+        ),
+        key=feature_unq,
+        reverse=True,
+    )
+    features = round_measurements(features)
     assert features == [
         {"Area": 244, "BX": 146, "BY": 91, "Height": 26, "Width": 81},
         {"Area": 1407, "BX": 102, "BY": 110, "Height": 34, "Width": 67},
@@ -70,21 +76,23 @@ def test_holes_62388():
     ]
 
 
-def test_simplified_scan():
+def test_compare_split_methods():
     image = loadimage(
         SEGMENTER_DIR / "apero2023_tha_bioness_013_st46_d_n8_d3_1_vis1.png"
     )
-    # image = loadimage(
-    #     Path("/tmp/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_vis1.png")
-    # )
-    segmenter = Segmenter(image, 0.3, 100)
+    THRESHOLD = 243
+    segmenter = Segmenter(image, 0.3, 100, THRESHOLD)
 
-    found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS_SPLIT)
-    found_feats_new = legacy_features_list_from_roi_list(image, found_rois_new)
+    found_rois_new = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
+    found_feats_new = legacy_features_list_from_roi_list(
+        image, found_rois_new, THRESHOLD
+    )
     sort_by_coords(found_feats_new)
 
-    found_rois_old = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
-    found_feats_compat = legacy_features_list_from_roi_list(image, found_rois_old)
+    found_rois_old = segmenter.find_blobs(Segmenter.METH_CONTOUR_TREE)
+    found_feats_compat = legacy_features_list_from_roi_list(
+        image, found_rois_old, THRESHOLD
+    )
     sort_by_coords(found_feats_compat)
 
     assert found_feats_compat == found_feats_new
@@ -112,15 +120,17 @@ def cc_from_coord(coord) -> CC:
 
 
 def test_split_image():
-    # Assert validity of splitting an image vertically in 2 and reconstructing the CCs
+    # Assert validity of splitting an image vertically in 2, in CC mode,
+    # and reconstructing the CCs
     thresh_max = 243
     image = loadimage(SEGMENTER_DIR / "s_17_3_tot_1_vis1.png")
     _th, inv_mask = cv2.threshold(image, thresh_max, 1, cv2.THRESH_BINARY_INV)
-    ref_labels, retval1, ref_stats = ConnectedComponentsSegmenter.extract_ccs(inv_mask)
-    regions = ConnectedComponentsSegmenter.extract_ccs_vertical_split(inv_mask)
-    (l_labels, l_ret, l_stats) = regions[0]
-    (c_labels, c_ret, c_stats) = regions[1]
-    (r_labels, r_ret, r_stats) = regions[2]
+    (stripe,) = ConnectedComponentsSegmenter.extract_ccs(inv_mask)
+    ref_labels, retval1, ref_stats = stripe.labels, stripe.retval, stripe.stats
+    stripes = ConnectedComponentsSegmenter.extract_ccs_vertical_split(inv_mask)
+    (l_labels, l_ret, l_stats) = stripes[0].labels, stripes[0].retval, stripes[0].stats
+    (c_labels, c_ret, c_stats) = stripes[1].labels, stripes[1].retval, stripes[1].stats
+    (r_labels, r_ret, r_stats) = stripes[2].labels, stripes[2].retval, stripes[2].stats
     assert (
         l_ret + c_ret + r_ret >= retval1
     )  # Split objects appear at least twice but filtered out
@@ -130,13 +140,8 @@ def test_splitting_image_conserves_data():
     # Assert validity of splitting an image vertically in 2 and reconstructing the CCs
     thresh_max = 243
     image = loadimage(SEGMENTER_DIR / "s_17_3_tot_1_vis1.png")
-    image = loadimage(
-        SEGMENTER_DIR / "apero2023_tha_bioness_013_st46_d_n8_d3_1_vis1.png"
-    )
-    print("loaded")
     _th, inv_mask = cv2.threshold(image, thresh_max, 1, cv2.THRESH_BINARY_INV)
     (stripe,) = ConnectedComponentsSegmenter.extract_ccs(inv_mask)
-    print("ccs1 done.")
     ref_labels, retval1, ref_stats = stripe.labels, stripe.retval, stripe.stats
     vs_stripe = ConnectedComponentsSegmenter.extract_ccs_vertical_split(
         inv_mask, for_test=True
@@ -185,41 +190,3 @@ def test_splitting_image_conserves_data():
         if coord in ref_stats_by_coord:
             continue
         print(coord, vs_stats_by_coord[coord])
-
-
-def test_simplified_scan():
-    thresh_max = 243
-    image = loadimage(
-        SEGMENTER_DIR / "apero2023_tha_bioness_013_st46_d_n8_d3_1_vis1.png"
-    )
-    # image = loadimage(
-    #     Path("/tmp/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_vis1.png")
-    # )
-    segmenter = Segmenter(image, 0.3, 100)
-
-    found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS_SPLIT)
-    found_feats_new = [a_roi.features for a_roi in found_rois_new]
-    sort_by_coords(found_feats_new)
-
-    found_rois_old = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
-    found_feats_compat = [a_roi.features for a_roi in found_rois_old]
-    sort_by_coords(found_feats_compat)
-
-    assert found_feats_compat == found_feats_new
-    if found_feats_compat != found_feats_new:
-        assert_valid_diffs(segmenter, found_feats_compat, found_feats_new)
-
-
-def test_split_image():
-    # Assert validity of splitting an image vertically in 2 and reconstructing the CCs
-    thresh_max = 243
-    image = loadimage(SEGMENTER_DIR / "s_17_3_tot_1_vis1.png")
-    _th, inv_mask = cv2.threshold(image, thresh_max, 1, cv2.THRESH_BINARY_INV)
-    ref_labels, retval1, ref_stats = ConnectedComponentsSegmenter.extract_ccs(inv_mask)
-    regions = ConnectedComponentsSegmenter.extract_ccs_vertical_split(inv_mask)
-    (l_labels, l_ret, l_stats) = regions[0]
-    (c_labels, c_ret, c_stats) = regions[1]
-    (r_labels, r_ret, r_stats) = regions[2]
-    assert (
-        l_ret + c_ret + r_ret >= retval1
-    )  # Split objects appear at least twice but filtered out
