@@ -3,8 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Dict, TypedDict, List, Callable, Any, Set, Optional
 
+import cv2
 import numpy as np
 from numpy import ndarray
+from scipy import stats
 
 from ZooProcess_lib.ROI import ROI
 from ZooProcess_lib.calculators.Calculater import Calculater
@@ -61,6 +63,7 @@ class Features(object):
         self._ellipse_fitter = None
         self._crop = None  # AKA vignette
         self._mask_with_holes = None
+        self._histogram = None
 
     def as_legacy(self, only: Optional[Set[str]] = None) -> Dict[str, int | float]:
         """Return present object as a legacy dictionary, for comparison & other needs"""
@@ -162,6 +165,53 @@ class Features(object):
         ret = ij_perimeter(self.mask)
         return ret
 
+    @property
+    @legacy("Min")
+    def min(self):
+        """Minimum grey value within the object (0 = black)"""
+        object_values_only = self.crop()[self.mask_with_holes() > 0]
+        return int(np.min(object_values_only))
+
+    @property
+    # @legacy("Max")
+    def max(self):
+        """Maximum grey value within the object (255 = white)"""
+        # TODO: is not the ordinary max, it's computed inside Legacy
+        object_values_only = self.bug_stats_basis()
+        return int(np.max(object_values_only))
+
+    @property
+    # @legacy("Median")
+    def median(self):
+        """Median grey value within the object"""
+        return round(float(np.median(self.stats_basis()))+0.5)
+
+    @property
+    @legacy("Mean")
+    def mean(self):
+        """Average grey value within the object; sum of the grey values of all pixels in the object divided by the number of pixels"""
+        return float(np.mean(self.stats_basis()))
+
+    @property
+    @legacy("Mode")
+    def mode(self):
+        """Modal grey value within the object"""
+        mode = stats.mode(self.stats_basis(), axis=None)
+        return int(mode.mode)
+
+    @property
+    # @legacy("Skew")
+    def skew(self):
+        """Skewness of the histogram of grey level values"""
+        return float(stats.skew(self.bug_stats_basis()))
+
+    @property
+    # @legacy("Kurt")
+    def kurtosis(self):
+        """Kurtosis of the histogram of grey level values"""
+        object_values_only = self.crop()[self.mask > 0]
+        return float(stats.kurtosis(object_values_only))
+
     def ellipse_fitter(self):
         if self._ellipse_fitter is None:
             self._ellipse_fitter = EllipseFitter()
@@ -184,6 +234,25 @@ class Features(object):
         if self._mask_with_holes is None:
             self._mask_with_holes = 1 - (self.crop() > self.threshold).astype(np.uint8)
         return self._mask_with_holes
+
+    def histogram(self) -> np.ndarray:
+        if self._histogram is None:
+            self._histogram = np.histogram(self.mask, bins=256)
+        return self._histogram
+
+    def bug_stats_basis(self):
+        """There is a strong doubt on this being the OK dataset for stats on grey level features"""
+        # vign = Vignette(self.image, self.bx, self.by, self.mask)
+        # sym_sum = vign.symmetrical_vignette_added()
+        v_flipped_mask = cv2.flip(self.mask, 1)
+        # saveimage(sym_sum, Path("/tmp/sym_sum.png"))
+        object_values_only = self.crop()[v_flipped_mask > 0]
+        return object_values_only
+
+    def stats_basis(self):
+        """Dataset used for statistical functions"""
+        vals = self.crop()[self.mask > 0]
+        return vals
 
 
 FeaturesListT = List[Features]

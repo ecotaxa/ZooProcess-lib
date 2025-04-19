@@ -1,10 +1,16 @@
 from math import exp
 
+import cv2
 import numpy as np
 
+from ZooProcess_lib.Features import Features
+from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Custom import fractal_mp, ij_perimeter
 from ZooProcess_lib.img_tools import loadimage
+from .test_sample import MEASURES_TYPES, round_measurements
 from .test_segmenter import FEATURES_DIR
+from .test_segmenter import MEASURES_DIR
+from .test_utils import read_result_csv
 
 
 def test_ij_like_EDM():
@@ -50,3 +56,22 @@ def test_ij_like_perimeter():
     img_conv = 1 - img // 255
     perim = ij_perimeter(img_conv)
     assert round(perim, 3) == 359.772
+
+
+def test_ij_like_measures():
+    image = loadimage(FEATURES_DIR / "crop_13892_13563.png")
+    # Add a white border, otherwise the particle touches a bord and is gone
+    image = cv2.copyMakeBorder(image, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=(255,))
+    THRESHOLD = 243
+    segmenter = Segmenter(image, 0.3, 100, THRESHOLD)
+    rois = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
+    assert len(rois) == 1
+    feat = Features(image=image, roi=rois[0], threshold=THRESHOLD)
+    exp = read_result_csv(MEASURES_DIR / "meas_13892_13563.csv", MEASURES_TYPES)
+    round_measurements(exp)
+    act = [feat.as_legacy()]
+    round_measurements(act)
+    for k in ("BX", "BY", "XStart", "YStart"):
+        del exp[0][k]
+        del act[0][k]
+    assert act == exp

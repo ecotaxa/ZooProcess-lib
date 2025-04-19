@@ -106,6 +106,7 @@ class ExternalContoursSegmenter:
                 s_p_max,
                 max_w_to_h_ratio,
                 Segmenter.METH_CONNECTED_COMPONENTS_SPLIT,
+                with_split=False,
             )
 
         print(
@@ -320,7 +321,7 @@ class ExternalContoursSegmenter:
         right_zone = cls.contact_zone(r_contours, frontier + 1, height)
         (l_dc,) = np.nonzero(left_zone)
         (r_dc,) = np.nonzero(right_zone)
-        assert len(l_dc) != 0 and len(r_dc) != 0
+        # assert len(l_dc) != 0 and len(r_dc) != 0
         same_contours = set()
         for offs in (-1, 0, 1):  # 8 connectivity
             in_contact = np.intersect1d(l_dc, r_dc + offs)

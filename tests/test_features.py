@@ -1,8 +1,6 @@
-from pathlib import Path
-
 from ZooProcess_lib.Features import Features
 from ZooProcess_lib.Segmenter import Segmenter
-from ZooProcess_lib.img_tools import loadimage, load_zipped_image, saveimage
+from ZooProcess_lib.img_tools import loadimage
 from .test_sample import (
     read_measures_from_file,
     round_measurements,
@@ -20,7 +18,12 @@ def test_features_on_simplified_scan():
     THRESHOLD = 243
     segmenter = Segmenter(image, 0.3, 100, THRESHOLD)
     roi_list = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
-    features = [Features(image, p, THRESHOLD) for p in roi_list]
+    if False:
+        the_roi = [r for r in roi_list if (r.x, r.y) == (95, 14000)][0]
+        features = [Features(image, the_roi, THRESHOLD)]
+        segmenter.split_by_blobs([the_roi])
+    else:
+        features = [Features(image, a_roi, THRESHOLD) for a_roi in roi_list]
     legacy_features = round_measurements([f.as_legacy() for f in features])
     sort_by_coords(legacy_features)
     ref_features = read_measures_from_file(features_file)

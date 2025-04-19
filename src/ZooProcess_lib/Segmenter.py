@@ -1,5 +1,3 @@
-import math
-from decimal import Decimal
 from typing import List, Tuple
 
 import cv2
@@ -248,78 +246,23 @@ class Segmenter(object):
     def split_by_blobs(self, rois: List[ROI]):
         assert rois, "No ROIs"
         for ndx, a_roi in enumerate(rois):
-            features = Features(self.image, a_roi, self.threshold)
-            # Compute more features
-            # Xstart
-            # First white pixel in first line of shape seems OK for this measurement
-            # x_start = features["BX"] + int(np.argmax(a_roi.mask != 0))
-            # features["XStart"] = x_start
-            # features["YStart"] = features["BY"]
-            # %Area
-            # nb_holes = np.count_nonzero(vignette <= self.THRESH_MAX)
-            # pct_area = (
-            #     100 - Decimal(nb_holes * 100) / features["Area"]
-            # )  # Need exact arithmetic due to some Java<->python rounding diff
-            # features["%Area"] = float(round(pct_area, 3))
-            # major, minor, angle
-            if False:
-                # Very different from ref. and drawing them gives strange results sometimes
-                # From some docs, we must not expect anything reasonable if the shape is not close from an ellipse
-                vignette_contour = a_roi.contour - (features["BX"], features["BY"])
-                min_ellipse = cv2.fitEllipse(vignette_contour)
-                cv2.ellipse(vignette, min_ellipse, 0)
-                cv2.drawContours(vignette, [vignette_contour], 0, 0)
-            if False:
-                # Angle matches with ref, but for some reason the axis are sometimes very different, and
-                # visual check shows sometimes the ellipse extremely shifted. Maybe a centroid issue.
-                import skimage
+            # self.extract_vignette(a_roi)
+            pass
 
-                props = skimage.measure.regionprops(a_roi.mask, cache=False)[0]
-                features["Major"] = round(props.axis_major_length, 3)
-                features["Minor"] = round(props.axis_minor_length, 3)
-                features["Angle"] = round(math.degrees(props.orientation) + 90, 3)
-                vignette = cv2.ellipse(
-                    img=vignette,
-                    center=(int(props.centroid[0]), int(props.centroid[1])),
-                    axes=(
-                        int(props.axis_minor_length / 2),
-                        int(props.axis_major_length / 2),
-                    ),
-                    angle=90 - (math.degrees(props.orientation) + 90),
-                    startAngle=0,
-                    endAngle=360,
-                    color=(0,),
-                    thickness=1,
-                )
-            # Port of ImageJ algo
-            # fitter = EllipseFitter()
-            # fitter.fit(a_roi.mask)
-            # features["Major"] = round(fitter.major, 3)
-            # features["Minor"] = round(fitter.minor, 3)
-            # features["Angle"] = round(fitter.angle, 3)
-            # fitter.draw_ellipse(vignette)
-            # vignette = cv2.ellipse(
-            #     img=vignette,
-            #     center=(int(fitter.x_center), int(fitter.y_center)),
-            #     axes=(int(fitter.minor / 2), int(fitter.major / 2)),
-            #     angle=90 - fitter.angle,
-            #     startAngle=0,
-            #     endAngle=360,
-            #     color=(0,),
-            #     thickness=2,
-            # )
+    def extract_vignette(self, a_roi):
+        features = Features(self.image, a_roi, self.threshold)
+        from .img_tools import saveimage
+        from pathlib import Path
+        crop = cropnp(
+            self.image,
+            top=features.by,
+            left=features.bx,
+            bottom=features.by + features.height,
+            right=features.bx + features.width,
+        )
+        saveimage(crop, Path(f"/tmp/zooprocess/vignettes/crop_{features.bx}_{features.by}.png"))
+        # Whiten background -> push to 255 as min is black
+        vignette = np.bitwise_or(crop, 255 - a_roi.mask * 255)
+        saveimage(vignette, Path(f"/tmp/zooprocess/vignettes/vignette_{features.bx}_{features.by}.png"))
+        saveimage(a_roi.mask * 255, Path(f"/tmp/zooprocess/vignettes/mask_{features.bx}_{features.by}.png"))
 
-            # x, y = features["BX"], features["BY"]
-            # from .img_tools import saveimage
-            # from pathlib import Path
-            # vignette = cropnp(
-            #     self.image,
-            #     top=features.by,
-            #     left=features.bx,
-            #     bottom=features.by + features.height,
-            #     right=features.bx + features.width,
-            # )
-            # Whiten background -> push to 255 as min is black
-            # vignette = np.bitwise_or(vignette, 255 - a_roi.mask * 255)
-            # saveimage(vignette, Path(f"/tmp/zooprocess/vignettes/vignette_{features.bx}_{features.by}.png"))
-            # saveimage(a_roi.mask * 255, Path(f"/tmp/zooprocess/vignettes/mask_{features.bx}_{features.by}.png"))

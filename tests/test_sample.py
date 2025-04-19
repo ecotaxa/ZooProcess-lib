@@ -1823,24 +1823,33 @@ def read_measurements(project_folder, sample, index):
     return ref
 
 
+MEASURES_TYPES = {
+    "BX": int,
+    "BY": int,
+    "Width": int,
+    "Height": int,
+    "Area": int,
+    "%Area": float,
+    "XStart": int,
+    "YStart": int,
+    "Major": float,
+    "Minor": float,
+    "Angle": float,
+    "Feret": float,
+    # "Fractal": float, TODO once EDM issue is over
+    "Perim.": float,
+    "Mean": float,
+    "Min": int,
+    # "Max": int, TODO reverse engineer legacy algo
+    # "Median": float,
+    "Mode": int,
+    # "Skew": float,
+    # "Kurt": float,
+}
+
+
 def read_measures_from_file(measures):
-    measures_types = {
-        "BX": int,
-        "BY": int,
-        "Width": int,
-        "Height": int,
-        "Area": int,
-        "%Area": float,
-        "XStart": int,
-        "YStart": int,
-        "Major": float,
-        "Minor": float,
-        "Angle": float,
-        "Feret": float,
-        # "Fractal": float, TODO once EDM issue is over
-        "Perim.": float,
-    }
-    ref = read_result_csv(measures, measures_types)
+    ref = read_result_csv(measures, MEASURES_TYPES)
     # This filter is _after_ measurements in Legacy
     ref = [
         a_ref
@@ -1852,12 +1861,16 @@ def read_measures_from_file(measures):
 
 
 def round_measurements(features_list):
-    rounded_to_3 = ["%Area", "Angle", "Major", "Minor", "Feret", "Perim."]
-    rounded_to_1 = ["Fractal"]
+    rounded_to_3 = {"%Area", "Angle", "Major", "Minor", "Feret", "Perim.","Mean"}
+    rounded_to_2 = []
+    rounded_to_1 = {"Fractal"}
     for a_features in features_list:
         for a_round in rounded_to_3:
             if a_round in a_features:
                 a_features[a_round] = round(a_features[a_round], 3)
+        for a_round in rounded_to_2:
+            if a_round in a_features:
+                a_features[a_round] = round(a_features[a_round], 2)
         for a_round in rounded_to_1:
             if a_round in a_features:
                 a_features[a_round] = round(a_features[a_round], 1)
