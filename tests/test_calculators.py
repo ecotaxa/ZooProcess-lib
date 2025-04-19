@@ -2,7 +2,7 @@ from math import exp
 
 import numpy as np
 
-from ZooProcess_lib.calculators.Custom import fractal_mp
+from ZooProcess_lib.calculators.Custom import fractal_mp, ij_perimeter
 from ZooProcess_lib.img_tools import loadimage
 from .test_segmenter import FEATURES_DIR
 
@@ -42,3 +42,11 @@ def test_ij_like_EDM():
     ]
     assert [round(exp(a)) for a in areas] == from_ij
     assert meas == 1.3501
+
+
+def test_ij_like_perimeter():
+    """EDM aka EDT found elsewhere is not the same as the one computed in IJ"""
+    img = loadimage(FEATURES_DIR / "mask_holes_2855_223.png")
+    img_conv = 1 - img // 255
+    perim = ij_perimeter(img_conv)
+    assert round(perim, 3) == 359.772

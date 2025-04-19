@@ -8,7 +8,10 @@ from numpy import ndarray
 
 from ZooProcess_lib.ROI import ROI
 from ZooProcess_lib.calculators.Calculater import Calculater
-from ZooProcess_lib.calculators.Custom import fractal_mp
+from ZooProcess_lib.calculators.Custom import (
+    fractal_mp,
+    ij_perimeter,
+)
 from ZooProcess_lib.calculators.EllipseFitter import EllipseFitter
 from ZooProcess_lib.img_tools import cropnp
 
@@ -146,9 +149,16 @@ class Features(object):
     @property
     # @legacy("Fractal")
     def fractal(self):
-        """fractal dimension of object boundary (Berube and Jebrak 1999), calculated using the ‘Sausage’ method and the Minkowski dimension"""
+        """Fractal dimension of object boundary (Berube and Jebrak 1999), calculated using the ‘Sausage’ method and the Minkowski dimension"""
         ret, _ = fractal_mp(self.mask_with_holes())
         return round(ret, 1)  # TODO, see test_calculators.test_ij_like_EDM
+
+    @property
+    @legacy("Perim.")
+    def perim(self):
+        """The length of the outside boundary of the object [pixel]"""
+        ret = ij_perimeter(self.mask)
+        return ret
 
     def ellipse_fitter(self):
         if self._ellipse_fitter is None:

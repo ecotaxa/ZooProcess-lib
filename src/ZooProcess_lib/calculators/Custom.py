@@ -1,8 +1,10 @@
+import math
 from math import log, floor
 
 import cv2
 import numpy as np
-from scipy.ndimage import distance_transform_edt, distance_transform_bf
+
+from ..calculators.Wand import Wand
 
 
 def fractal_mp(mask: np.ndarray):
@@ -87,3 +89,48 @@ def enlarged_mask(mask: np.ndarray) -> np.ndarray:
     ret = np.zeros((Hf, Lf), dtype=np.uint8)
     ret[Ys : Ys + H, Xs : Xs + L] = mask
     return ret
+
+
+def get_traced_perimeter(x_points: np.ndarray, y_points: np.ndarray, n_points:int) -> float:
+    """
+    Calculates the traced perimeter of a region defined by a contour.
+    Returns:
+        The calculated traced perimeter as a float.
+    """
+    sum_dx = 0
+    sum_dy = 0
+    n_corners = 0
+    dx1 = x_points[0] - x_points[n_points - 1]
+    dy1 = y_points[0] - y_points[n_points - 1]
+    side1 = abs(dx1) + abs(dy1)  # One of these is 0
+    corner = False
+
+    for i in range(n_points):
+        next_i = i + 1
+        if next_i == n_points:
+            next_i = 0
+        dx2 = x_points[next_i] - x_points[i]
+        dy2 = y_points[next_i] - y_points[i]
+        sum_dx += abs(dx1)
+        sum_dy += abs(dy1)
+        side2 = abs(dx2) + abs(dy2)
+
+        if side1 > 1 or not corner:
+            corner = True
+            n_corners += 1
+        else:
+            corner = False
+
+        dx1 = dx2
+        dy1 = dy2
+        side1 = side2
+
+    return sum_dx + sum_dy - (n_corners * (2 - math.sqrt(2)))
+
+
+def ij_perimeter(mask: np.ndarray) -> float:
+    wand = Wand(mask)
+    x_start = int(np.argmax(mask != 0))
+    wand.auto_outline(int(x_start), 0)
+    ret = get_traced_perimeter(wand.xpoints, wand.ypoints, wand.npoints)
+    return float(ret)

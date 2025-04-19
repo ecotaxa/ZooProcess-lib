@@ -1,5 +1,5 @@
 #
-# Algorithms found in ZooProcess legacy and differ from usual meaning of their output
+# Algorithms found in ZooProcess legacy and differing (maybe?) from the usual meaning of their output
 #
 import math
 from typing import Tuple

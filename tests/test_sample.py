@@ -1833,6 +1833,7 @@ def read_measurements(project_folder, sample, index):
         "Angle": float,
         "Feret": float,
         # "Fractal": float, TODO once EDM issue is over
+        "Perim.": float,
     }
     ref = read_result_csv(measures, measures_types)
     # This filter is _after_ measurements in ImageJ
@@ -1846,7 +1847,7 @@ def read_measurements(project_folder, sample, index):
 
 
 def round_measurements(features_list):
-    rounded_to_3 = ["%Area", "Angle", "Major", "Minor", "Feret"]
+    rounded_to_3 = ["%Area", "Angle", "Major", "Minor", "Feret", "Perim."]
     rounded_to_1 = ["Fractal"]
     for a_features in features_list:
         for a_round in rounded_to_3:
