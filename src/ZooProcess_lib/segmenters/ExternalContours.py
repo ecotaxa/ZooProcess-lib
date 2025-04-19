@@ -96,16 +96,13 @@ class ExternalContoursSegmenter:
 
         filtering_stats = [0] * 8
         contours = cls.find_contours(inv_mask, split, filtering_stats)
-        if len(contours) <= 1:
+        if not split and len(contours) <= 1:
             print("0 or 1 contour!")
-            from ..Segmenter import Segmenter
-
-            return ConnectedComponentsSegmenter.find_particles_via_cc(
+            return ConnectedComponentsSegmenter().find_particles_via_cc(
                 inv_mask,
                 s_p_min,
                 s_p_max,
                 max_w_to_h_ratio,
-                Segmenter.METH_CONNECTED_COMPONENTS_SPLIT,
                 with_split=False,
             )
 
@@ -321,14 +318,17 @@ class ExternalContoursSegmenter:
         right_zone = cls.contact_zone(r_contours, frontier + 1, height)
         (l_dc,) = np.nonzero(left_zone)
         (r_dc,) = np.nonzero(right_zone)
-        # assert len(l_dc) != 0 and len(r_dc) != 0
+        assert len(l_dc) != 0 and len(r_dc) != 0
         same_contours = set()
         for offs in (-1, 0, 1):  # 8 connectivity
             in_contact = np.intersect1d(l_dc, r_dc + offs)
             contact_idxs_left = left_zone[in_contact]
             contact_idxs_right = right_zone[in_contact - offs]
-            same_contours_offs = np.unique(
-                np.column_stack((contact_idxs_left, contact_idxs_right)), axis=0
+            same_contours_offs = (
+                np.unique(
+                    np.column_stack((contact_idxs_left, contact_idxs_right)), axis=0
+                )
+                - 1  # Rollback the "+1" in cls.contact_zone
             )
             same_contours.update(list(map(tuple, same_contours_offs)))
         same_contours = sorted(list(same_contours))
@@ -337,14 +337,14 @@ class ExternalContoursSegmenter:
         return graph_connected_components(connections)
 
     @classmethod
-    def contact_zone(cls, contours, limit, height):
+    def contact_zone(cls, rects: List[RectOfI], limit: int, height: int):
         zone = np.zeros(height, np.uint32)
-        for idx, a_contour in contours:
+        for idx, a_contour in rects:
             for from_y, to_y in cls.segments_touching(a_contour.contours[0], limit):
                 if from_y == to_y:
-                    zone[to_y] = idx
+                    zone[to_y] = idx + 1
                 else:
-                    zone[from_y : to_y + 1] = idx
+                    zone[from_y : to_y + 1] = idx + 1
         return zone
 
     @classmethod

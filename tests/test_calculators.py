@@ -60,11 +60,11 @@ def test_ij_like_perimeter():
 
 def test_ij_like_measures():
     image = loadimage(FEATURES_DIR / "crop_13892_13563.png")
-    # Add a white border, otherwise the particle touches a bord and is gone
+    # Add a white border, otherwise the particle touches a border and is gone
     image = cv2.copyMakeBorder(image, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=(255,))
     THRESHOLD = 243
     segmenter = Segmenter(image, 0.3, 100, THRESHOLD)
-    rois = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
+    rois = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
     assert len(rois) == 1
     feat = Features(image=image, roi=rois[0], threshold=THRESHOLD)
     exp = read_result_csv(MEASURES_DIR / "meas_13892_13563.csv", MEASURES_TYPES)
