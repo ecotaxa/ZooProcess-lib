@@ -2,6 +2,7 @@ from math import exp
 
 import cv2
 import numpy as np
+import pytest
 
 from ZooProcess_lib.Features import Features
 from ZooProcess_lib.Segmenter import Segmenter
@@ -58,8 +59,15 @@ def test_ij_like_perimeter():
     assert round(perim, 3) == 359.772
 
 
-def test_ij_like_measures():
-    image = loadimage(FEATURES_DIR / "crop_13892_13563.png")
+@pytest.mark.parametrize(
+    "img",
+    [
+        "2855_223",  # The first crop in apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2
+        "13892_13563",
+    ],
+)
+def test_ij_like_measures(img: str):
+    image = loadimage(FEATURES_DIR / f"crop_{img}.png")
     # Add a white border, otherwise the particle touches a border and is gone
     image = cv2.copyMakeBorder(image, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=(255,))
     THRESHOLD = 243
@@ -67,11 +75,11 @@ def test_ij_like_measures():
     rois = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
     assert len(rois) == 1
     feat = Features(image=image, roi=rois[0], threshold=THRESHOLD)
-    exp = read_result_csv(MEASURES_DIR / "meas_13892_13563.csv", MEASURES_TYPES)
-    round_measurements(exp)
+    exp = read_result_csv(MEASURES_DIR / f"meas_{img}.csv", MEASURES_TYPES)
+    # round_measurements(exp)
     act = [feat.as_legacy()]
     round_measurements(act)
-    for k in ("BX", "BY", "XStart", "YStart"):
+    for k in ("BX", "BY", "XStart", "YStart"):  # Remove image-related features
         del exp[0][k]
         del act[0][k]
     assert act == exp

@@ -66,7 +66,6 @@ def test_holes_62388():
         key=feature_unq,
         reverse=True,
     )
-    features = round_measurements(features)
     assert features == [
         {"Area": 244, "BX": 146, "BY": 91, "Height": 26, "Width": 81},
         {"Area": 1407, "BX": 102, "BY": 110, "Height": 34, "Width": 67},

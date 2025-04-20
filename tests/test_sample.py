@@ -1529,9 +1529,10 @@ def assert_segmentation(projects, project, sample, method):
     index = 1  # TODO: should come from get_names() below
     vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
-    ref = round_measurements(read_measurements(folder, sample, index))
+    ref = read_measurements(folder, sample, index)
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
     found_rois = segmenter.find_blobs(method)
+    # found_rois = list(filter(lambda r: r.mask.shape == (45, 50), found_rois))
     segmenter.split_by_blobs(found_rois)
 
     found = round_measurements(
@@ -1759,7 +1760,12 @@ def visual_diffs(expected, actual, sample, tgt_img, found_rois):
     for a_diff in different:
         a_ref, an_act = a_diff
         print(a_ref)
-        print("<->", an_act)
+        dict_diff = {
+            k: str(v) + " vs " + str(an_act[k])
+            for k, v in a_ref.items()
+            if an_act[k] != v
+        }
+        print("<->", an_act, " : ", dict_diff)
         cv2.rectangle(
             tgt_img,
             (an_act["BX"], an_act["BY"]),
@@ -1840,12 +1846,49 @@ MEASURES_TYPES = {
     "Perim.": float,
     "Mean": float,
     "Min": int,
-    # "Max": int, TODO reverse engineer legacy algo
-    # "Median": float,
+    "Max": int,
+    "Median": int,
     "Mode": int,
-    # "Skew": float,
-    # "Kurt": float,
+    "Skew": float,
+    "Kurt": float,
+    "StdDev": float,
 }
+
+
+def round_measurements(features_list):
+    rounded_to_3 = {
+        "%Area",
+        "Angle",
+        "Major",
+        "Minor",
+        "Feret",
+        "Perim.",
+        "Mean",
+        "Kurt",
+        "Skew",
+        "StdDev",
+    }
+    rounded_to_2 = []  # ["StdDev"]
+    rounded_to_1 = {"Fractal"}  # ,
+    for a_features in features_list:
+        for a_round in rounded_to_3:
+            if a_round in a_features:
+                # IJ.java method d2s
+                to_round = a_features[a_round]
+                if abs(to_round) < 1e-3:
+                    replacement = round(to_round, 7)
+                    if "e" in str(replacement):
+                        replacement = round(to_round, 8)
+                else:
+                    replacement = round(to_round, 3)
+                a_features[a_round] = float(replacement)
+        for a_round in rounded_to_2:
+            if a_round in a_features:
+                a_features[a_round] = round(a_features[a_round], 2)
+        for a_round in rounded_to_1:
+            if a_round in a_features:
+                a_features[a_round] = round(a_features[a_round], 1)
+    return features_list
 
 
 def read_measures_from_file(measures):
@@ -1858,23 +1901,6 @@ def read_measures_from_file(measures):
     ]
     sort_by_coords(ref)
     return ref
-
-
-def round_measurements(features_list):
-    rounded_to_3 = {"%Area", "Angle", "Major", "Minor", "Feret", "Perim.","Mean"}
-    rounded_to_2 = []
-    rounded_to_1 = {"Fractal"}
-    for a_features in features_list:
-        for a_round in rounded_to_3:
-            if a_round in a_features:
-                a_features[a_round] = round(a_features[a_round], 3)
-        for a_round in rounded_to_2:
-            if a_round in a_features:
-                a_features[a_round] = round(a_features[a_round], 2)
-        for a_round in rounded_to_1:
-            if a_round in a_features:
-                a_features[a_round] = round(a_features[a_round], 1)
-    return features_list
 
 
 def diff_dict_lists(

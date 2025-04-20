@@ -91,11 +91,18 @@ def enlarged_mask(mask: np.ndarray) -> np.ndarray:
     return ret
 
 
-def get_traced_perimeter(x_points: np.ndarray, y_points: np.ndarray, n_points:int) -> float:
+def get_traced_perimeter(
+    x_points: np.ndarray, y_points: np.ndarray, n_points: int
+) -> float:
     """
-    Calculates the traced perimeter of a region defined by a contour.
-    Returns:
-        The calculated traced perimeter as a float.
+    Returns the perimeter length of ROIs created using the
+    wand tool and the particle analyzer. The algorithm counts
+    edge pixels as 1 and corner pixels as sqrt(2). It does this by
+    calculating the total length of the ROI boundary and subtracting
+    2-sqrt(2) for each non-adjacent corner. For example, a 1x1 pixel
+    ROI has a boundary length of 4 and 2 non-adjacent edges so the
+    perimeter is 4-2*(2-sqrt(2)). A 2x2 pixel ROI has a boundary length
+    of 8 and 4 non-adjacent edges so the perimeter is 8-4*(2-sqrt(2)).
     """
     sum_dx = 0
     sum_dy = 0

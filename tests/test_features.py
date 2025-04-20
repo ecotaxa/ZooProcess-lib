@@ -24,15 +24,15 @@ def test_features_on_simplified_scan():
         segmenter.split_by_blobs([the_roi])
     else:
         features = [Features(image, a_roi, THRESHOLD) for a_roi in roi_list]
-    legacy_features = round_measurements([f.as_legacy() for f in features])
-    sort_by_coords(legacy_features)
+    features_as_legacy = round_measurements([f.as_legacy() for f in features])
+    sort_by_coords(features_as_legacy)
     ref_features = read_measures_from_file(features_file)
-    if not ref_features == legacy_features:
+    if not ref_features == features_as_legacy:
         visual_diffs(
             ref_features,
-            legacy_features,
+            features_as_legacy,
             "apero2023_tha_bioness_013_st46_d_n8_d3",
             image,
             roi_list,
         )
-    assert ref_features == legacy_features
+    assert ref_features == features_as_legacy

@@ -1,6 +1,6 @@
 import csv
 from pathlib import Path
-from typing import List, Dict, Any, Type
+from typing import List, Dict, Type
 
 import cv2
 import numpy as np
