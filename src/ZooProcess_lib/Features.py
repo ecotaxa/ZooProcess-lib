@@ -97,6 +97,13 @@ class Features(object):
         return int(np.count_nonzero(self.mask))
 
     @cached_property
+    @legacy("Area_exc")
+    def area_exc(self) -> int:
+        """Zooscan, FlowCam and Generic : Surface area of the object excluding holes, in square pixels (=Area*(1-(%area/100))
+        UVP5 and UVP6 : Surface area of the holes in the object, in square pixels (=Area*(1-(%area/100))"""
+        return int(np.count_nonzero(self._mask_with_holes))
+
+    @cached_property
     @legacy("%Area")
     def pct_area(self) -> float:
         """Percentage of object’s surface area that is comprised of holes, defined as the background grey level"""
@@ -199,6 +206,12 @@ class Features(object):
     def stddev(self) -> np.float64:
         """Standard deviation of the grey value used to generate the mean grey value"""
         return np.std(self._stats_basis, ddof=1)
+
+    @cached_property
+    @legacy("IntDen")
+    def intden(self) -> int:
+        """Integrated density. This is the sum of the grey values of the pixels in the object (i.e. = Area*Mean)"""
+        return int(np.sum(self._stats_basis, axis=0))
 
     @cached_property
     def _crop(self):

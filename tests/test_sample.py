@@ -1852,6 +1852,8 @@ MEASURES_TYPES = {
     "Skew": float,
     "Kurt": float,
     "StdDev": float,
+    "IntDen": int,
+    "Area_exc": int,
 }
 
 
@@ -1878,7 +1880,7 @@ def round_measurements(features_list):
                 if abs(to_round) < 1e-3:
                     replacement = round(to_round, 7)
                     if "e" in str(replacement):
-                        replacement = round(to_round, 8)
+                        replacement = round(to_round, 9)
                 else:
                     replacement = round(to_round, 3)
                 a_features[a_round] = float(replacement)
