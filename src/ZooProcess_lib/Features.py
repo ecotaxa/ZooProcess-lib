@@ -66,7 +66,7 @@ class Features(object):
         """Y coordinate of the top left point of the image in the smallest rectangle enclosing the object"""
         return self.by
 
-    @property
+    @cached_property
     @legacy("XStart")
     def x_start(self):
         """X coordinate of the top left point of the image in the smallest rectangle enclosing the object"""
@@ -78,32 +78,30 @@ class Features(object):
         """Y coordinate of the top left point of the image in the smallest rectangle enclosing the object"""
         return self.by
 
-    @property
+    @cached_property
     @legacy("Width")
     def width(self) -> int:
         """Width of the smallest rectangle enclosing the object"""
         return int(self.mask.shape[1])
 
-    @property
+    @cached_property
     @legacy("Height")
     def height(self) -> int:
         """Height of the smallest rectangle enclosing the object"""
         return int(self.mask.shape[0])
 
-    @property
+    @cached_property
     @legacy("Area")
     def area(self) -> int:
         """Surface area of the object in square pixels"""
         return int(np.count_nonzero(self.mask))
 
-    @property
+    @cached_property
     @legacy("%Area")
     def pct_area(self) -> float:
         """Percentage of object’s surface area that is comprised of holes, defined as the background grey level"""
         nb_holes = np.count_nonzero(self._crop <= self.threshold)
-        ret = (
-            100 - nb_holes * 100 / self.area
-        )  # Need exact arithmetic due to some Java<->python rounding method diff
+        ret = 100 - nb_holes * 100 / self.area
         return ret
 
     @property
@@ -124,7 +122,7 @@ class Features(object):
         """Angle between the primary axis and a line parallel to the x-axis of the image"""
         return self._ellipse_fitter.angle
 
-    @property
+    @cached_property
     @legacy("Feret")
     def feret(self) -> np.float64:
         """Maximum feret diameter, i.e., the longest distance between any two points along the object boundary"""
@@ -133,33 +131,33 @@ class Features(object):
         feret_calc.calculate_maxferet()
         return feret_calc.maxf
 
-    @property
+    @cached_property
     # @legacy("Fractal")
     def fractal(self) -> int:
         """Fractal dimension of object boundary (Berube and Jebrak 1999), calculated using the ‘Sausage’ method and the Minkowski dimension"""
         ret, _ = fractal_mp(self._mask_with_holes)
         return ret  # TODO, see test_calculators.test_ij_like_EDM
 
-    @property
+    @cached_property
     @legacy("Perim.")
     def perim(self) -> float:
         """The length of the outside boundary of the object [pixel]"""
         ret = ij_perimeter(self.mask)
         return ret
 
-    @property
+    @cached_property
     @legacy("Min")
     def min(self) -> int:
         """Minimum grey value within the object (0 = black)"""
         return int(np.min(self._stats_basis))
 
-    @property
+    @cached_property
     @legacy("Max")
     def max(self) -> int:
         """Maximum grey value within the object (255 = white)"""
         return int(np.max(self._stats_basis))
 
-    @property
+    @cached_property
     @legacy("Median")
     def median(self) -> int:
         """Median grey value within the object"""
@@ -170,33 +168,33 @@ class Features(object):
         ret = np.argmax(sums > half)
         return int(ret)
 
-    @property
+    @cached_property
     @legacy("Mean")
     def mean(self) -> np.float64:
         """Average grey value within the object; sum of the grey values of all pixels in the object divided by the number of pixels"""
         ret = np.mean(self._stats_basis)
         return ret
 
-    @property
+    @cached_property
     @legacy("Mode")
     def mode(self):
         """Modal grey value within the object"""
         mode = stats.mode(self._stats_basis, axis=None)
         return int(mode.mode)
 
-    @property
+    @cached_property
     @legacy("Skew")
     def skew(self) -> np.float64:
         """Skewness of the histogram of grey level values"""
         return stats.skew(self._stats_basis)
 
-    @property
+    @cached_property
     @legacy("Kurt")
     def kurtosis(self) -> np.float64:
         """Kurtosis of the histogram of grey level values"""
         return stats.kurtosis(self._stats_basis)
 
-    @property
+    @cached_property
     @legacy("StdDev")
     def stddev(self) -> np.float64:
         """Standard deviation of the grey value used to generate the mean grey value"""
