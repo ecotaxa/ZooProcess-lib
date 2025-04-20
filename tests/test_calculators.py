@@ -52,7 +52,7 @@ def test_ij_like_EDM():
 
 
 def test_ij_like_perimeter():
-    """EDM aka EDT found elsewhere is not the same as the one computed in IJ"""
+    """Verify a perimeter to match the expected one from legacy pp"""
     img = loadimage(FEATURES_DIR / "mask_holes_2855_223.png")
     img_conv = 1 - img // 255
     perim = ij_perimeter(img_conv)
@@ -68,7 +68,7 @@ def test_ij_like_perimeter():
 )
 def test_ij_like_measures(img: str):
     image = loadimage(FEATURES_DIR / f"crop_{img}.png")
-    # Add a white border, otherwise the particle touches a border and is gone
+    # Add a white border, otherwise the particle touches all borders and is eliminated
     image = cv2.copyMakeBorder(image, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=(255,))
     THRESHOLD = 243
     segmenter = Segmenter(image, 0.3, 100, THRESHOLD)

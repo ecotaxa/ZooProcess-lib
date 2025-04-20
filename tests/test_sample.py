@@ -1832,6 +1832,8 @@ def read_measurements(project_folder, sample, index):
 MEASURES_TYPES = {
     "BX": int,
     "BY": int,
+    "X": float,
+    "Y": float,
     "Width": int,
     "Height": int,
     "Area": int,
@@ -1842,7 +1844,6 @@ MEASURES_TYPES = {
     "Minor": float,
     "Angle": float,
     "Feret": float,
-    # "Fractal": float, TODO once EDM issue is over
     "Perim.": float,
     "Mean": float,
     "Min": int,
@@ -1854,11 +1855,15 @@ MEASURES_TYPES = {
     "StdDev": float,
     "IntDen": int,
     "Area_exc": int,
+    # "Fractal": float, TODO once EDM issue is over
+    # "Convarea": float,
 }
 
 
 def round_measurements(features_list):
     rounded_to_3 = {
+        "X",
+        "Y",
         "%Area",
         "Angle",
         "Major",
@@ -1869,6 +1874,7 @@ def round_measurements(features_list):
         "Kurt",
         "Skew",
         "StdDev",
+        "Convarea",
     }
     rounded_to_2 = []  # ["StdDev"]
     rounded_to_1 = {"Fractal"}  # ,
@@ -1880,7 +1886,7 @@ def round_measurements(features_list):
                 if abs(to_round) < 1e-3:
                     replacement = round(to_round, 7)
                     if "e" in str(replacement):
-                        replacement = round(to_round, 9)
+                        replacement = f"{to_round:.3E}"
                 else:
                     replacement = round(to_round, 3)
                 a_features[a_round] = float(replacement)

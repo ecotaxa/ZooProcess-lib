@@ -73,6 +73,12 @@ def read_result_csv(csv_file: Path, typings: Dict[str, Type]) -> List[Dict]:
             to_add = {}
             for k, v in typings.items():
                 if k in a_line:
-                    to_add[k] = typings[k](a_line[k])
+                    try:
+                        to_add[k] = typings[k](a_line[k])
+                    except ValueError as e:
+                        # Some theoretically int features are stored as floats in CSVs
+                        flt = float(a_line[k])
+                        if int(flt) == flt:
+                            to_add[k] = typings[k](flt)
             ret.append(to_add)
     return ret

@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Dict, List, Callable, Any, Set, Optional
 
+import cv2
 import numpy as np
 from numpy import ndarray
 from scipy import stats
@@ -67,6 +68,20 @@ class Features(object):
         return self.by
 
     @cached_property
+    @legacy("X")
+    def x_centroid(self) -> np.float64:
+        """X position of the center of gravity of the object in the smallest rectangle enclosing the object"""
+        fg_coords_y, fg_coords_x = np.nonzero(self.mask)
+        return np.sum(fg_coords_x) / fg_coords_x.shape[0] + 0.5
+
+    @cached_property
+    @legacy("Y")
+    def y_centroid(self) -> np.float64:
+        """Y position of the center of gravity of the object in the smallest rectangle enclosing the object"""
+        fg_coords_y, fg_coords_x = np.nonzero(self.mask)
+        return np.sum(fg_coords_y) / fg_coords_y.shape[0] + 0.5
+
+    @cached_property
     @legacy("XStart")
     def x_start(self):
         """X coordinate of the top left point of the image in the smallest rectangle enclosing the object"""
@@ -100,7 +115,8 @@ class Features(object):
     @legacy("Area_exc")
     def area_exc(self) -> int:
         """Zooscan, FlowCam and Generic : Surface area of the object excluding holes, in square pixels (=Area*(1-(%area/100))
-        UVP5 and UVP6 : Surface area of the holes in the object, in square pixels (=Area*(1-(%area/100))"""
+        UVP5 and UVP6 : Surface area of the holes in the object, in square pixels (=Area*(1-(%area/100))
+        """
         return int(np.count_nonzero(self._mask_with_holes))
 
     @cached_property
@@ -212,6 +228,22 @@ class Features(object):
     def intden(self) -> int:
         """Integrated density. This is the sum of the grey values of the pixels in the object (i.e. = Area*Mean)"""
         return int(np.sum(self._stats_basis, axis=0))
+
+    @cached_property
+    # @legacy("Convarea")
+    def convarea(self) -> int:
+        """The area of the smallest polygon within which all points in the object fit"""
+        hull_calc = Calculater(self.mask, True)
+        contours, _ = cv2.findContours(
+            self.mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
+        )
+        assert len(contours) == 1
+        contour = contours[0]
+        hull = cv2.convexHull(contours[0])
+        ret = cv2.contourArea(hull) + cv2.arcLength(hull, True)
+        # (x_axis, y_axis), radius = cv2.minEnclosingCircle(contour)
+        # ret = math.pi*radius*radius
+        return ret
 
     @cached_property
     def _crop(self):
