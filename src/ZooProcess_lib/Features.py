@@ -9,12 +9,14 @@ from numpy import ndarray
 from scipy import stats
 
 from ZooProcess_lib.ROI import ROI
+from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Calculater import Calculater
 from ZooProcess_lib.calculators.Custom import (
     fractal_mp,
     ij_perimeter,
 )
 from ZooProcess_lib.calculators.EllipseFitter import EllipseFitter
+from ZooProcess_lib.calculators.symmetry import imagej_like_symmetry
 from ZooProcess_lib.img_tools import cropnp
 
 TO_LEGACY: Dict[
@@ -230,6 +232,24 @@ class Features(object):
         return int(np.sum(self._stats_basis, axis=0))
 
     @cached_property
+    @legacy("ThickR")
+    def thickr(self) -> int:
+        """Thickness ratio : relation between the maximum thickness of an object and the average thickness of the object excluding the maximum."""
+        return self._symmetry[2]
+
+    @cached_property
+    @legacy("Symetrieh")
+    def symmetry_h(self) -> int:
+        """Bilateral horizontal symmetry index."""
+        return self._symmetry[1]
+
+    @cached_property
+    @legacy("Symetriev")
+    def symmetry_v(self) -> int:
+        """Bilateral vertical symmetry index."""
+        return self._symmetry[0]
+
+    @cached_property
     # @legacy("Convarea")
     def convarea(self) -> int:
         """The area of the smallest polygon within which all points in the object fit"""
@@ -276,6 +296,18 @@ class Features(object):
     def _histogram(self):
         (hist, _) = np.histogram(self._stats_basis, 256, range=(0, 255))
         return hist
+
+    @cached_property
+    def _symmetry(self):
+        symetry_h, symetry_v, thick_ratio = imagej_like_symmetry(
+            mask=self.mask * 255,
+            x_centroid=self.x_centroid,
+            y_centroid=self.y_centroid,
+            angle=self.angle,
+            area=self.area,
+            pixel_size=25.4 / Segmenter.RESOLUTION
+        )
+        return symetry_h, symetry_v, thick_ratio
 
 
 FeaturesListT = List[Features]

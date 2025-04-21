@@ -1857,6 +1857,9 @@ MEASURES_TYPES = {
     "Area_exc": int,
     # "Fractal": float, TODO once EDM issue is over
     # "Convarea": float,
+    "ThickR": float,
+    "Symetrieh": float,
+    "Symetriev": float,
 }
 
 
@@ -1875,6 +1878,9 @@ def round_measurements(features_list):
         "Skew",
         "StdDev",
         "Convarea",
+        "ThickR",
+        "Symetrieh",
+        "Symetriev",
     }
     rounded_to_2 = []  # ["StdDev"]
     rounded_to_1 = {"Fractal"}  # ,
@@ -1889,6 +1895,7 @@ def round_measurements(features_list):
                         replacement = f"{to_round:.3E}"
                 else:
                     replacement = round(to_round, 3)
+                # print(to_round, " -> ", replacement)
                 a_features[a_round] = float(replacement)
         for a_round in rounded_to_2:
             if a_round in a_features:
@@ -1927,3 +1934,147 @@ def diff_dict_lists(
                 different.append((a_ref, in_act))
             acts_by_key.pop(ref_key)
     return different, list(acts_by_key.values()), not_in_act
+
+
+def test_dev_linear_response_time(projects, tmp_path):
+    test_set = tested_samples
+    # test_set = all_samples_in(IADO)
+    # test_set = [(APERO1, "apero2023_tha_bioness_017_st66_d_n7_d2_2_sur_2")]
+    # test_set = more_than25_is_black_4_borders_closed
+    # test_set = stripes_in_thresholded
+    # test_set = [(APERO1, "apero2023_tha_bioness_006_st20_n_n7_d1_1_sur_2")]
+    # test_set = wrong_mask_maybe_gives_no_roi_when_legacy_has
+    # test_set = all_borders_unclosed[:50]
+    # test_set = tested_samples[:20]
+    # test_set = top_time
+    # test_set = [
+    #     (
+    #         APERO1,
+    #         "apero2023_tha_bioness_006_st20_n_n3_d1_1_sur_1",
+    #     )
+    # ]
+    assert_linear_response_time(projects, tmp_path, test_set)
+
+
+dev_samples = [
+    (
+        APERO,
+        "apero2023_tha_bioness_013_st46_d_n8_d1_1_sur_1",
+    )
+]
+dev_samples = [
+    (
+        APERO1,
+        "apero2023_tha_bioness_017_st66_d_n9_d1_1_sur_1",
+    ),
+    (  # In this image, a big shrimp touches an image border on the right, we lose it
+        APERO1,
+        "apero2023_tha_bioness_006_st20_n_n7_d1_1_sur_2",
+    ),
+]
+dev_samples = [("Zooscan_iado_wp2_2021_sn002", "t_22_12_5_tot")]
+# dev_samples = [(
+#         APERO,
+#         "apero2023_tha_bioness_014_st46_n_n9_d2_5_sur_8",
+#     )]
+fails_ca50b556 = [
+    (
+        APERO1,
+        "apero2023_tha_bioness_018_st66_n_n2_d1_1_sur_2",
+    ),
+    (
+        APERO1,
+        "apero2023_tha_bioness_018_st66_n_n2_d1_2_sur_2",
+    ),
+]
+dev_samples = fails_ca50b556
+dev_samples = missingd
+dev_samples = [("Zooscan_triatlas_m158_2019_mtn_200microns_sn001", "m158_mn03_n2_d2")]
+dev_samples = [
+    (
+        APERO1,
+        "apero2023_tha_bioness_006_st20_n_n9_d2_3_sur_4",
+    )
+]
+dev_samples = [
+    (
+        "Zooscan_apero_tha_bioness_sn033",
+        "apero2023_tha_bioness_018_st66_n_n6_d1_1_sur_1",
+    )
+]
+dev_samples = [
+    ("Zooscan_apero_tha_bioness_sn033", "apero2023_tha_bioness_018_st66_n_n2_d3")
+]
+dev_samples = [(IADO, "t_17_7_tot")]
+dev_samples = [(TRIATLAS, "m158_mn05_n5_d1_4_sur_4")]
+dev_samples = [(TRIATLAS, "m158_mn03_n5_d3")]
+dev_samples = [
+    (
+        APERO1,
+        "apero2023_tha_bioness_006_st20_n_n9_d2_1_sur_4",
+    )
+]
+dev_samples = [
+    (
+        APERO,
+        "apero2023_tha_bioness_014_st46_n_n9_d1_2_sur_8",
+    )
+]
+
+embedded_in_border_objects = (
+    [  # In these, there are small particles inside bigger ones, middle of the image
+        (
+            APERO,
+            "apero2023_tha_bioness_014_st46_n_n9_d1_2_sur_8",
+        ),
+        (
+            APERO,
+            "apero2023_tha_bioness_014_st46_n_n9_d1_5_sur_8",
+        ),
+        (TRIATLAS, "m158_mn04_n5_d1_4_sur_4"),
+        (
+            APERO1,
+            "apero2023_tha_bioness_005_st20_d_n5_d2_2_sur_8",
+        ),
+        (
+            APERO1,
+            "apero2023_tha_bioness_006_st20_n_n1_d1_1_sur_1",
+        ),
+        (
+            APERO1,
+            "apero2023_tha_bioness_018_st66_n_n3_d1_1_sur_1",
+        ),
+        (APERO1, "apero2023_tha_bioness_018_st66_n_n8_d3"),
+    ]
+)
+# dev_samples = [
+#     (APERO_REDUCED2, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2")
+# ]  # Codé en ImageJ !!!
+
+
+# dev_samples = [(TRIATLAS, "m158_mn05_n5_d1_1_sur_4")]
+# dev_samples = [
+#     (APERO, "apero2023_tha_bioness_013_st46_d_n8_d3")
+# ]
+dev_samples = [("Zooscan_iado_wp2_2021_sn002", "s_17_3_tot")]
+dev_samples = [
+    (
+        TRIATLAS,
+        "m158_mn03_n5_d1_2_sur_4",
+    ),
+    (TRIATLAS, "m158_mn05_n5_d1_1_sur_4"),  # pb arrondi %Area
+    (
+        APERO,
+        "apero2023_tha_bioness_014_st46_n_n9_d1_1_sur_8",
+    ),
+]
+
+
+@pytest.mark.parametrize("project, sample", dev_samples)
+def test_dev_segmentation(projects, tmp_path, project, sample):
+    assert_segmentation(
+        projects,
+        project,
+        sample,
+        Segmenter.METH_TOP_CONTOUR_SPLIT,
+    )

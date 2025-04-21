@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 from numpy import ndarray
 
-from .Features import Features
 from .ROI import ROI, feature_unq
 from .img_tools import cropnp
 from .segmenters.ConnectedComponents import ConnectedComponentsSegmenter
@@ -250,6 +249,8 @@ class Segmenter(object):
             pass
 
     def extract_vignette(self, a_roi):
+        # TODO: Into another source. Not the same place in the pipeline
+        from .Features import Features
         features = Features(self.image, a_roi, self.threshold)
         from .img_tools import saveimage
         from pathlib import Path
