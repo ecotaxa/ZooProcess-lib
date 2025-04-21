@@ -44,7 +44,17 @@ def imagej_like_symmetry(
     pos_y = (diag / 2) - y_centroid
 
     pos_x, pos_y = parseInt(pos_x), parseInt(pos_y)
-    vignette_a[pos_y : pos_y + height, pos_x : pos_x + width] = mask
+    # ImageJ "paste" which is imitated below has a big tolerance in that:
+    #  - if source does not fit in dest rectangle, but fits in the image, it will copy the source in the middle
+    #    of destination image
+    #  - if source does not fit in dest image, it will crop the source so it fits into dest rectangle/the image
+    try:
+        vignette_a[pos_y : pos_y + height, pos_x : pos_x + width] = mask
+    except ValueError:
+        image_3channels = cv2.merge([mask, mask, mask])
+        cv2.drawMarker(image_3channels, (int(x_centroid), int(y_centroid)), (255,0,0))
+        saveimage(image_3channels, Path(f"/tmp/vignette_a_{pos_x}_{pos_y}_problem.png"))
+        return 0,0,0
 
     vignette_a = rotate_image(vignette_a, -angle + 180, (0,))
     # vignette_a particle is now horizontal on its largest axis
@@ -62,6 +72,7 @@ def imagej_like_symmetry(
     # --------- Interval normalization by pixel size --------------
     step = math.floor(0.1 / pixel_size)
     num_steps = int(1 + w_rot / step)
+    #num_steps = w_rot
     point_a = [0] * num_steps
     point_b = [0] * num_steps
     dif = [0] * num_steps
@@ -90,9 +101,7 @@ def imagej_like_symmetry(
     mean_df = 0
     max_val = 0
 
-    for k in range(
-        c - 1
-    ):  # Iterate over all calculated differences # TODO: missing [c] ?
+    for k in range(c):  # Iterate over all calculated differences # TODO: missing [c] ?
         mean_df += dif[k]
         if dif[k] > max_val:
             max_val = dif[k]
@@ -121,7 +130,6 @@ def imagej_like_symmetry(
         symetry_h = float("nan")  # Or another error value
 
     # ------------- axis 2 (Vertical Symmetry) ----------------------------
-
     vignette_c = np.copy(vignette_a)
     vert_flipped_vignette_c = cv2.flip(vignette_c, 1)
 
