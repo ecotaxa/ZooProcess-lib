@@ -4,24 +4,26 @@ from math import log, floor
 import cv2
 import numpy as np
 
+from .EDM import euclidean_distance_map
 from ..calculators.Wand import Wand
 
 
 def fractal_mp(mask: np.ndarray):
-    """Sum of EDM of the mask and its inverse + linear (?) regression"""
+    """Sum of EDM of the mask and its inverse + regression"""
     larger_mask = enlarged_mask(mask)
 
     edm1_round = ij_like_EDM(larger_mask)
     edm2_round = ij_like_EDM(1 - larger_mask)
 
+    # EDM(mask) + EDM(inverse(mask))
     edm_sum = edm1_round + edm2_round
 
     areas, logs = sum_areas_and_logs(edm_sum)
 
-    suma = sum(logs)
-    sumg = sum(areas)
-    moyenneg = sumg / len(logs) + 1
-    moyennea = suma / len(areas) + 1
+    suma = sum(areas)
+    sumg = sum(logs)
+    moyenneg = sumg / len(logs)
+    moyennea = suma / len(areas)
     # Slope computation
     secartg = 0
     secarta = 0
@@ -41,7 +43,6 @@ def fractal_mp(mask: np.ndarray):
 def sum_areas_and_logs(edm_sum: np.ndarray):
     lg = 0
     iterations = 40
-    index = 0
     logs = []
     areas = []
     for k in range(1, iterations + 1):
@@ -51,24 +52,26 @@ def sum_areas_and_logs(edm_sum: np.ndarray):
             area = number_of_pixels_below(edm_sum, lg)
             areas.append(log(area))
             logs.append(log(2 * lg))
-            # print("idx ", index, " -> area ", area, " -> log(area) ", areas[index])
-            index += 1
+            # print(
+            #     "idx ",
+            #     index,
+            #     "lg ",
+            #     lg,
+            #     " -> area ",
+            #     area,
+            #     " -> log(area) ",
+            #     areas[index],
+            # )
     return areas, logs
 
 
-def ij_like_EDM(larger_mask):
-    edm = cv2.distanceTransform(larger_mask, cv2.DIST_L2, cv2.DIST_MASK_5)
-    # edm = distance_transform_edt(larger_mask)
-    # edm = distance_transform_bf(larger_mask)
-    # if bidou:
-    #     edm2 = (65535 - (edm * 128)).astype(np.uint16)
-    #     edm3 = edm2 + 21 / 41
-    #     edm4 = edm3 / 128
-    #     edm_round = (edm2 + 0.5).astype(np.uint8)
-    # else:
-    #     edm_round = (edm + 0.5).astype(np.uint8)
-    edm_round = (edm + 0.5).astype(np.uint8)
-    return edm_round
+def ij_like_EDM(mask):
+    """Compute Euclidian Distance Map of the mask, returned as an uint8 image."""
+    edm = cv2.distanceTransform(mask, cv2.DIST_L2, cv2.DIST_MASK_3)
+    # edm = euclidean_distance_map(mask) # Accurate but really, really slow
+    edm_round = edm + 0.5  # float -> int Java rounding
+    edm_round[edm_round > 255] = 255  # Saturate
+    return edm_round.astype(np.uint8)
 
 
 def number_of_pixels_below(image: np.ndarray, threshold: int) -> int:

@@ -163,11 +163,11 @@ class Features(object):
         return feret_calc.maxf
 
     @cached_property
-    # @legacy("Fractal")
+    @legacy("Fractal")
     def fractal(self) -> float:
         """Fractal dimension of object boundary (Berube and Jebrak 1999), calculated using the ‘Sausage’ method and the Minkowski dimension"""
         ret, _ = fractal_mp(self._mask_with_holes)
-        return ret  # TODO, see test_calculators.test_ij_like_EDM
+        return ret
 
     @cached_property
     @legacy("Perim.")
