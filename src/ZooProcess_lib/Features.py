@@ -256,20 +256,16 @@ class Features(object):
         return self._symmetry[0]
 
     @cached_property
-    # @legacy("Convarea")
+    @legacy("Convarea")
     def convarea(self) -> int:
         """The area of the smallest polygon within which all points in the object fit"""
-        hull_calc = Calculater(self.mask, True)
         contours, _ = cv2.findContours(
             self.mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
         )
         assert len(contours) == 1
-        contour = contours[0]
         hull = cv2.convexHull(contours[0])
         ret = cv2.contourArea(hull) + cv2.arcLength(hull, True)
-        # (x_axis, y_axis), radius = cv2.minEnclosingCircle(contour)
-        # ret = math.pi*radius*radius
-        return ret
+        return int(ret)
 
     @cached_property
     def _crop(self):

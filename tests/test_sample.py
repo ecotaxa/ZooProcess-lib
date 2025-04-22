@@ -1643,10 +1643,16 @@ def test_algo_diff(projects, tmp_path, project, sample):
         assert_valid_diffs(segmenter, found_feats_compat, found_feats_new)
 
 
-FEATURES_TOLERANCES = {"Kurt": 0.001, "Fractal": 0.05}
+FEATURES_TOLERANCES = {
+    "%Area": 0.001,
+    "Y": 0.001,
+    "Kurt": 0.001,
+    "Fractal": 0.05,
+    "Convarea": "15%",
+}
 
 
-def report_and_fix_tolerances(expected:List[Dict], actual:List[Dict]) -> List[str]:
+def report_and_fix_tolerances(expected: List[Dict], actual: List[Dict]) -> List[str]:
     ret = []
     for an_exp, an_act in zip(expected, actual):
         if an_exp == an_act:
@@ -1658,7 +1664,10 @@ def report_and_fix_tolerances(expected:List[Dict], actual:List[Dict]) -> List[st
             ref_val = an_exp.get(tolerance_key)
             act_val = an_act.get(tolerance_key)
             diff = ref_val - act_val
-            if abs(diff) > tolerance:
+            if isinstance(tolerance, str):
+                pct = int(tolerance[:-1])
+                tolerance = ref_val * pct / 100.0
+            if abs(diff) > tolerance * 1.0001:  # bloody floats
                 ret.append(
                     f"{tolerance_key}: {act_val} vs {ref_val} exceeds tolerance {tolerance}"
                 )
