@@ -1857,9 +1857,9 @@ MEASURES_TYPES = {
     "Area_exc": int,
     # "Fractal": float, TODO once EDM issue is over
     # "Convarea": float,
-    "ThickR": float,
-    "Symetrieh": float,
-    "Symetriev": float,
+    # "ThickR": float,
+    # "Symetrieh": float,
+    # "Symetriev": float,
 }
 
 

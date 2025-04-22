@@ -39,22 +39,24 @@ def imagej_like_symmetry(
     # Create the new image for vignette A
     vignette_a = np.zeros((diag_int, diag_int), dtype=np.uint8)
 
-    # Calculate the pasting position for centering around the centroid
+    # Calculate the "pasting" position for centering around the centroid
     pos_x = (diag / 2) - x_centroid
     pos_y = (diag / 2) - y_centroid
 
     pos_x, pos_y = parseInt(pos_x), parseInt(pos_y)
-    # ImageJ "paste" which is imitated below has a big tolerance in that:
+    # ImageJ "paste", which is imitated below, has big tolerances in that:
     #  - if source does not fit in dest rectangle, but fits in the image, it will copy the source in the middle
-    #    of destination image
+    #    of destination image, ignoring the dest rectangle
     #  - if source does not fit in dest image, it will crop the source so it fits into dest rectangle/the image
+    # Using numpy it just fails as there is not enough "space". Imitating ImageJ behavior would lead to a badly
+    # centered object, the centroid would not be in the middle of the image, which would void a bit the measurements.
     try:
         vignette_a[pos_y : pos_y + height, pos_x : pos_x + width] = mask
     except ValueError:
         image_3channels = cv2.merge([mask, mask, mask])
-        cv2.drawMarker(image_3channels, (int(x_centroid), int(y_centroid)), (255,0,0))
+        cv2.drawMarker(image_3channels, (int(x_centroid), int(y_centroid)), (255, 0, 0))
         saveimage(image_3channels, Path(f"/tmp/vignette_a_{pos_x}_{pos_y}_problem.png"))
-        return 0,0,0
+        return 0, 0, 0
 
     vignette_a = rotate_image(vignette_a, -angle + 180, (0,))
     # vignette_a particle is now horizontal on its largest axis
@@ -72,7 +74,7 @@ def imagej_like_symmetry(
     # --------- Interval normalization by pixel size --------------
     step = math.floor(0.1 / pixel_size)
     num_steps = int(1 + w_rot / step)
-    #num_steps = w_rot
+    # num_steps = w_rot
     point_a = [0] * num_steps
     point_b = [0] * num_steps
     dif = [0] * num_steps
@@ -101,7 +103,10 @@ def imagej_like_symmetry(
     mean_df = 0
     max_val = 0
 
-    for k in range(c):  # Iterate over all calculated differences # TODO: missing [c] ?
+    # Spec says: "Thickness ratio : relation between the maximum thickness of an object and
+    # the average thickness of the object excluding the maximum". Seems that the "c - 1" below assumes
+    # that largest measurement is at the end of the list/array.
+    for k in range(c - 1):  # Iterate over all calculated differences
         mean_df += dif[k]
         if dif[k] > max_val:
             max_val = dif[k]
@@ -133,6 +138,8 @@ def imagej_like_symmetry(
     vignette_c = np.copy(vignette_a)
     vert_flipped_vignette_c = cv2.flip(vignette_c, 1)
 
+    # Original ImageJ code has a "Make Binary" here for B before the diff, so we end up comparing a
+    # binary image with a non-binary one (greys in A introduced by the rotation)
     diff_a_and_c = vignette_a - vert_flipped_vignette_c
 
     (v_diff_histo, _) = np.histogram(diff_a_and_c, 256, range=(0, 255))

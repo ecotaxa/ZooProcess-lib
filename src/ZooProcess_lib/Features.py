@@ -232,19 +232,19 @@ class Features(object):
         return int(np.sum(self._stats_basis, axis=0))
 
     @cached_property
-    @legacy("ThickR")
+    # @legacy("ThickR")
     def thickr(self) -> int:
         """Thickness ratio : relation between the maximum thickness of an object and the average thickness of the object excluding the maximum."""
         return self._symmetry[2]
 
     @cached_property
-    @legacy("Symetrieh")
+    # @legacy("Symetrieh")
     def symmetry_h(self) -> int:
         """Bilateral horizontal symmetry index."""
         return self._symmetry[1]
 
     @cached_property
-    @legacy("Symetriev")
+    # @legacy("Symetriev")
     def symmetry_v(self) -> int:
         """Bilateral vertical symmetry index."""
         return self._symmetry[0]
