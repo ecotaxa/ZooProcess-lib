@@ -12,7 +12,7 @@ from ZooProcess_lib.segmenters.ConnectedComponents import (
     ConnectedComponentsSegmenter,
     CC,
 )
-from .test_sample import sort_by_coords, assert_valid_diffs, round_measurements
+from .test_sample import sort_by_coords, assert_valid_diffs
 
 HERE = Path(__file__).parent
 DATA_DIR = HERE / "data"

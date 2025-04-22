@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Dict, List, Callable, Any, Set, Optional
+from typing import Dict, List, Callable, Any, Set, Optional, get_type_hints
 
 import cv2
 import numpy as np
@@ -22,12 +22,18 @@ from ZooProcess_lib.img_tools import cropnp
 TO_LEGACY: Dict[
     str, Callable
 ] = {}  # Key=legacy property name, Value=bound method to call
+TYPE_BY_LEGACY: Dict[
+    str, Callable
+] = {}  # Key=legacy property name, Value=a type e.g. int of np.float64
 
 
 def legacy(name: str) -> Callable[[Any], Callable[[tuple[Any, ...]], None]]:
     def wrap(f):
         assert name not in TO_LEGACY
+        ret_type = get_type_hints(f).get("return")
+        assert ret_type is not None
         TO_LEGACY[name] = f
+        TYPE_BY_LEGACY[name] = ret_type
 
         def wrapped_f(*args):
             return f(*args)
@@ -60,12 +66,12 @@ class Features(object):
         return ret
 
     @legacy("BX")
-    def bx(self):
+    def bx(self) -> int:
         """X coordinate of the top left point of the image in the smallest rectangle enclosing the object."""
         return self.bx
 
     @legacy("BY")
-    def by(self):
+    def by(self) -> int:
         """Y coordinate of the top left point of the image in the smallest rectangle enclosing the object"""
         return self.by
 
@@ -85,13 +91,13 @@ class Features(object):
 
     @cached_property
     @legacy("XStart")
-    def x_start(self):
+    def x_start(self) -> int:
         """X coordinate of the top left point of the image in the smallest rectangle enclosing the object"""
         return self.bx + int(np.argmax(self.mask != 0))
 
     @property
     @legacy("YStart")
-    def y_start(self):
+    def y_start(self) -> int:
         """Y coordinate of the top left point of the image in the smallest rectangle enclosing the object"""
         return self.by
 
@@ -158,7 +164,7 @@ class Features(object):
 
     @cached_property
     # @legacy("Fractal")
-    def fractal(self) -> int:
+    def fractal(self) -> float:
         """Fractal dimension of object boundary (Berube and Jebrak 1999), calculated using the ‘Sausage’ method and the Minkowski dimension"""
         ret, _ = fractal_mp(self._mask_with_holes)
         return ret  # TODO, see test_calculators.test_ij_like_EDM
@@ -202,7 +208,7 @@ class Features(object):
 
     @cached_property
     @legacy("Mode")
-    def mode(self):
+    def mode(self) -> int:
         """Modal grey value within the object"""
         mode = stats.mode(self._stats_basis, axis=None)
         return int(mode.mode)
@@ -305,7 +311,7 @@ class Features(object):
             y_centroid=self.y_centroid,
             angle=self.angle,
             area=self.area,
-            pixel_size=25.4 / Segmenter.RESOLUTION
+            pixel_size=25.4 / Segmenter.RESOLUTION,
         )
         return symetry_h, symetry_v, thick_ratio
 

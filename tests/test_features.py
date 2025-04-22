@@ -3,7 +3,7 @@ from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.img_tools import loadimage
 from .test_sample import (
     read_measures_from_file,
-    round_measurements,
+    to_legacy_format,
     sort_by_coords,
     visual_diffs,
 )
@@ -24,7 +24,7 @@ def test_features_on_simplified_scan():
         segmenter.split_by_blobs([the_roi])
     else:
         features = [Features(image, a_roi, THRESHOLD) for a_roi in roi_list]
-    features_as_legacy = round_measurements([f.as_legacy() for f in features])
+    features_as_legacy = to_legacy_format([f.as_legacy() for f in features])
     sort_by_coords(features_as_legacy)
     ref_features = read_measures_from_file(features_file)
     if not ref_features == features_as_legacy:

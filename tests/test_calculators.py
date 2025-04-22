@@ -4,11 +4,11 @@ import cv2
 import numpy as np
 import pytest
 
-from ZooProcess_lib.Features import Features
+from ZooProcess_lib.Features import Features, TYPE_BY_LEGACY
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Custom import fractal_mp, ij_perimeter
 from ZooProcess_lib.img_tools import loadimage
-from .test_sample import MEASURES_TYPES, round_measurements
+from .test_sample import to_legacy_format
 from .test_segmenter import FEATURES_DIR
 from .test_segmenter import MEASURES_DIR
 from .test_utils import read_result_csv
@@ -48,7 +48,7 @@ def test_ij_like_EDM():
         14537,
     ]
     assert [round(exp(a)) for a in areas] == from_ij
-    assert meas == 1.3501
+    assert round(meas, 4) == 1.3501
 
 
 def test_ij_like_perimeter():
@@ -75,10 +75,9 @@ def test_ij_like_measures(img: str):
     rois = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
     assert len(rois) == 1
     feat = Features(image=image, roi=rois[0], threshold=THRESHOLD)
-    exp = read_result_csv(MEASURES_DIR / f"meas_{img}.csv", MEASURES_TYPES)
-    # round_measurements(exp)
+    exp = read_result_csv(MEASURES_DIR / f"meas_{img}.csv", TYPE_BY_LEGACY)
     act = [feat.as_legacy()]
-    round_measurements(act)
+    to_legacy_format(act)
     for k in ("BX", "BY", "XStart", "YStart"):  # Remove image-related features
         del exp[0][k]
         del act[0][k]

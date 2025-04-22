@@ -8,7 +8,11 @@ import pytest
 
 from ZooProcess_lib.Background import Background
 from ZooProcess_lib.Border import Border
-from ZooProcess_lib.Features import Features, legacy_features_list_from_roi_list
+from ZooProcess_lib.Features import (
+    Features,
+    legacy_features_list_from_roi_list,
+    TYPE_BY_LEGACY,
+)
 from ZooProcess_lib.ImageJLike import images_difference
 from ZooProcess_lib.ROI import feature_unq, ROI
 from ZooProcess_lib.Segmenter import Segmenter
@@ -1535,7 +1539,7 @@ def assert_segmentation(projects, project, sample, method):
     # found_rois = list(filter(lambda r: r.mask.shape == (45, 50), found_rois))
     segmenter.split_by_blobs(found_rois)
 
-    found = round_measurements(
+    found = to_legacy_format(
         legacy_features_list_from_roi_list(vis1, found_rois, THRESHOLD)
     )
     sort_by_coords(found)
@@ -1829,61 +1833,14 @@ def read_measurements(project_folder, sample, index):
     return ref
 
 
-MEASURES_TYPES = {
-    "BX": int,
-    "BY": int,
-    "X": float,
-    "Y": float,
-    "Width": int,
-    "Height": int,
-    "Area": int,
-    "%Area": float,
-    "XStart": int,
-    "YStart": int,
-    "Major": float,
-    "Minor": float,
-    "Angle": float,
-    "Feret": float,
-    "Perim.": float,
-    "Mean": float,
-    "Min": int,
-    "Max": int,
-    "Median": int,
-    "Mode": int,
-    "Skew": float,
-    "Kurt": float,
-    "StdDev": float,
-    "IntDen": int,
-    "Area_exc": int,
-    # "Fractal": float, TODO once EDM issue is over
-    # "Convarea": float,
-    # "ThickR": float,
-    # "Symetrieh": float,
-    # "Symetriev": float,
-}
-
-
-def round_measurements(features_list):
-    rounded_to_3 = {
-        "X",
-        "Y",
-        "%Area",
-        "Angle",
-        "Major",
-        "Minor",
-        "Feret",
-        "Perim.",
-        "Mean",
-        "Kurt",
-        "Skew",
-        "StdDev",
-        "Convarea",
-        "ThickR",
-        "Symetrieh",
-        "Symetriev",
-    }
-    rounded_to_2 = []  # ["StdDev"]
-    rounded_to_1 = {"Fractal"}  # ,
+def to_legacy_format(features_list):
+    rounded_to_3 = set(
+        [
+            a_feat
+            for a_feat, a_type in TYPE_BY_LEGACY.items()
+            if a_type in (float, np.float64)
+        ]
+    )
     for a_features in features_list:
         for a_round in rounded_to_3:
             if a_round in a_features:
@@ -1895,19 +1852,12 @@ def round_measurements(features_list):
                         replacement = f"{to_round:.3E}"
                 else:
                     replacement = round(to_round, 3)
-                # print(to_round, " -> ", replacement)
                 a_features[a_round] = float(replacement)
-        for a_round in rounded_to_2:
-            if a_round in a_features:
-                a_features[a_round] = round(a_features[a_round], 2)
-        for a_round in rounded_to_1:
-            if a_round in a_features:
-                a_features[a_round] = round(a_features[a_round], 1)
     return features_list
 
 
 def read_measures_from_file(measures):
-    ref = read_result_csv(measures, MEASURES_TYPES)
+    ref = read_result_csv(measures, TYPE_BY_LEGACY)
     # This filter is _after_ measurements in Legacy
     ref = [
         a_ref
