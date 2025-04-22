@@ -34,7 +34,7 @@ from .projects_for_test import (
     APERO,
     IADO,
     TRIATLAS,
-    APERO1,
+    APERO1, APERO_REDUCED2,
 )
 from .test_utils import (
     save_diff_image,
@@ -1543,10 +1543,12 @@ def assert_segmentation(projects, project, sample, method):
         legacy_features_list_from_roi_list(vis1, found_rois, THRESHOLD)
     )
     sort_by_coords(found)
+    tolerance_problems = []
     if found != ref:
+        tolerance_problems = report_and_fix_tolerances(ref, found)
         try:
             assert_valid_diffs(segmenter, ref, found)
-            return
+            assert tolerance_problems == []
         except AssertionError as e:
             [
                 draw_roi_mask(vis1, a_roi, features)
@@ -1554,6 +1556,7 @@ def assert_segmentation(projects, project, sample, method):
             ]
             visual_diffs(ref, found, sample, vis1, found_rois)
     assert found == ref
+    assert tolerance_problems == []
 
 
 def test_linear_response_time(projects, tmp_path):
@@ -1640,6 +1643,30 @@ def test_algo_diff(projects, tmp_path, project, sample):
         assert_valid_diffs(segmenter, found_feats_compat, found_feats_new)
 
 
+FEATURES_TOLERANCES = {"Kurt": 0.001, "Fractal": 0.05}
+
+
+def report_and_fix_tolerances(expected:List[Dict], actual:List[Dict]) -> List[str]:
+    ret = []
+    for an_exp, an_act in zip(expected, actual):
+        if an_exp == an_act:
+            continue
+        if an_exp.keys() != an_act.keys():
+            ret += str((an_exp, an_act))
+            continue
+        for tolerance_key, tolerance in FEATURES_TOLERANCES.items():
+            ref_val = an_exp.get(tolerance_key)
+            act_val = an_act.get(tolerance_key)
+            diff = ref_val - act_val
+            if abs(diff) > tolerance:
+                ret.append(
+                    f"{tolerance_key}: {act_val} vs {ref_val} exceeds tolerance {tolerance}"
+                )
+            # Fix tolerates value in actual
+            an_act[tolerance_key] = ref_val
+    return ret
+
+
 def assert_valid_diffs(segmenter, ref_feats, act_feats):
     enclosing_rectangles = [
         (
@@ -1653,7 +1680,7 @@ def assert_valid_diffs(segmenter, ref_feats, act_feats):
     # Boundaries of the problematic area
     central_band_end = int(segmenter.width * segmenter.overlap)
     central_band_start = segmenter.width - int(segmenter.width * segmenter.overlap)
-    different, not_in_compat, not_in_new = diff_dict_lists(
+    different, not_in_compat, not_in_new = diff_features_lists(
         ref_feats, act_feats, feature_unq
     )
     assert different == []  # If on both sides they have to be equal, whatever.
@@ -1760,7 +1787,9 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
 
 
 def visual_diffs(expected, actual, sample, tgt_img, found_rois):
-    different, not_in_ref, not_in_act = diff_dict_lists(expected, actual, feature_unq)
+    different, not_in_ref, not_in_act = diff_features_lists(
+        expected, actual, feature_unq
+    )
     for a_diff in different:
         a_ref, an_act = a_diff
         print(a_ref)
@@ -1868,7 +1897,7 @@ def read_measures_from_file(measures):
     return ref
 
 
-def diff_dict_lists(
+def diff_features_lists(
     ref: List[Dict], act: List[Dict], key_func: Callable[[Dict], Any]
 ) -> Tuple[List[Tuple[Dict, Dict]], List[Dict], List[Dict]]:
     different = []

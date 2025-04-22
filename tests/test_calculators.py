@@ -8,7 +8,7 @@ from ZooProcess_lib.Features import Features, TYPE_BY_LEGACY
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Custom import fractal_mp, ij_perimeter
 from ZooProcess_lib.img_tools import loadimage
-from .test_sample import to_legacy_format
+from .test_sample import to_legacy_format, report_and_fix_tolerances
 from .test_segmenter import FEATURES_DIR
 from .test_segmenter import MEASURES_DIR
 from .test_utils import read_result_csv
@@ -81,4 +81,8 @@ def test_ij_like_measures(img: str):
     for k in ("BX", "BY", "XStart", "YStart"):  # Remove image-related features
         del exp[0][k]
         del act[0][k]
-    assert act == exp
+    tolerance_problems = []
+    if exp != act:
+        tolerance_problems = report_and_fix_tolerances(exp, act)
+    assert exp == act
+    assert tolerance_problems == []

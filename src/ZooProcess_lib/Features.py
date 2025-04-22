@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Dict, List, Callable, Any, Set, Optional, get_type_hints
+from typing import Dict, List, Callable, Any, Set, Optional, get_type_hints, Type
 
 import cv2
 import numpy as np
@@ -23,7 +23,7 @@ TO_LEGACY: Dict[
     str, Callable
 ] = {}  # Key=legacy property name, Value=bound method to call
 TYPE_BY_LEGACY: Dict[
-    str, Callable
+    str, Type
 ] = {}  # Key=legacy property name, Value=a type e.g. int of np.float64
 
 
