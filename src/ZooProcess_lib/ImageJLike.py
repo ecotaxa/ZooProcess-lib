@@ -7,7 +7,7 @@ from typing import Tuple
 import cv2
 import numpy as np
 
-from ZooProcess_lib.img_tools import crop_if_larger
+from ZooProcess_lib.img_tools import cropped_if_larger
 
 
 def convert_16bit_image_to_8bit_min_max(
@@ -45,8 +45,8 @@ def images_difference(image1: np.ndarray, image2: np.ndarray) -> np.ndarray:
     res_width = min(img1_width, img2_width)
     res_height = min(img1_height, img2_height)
     # Crop (or not)
-    image1 = crop_if_larger(image1, res_width, res_height)
-    image2 = crop_if_larger(image2, res_width, res_height)
+    image1 = cropped_if_larger(image1, res_width, res_height)
+    image2 = cropped_if_larger(image2, res_width, res_height)
     return abs(image1.astype(np.int16) - image2).astype(np.uint8)
 
 
@@ -160,7 +160,6 @@ class ImageJLikeResizer(object):
             :param dst_height: The destination height.
         Returns:
             Resized image.
-        TODO: It's probably more efficient to proceed the other way round: build destination lines
         in a loop on source ones.
         """
         assert self.image.dtype == np.uint8
@@ -179,6 +178,7 @@ class ImageJLikeResizer(object):
         x_limit2 = width - 1.001
         # Pre-compute x fractions which are the same for all lines
         dst_xs = []
+        out = np.zeros((dst_height, dst_width), dtype=np.uint8)
         for x in range(dst_width):
             xs = (x - dst_center_x) / x_scale + src_center_x
             if xs < 0:
@@ -212,9 +212,9 @@ class ImageJLikeResizer(object):
             #             xs = x_limit2
             #         row_append(ij_get_interpolated_pixel(xs, ys, image) + 0.5)
             #     dst_image[y] = row
-            ret_rows.append(self._get_interpolated_row(ys))
+            out[y] = self._get_interpolated_row(ys)
 
-        return np.stack(ret_rows)
+        return out
 
     def _get_interpolated_row(self, y: float) -> np.ndarray:
         """

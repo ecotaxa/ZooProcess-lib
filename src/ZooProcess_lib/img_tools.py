@@ -201,7 +201,7 @@ def loadimage(
         image = cv2.imread(new_filename, type)
     # assert image is not None, f"file {new_filename} could not be read, check with os.path.exists()"
     # assert image is not None
-    if image is None: # TODO: wrong diag if format issue or any
+    if image is None:  # TODO: wrong diag if format issue or any
         raise Exception(f"file: {filename} doesn't exist\nat path {new_filename}")
     return image
 
@@ -403,16 +403,14 @@ def crop_right(image: np.ndarray, right: Union[float, int]) -> np.ndarray:
     return cropped_image
 
 
-def clear_outside(image: np.ndarray, right, top, width, height) -> np.ndarray:
-    """ImageJ implementation does the 4 borders  ij.plugin.filter.Filler.clearOutside"""
-    assert image.dtype == np.uint8
-    mask = (
-        np.zeros_like(image) + 255
-    )  # Full white image, TODO: There is certainly a more clever way
-    mask = cv2.rectangle(
-        mask, (right, top), (right + width - 1, top + height - 1), (0,), -1
-    )  # Clear oustside -> keep inside
-    return np.maximum(image, mask)
+def clear_outside(
+    image: np.ndarray, right: int, top: int, width: int, height: int
+) -> None:
+    """In-place modify the input image so that any pixel outside the input rectangle in set to 255 AKA white."""
+    image[0:top, :] = 255
+    image[top + height :, :] = 255
+    image[top : top + height :, 0:right] = 255
+    image[top : top + height :, right + width :] = 255
 
 
 def draw_outside_lines(
@@ -443,7 +441,7 @@ def draw_outside_lines(
         draw_line(image, (width / 4 + 4, top_limit), (width, top_limit), 0, 1)
 
 
-def crop_if_larger(image: np.ndarray, right: int, bottom: int) -> np.ndarray:
+def cropped_if_larger(image: np.ndarray, right: int, bottom: int) -> np.ndarray:
     img_bottom, img_right = image.shape
     if img_bottom > bottom or img_right > right:
         return image[0 : min(bottom, img_bottom), 0 : min(right, img_right)]

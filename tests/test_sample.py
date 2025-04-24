@@ -1,3 +1,7 @@
+# Pt d'entrée "Segmentation après rajout fond blanc"
+# Rajouter un offset sur le pt d'entrée -> rend les ROI relatives
+# Pt d'entrée "masque de"
+
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Callable, Any
@@ -210,7 +214,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     # assert np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image)
 
     cleared_width = min(right_limit - left_limit, limitod)
-    sample_minus_background_image = clear_outside(
+    clear_outside(
         sample_minus_background_image,
         left_limit,
         top_limit,
