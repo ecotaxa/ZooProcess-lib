@@ -1655,7 +1655,16 @@ FEATURES_TOLERANCES = {
     "Kurt": 0.001,
     "Fractal": 0.05,
     "Convarea": "15%",
-    "MeanPos": 0.001,
+    "meanpos": 0.001,
+    "cv": 0.001,
+    "circex": 0.001,
+    "esd": 0.001,
+    "feretareaexc": 0.001,
+    "perimareaexc": 0.001,
+    "perimferet": 0.001,
+    "perimmajor": 0.001,
+    "elongation": 0.001,
+    "sr": 0.001,
 }
 
 
@@ -1672,6 +1681,8 @@ def report_and_fix_tolerances(
         for tolerance_key, tolerance in tolerances.items():
             ref_val = an_exp.get(tolerance_key)
             act_val = an_act.get(tolerance_key)
+            if ref_val is None or act_val is None:
+                print("tolerance_key:", tolerance_key, "not found")
             diff = ref_val - act_val
             if isinstance(tolerance, str):
                 pct = int(tolerance[:-1])
@@ -1893,14 +1904,19 @@ def to_legacy_format(features_list):
             if a_round in a_features:
                 # IJ.java method d2s
                 to_round = a_features[a_round]
-                if abs(to_round) < 1e-3:
-                    replacement = round(to_round, 7)
-                    if "e" in str(replacement):
-                        replacement = f"{to_round:.3E}"
-                else:
-                    replacement = round(to_round, 3)
+                replacement = ij_round(to_round)
                 a_features[a_round] = float(replacement)
     return features_list
+
+
+def ij_round(to_round):
+    if abs(to_round) < 1e-3:
+        rounded = round(to_round, 7)
+        if "e" in str(rounded):
+            rounded = f"{to_round:.3E}"
+    else:
+        rounded = round(to_round, 3)
+    return rounded
 
 
 def to_legacy_rounding(features_list: List[Dict], roundings: Dict[str, int]):

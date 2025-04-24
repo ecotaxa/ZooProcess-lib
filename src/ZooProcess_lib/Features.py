@@ -9,6 +9,7 @@ import numpy as np
 from numpy import ndarray
 from scipy import stats
 
+from ZooProcess_lib.ImageJLike import parseInt
 from ZooProcess_lib.ROI import ROI
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Calculater import Calculater
@@ -349,11 +350,11 @@ class Features(object):
     @legacy("elongation")
     def elongation(self) -> float:
         """major / minor (‘ellipse' elongation)"""
-        return self.major / self.minor
+        return parseInt(self.major) / parseInt(self.minor)
 
     @property
     @legacy("range")
-    def range(self) -> float:
+    def range(self) -> int:
         """max - min"""
         return self.max - self.min
 
@@ -367,14 +368,14 @@ class Features(object):
     @legacy("cv")
     def cv(self) -> np.float64:
         """100*(stddev/mean)"""
-        return 100 * (self.stddev / self.mean)
+        return 100 * (parseInt(self.stddev) / self.mean)
 
     @property
     @legacy("sr")
     def sr(self) -> float:
         """100*(stddev/(max-min))"""
         if self.max - self.min != 0:
-            return 100 * (self.stddev / (self.max - self.min))
+            return 100 * (parseInt(self.stddev) / (self.max - self.min))
         else:
             return np.nan
 
@@ -382,31 +383,31 @@ class Features(object):
     @legacy("perimareaexc")
     def perimareaexc(self) -> float:
         """perim/(sqrt(area_exc))"""
-        return self.perim / math.sqrt(self.area_exc)
+        return parseInt(self.perim) / math.sqrt(self.area_exc)
 
     @property
     @legacy("feretareaexc")
     def feretareaexc(self) -> float:
         """feret/(sqrt(area_exc))"""
-        return self.feret / math.sqrt(self.area_exc)
+        return parseInt(self.feret) / math.sqrt(self.area_exc)
 
     @property
     @legacy("perimmajor")
     def perimmajor(self) -> float:
         """perim/major"""
-        return self.perim / self.major
+        return parseInt(self.perim) / parseInt(self.major)
 
     @property
     @legacy("perimferet")
     def perimferet(self) -> float:
         """perim/feret"""
-        return self.perim / self.feret
+        return parseInt(self.perim) / parseInt(self.feret)
 
     @property
     @legacy("circex")
     def circex(self) -> float:
         """(4*PI*area_exc)/(pow(perim,2))"""
-        return (4 * math.pi * self.area_exc) / (self.perim**2)
+        return (4 * math.pi * self.area_exc) / (parseInt(self.perim)**2)
 
     @property
     @legacy("Circ.")
