@@ -16,6 +16,7 @@ def imagej_like_symmetry(
     angle: float,
     area: int,
     pixel_size: float,
+    coords: Tuple
 ):
     """
     Params:
@@ -55,7 +56,7 @@ def imagej_like_symmetry(
     except ValueError:
         image_3channels = cv2.merge([mask, mask, mask])
         cv2.drawMarker(image_3channels, (int(x_centroid), int(y_centroid)), (255, 0, 0))
-        saveimage(image_3channels, Path(f"/tmp/vignette_a_{pos_x}_{pos_y}_problem.png"))
+        saveimage(image_3channels, Path(f"/tmp/vignette_a_{coords[0]}_{coords[1]}_problem.png"))
         return 0, 0, 0
 
     vignette_a = rotate_image(vignette_a, -angle + 180, (0,))
@@ -128,6 +129,7 @@ def imagej_like_symmetry(
 
     (h_diff_histo, _) = np.histogram(diff_a_and_b, 256, range=(0, 255))
     # h_diff_histo[0] contains the count of pixels with value 0 (same pixels on both sides)
+    # Note: this measure _also_ includes the white background, which voids a bit the result
     h_area_sym = h_diff_histo[0]
     if area != 0:
         symetry_h = (h_area_sym / 2.0) / area

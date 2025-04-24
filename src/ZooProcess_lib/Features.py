@@ -301,15 +301,16 @@ class Features(object):
 
     @cached_property
     def _symmetry(self):
-        symetry_h, symetry_v, thick_ratio = imagej_like_symmetry(
+        symmetry_h, symmetry_v, thick_ratio = imagej_like_symmetry(
             mask=self.mask * 255,
             x_centroid=self.x_centroid,
             y_centroid=self.y_centroid,
             angle=self.angle,
             area=self.area,
             pixel_size=25.4 / Segmenter.RESOLUTION,
+            coords=(self.bx, self.by)
         )
-        return symetry_h, symetry_v, thick_ratio
+        return symmetry_h, symmetry_v, thick_ratio
 
 
 FeaturesListT = List[Features]
