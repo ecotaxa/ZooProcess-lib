@@ -9,9 +9,9 @@ from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Custom import fractal_mp, ij_perimeter
 from ZooProcess_lib.img_tools import loadimage
 from .test_sample import (
-    to_legacy_format,
-    report_and_fix_tolerances,
+    to_legacy_rounding,
     FEATURES_TOLERANCES,
+    report_and_fix_tolerances,
 )
 from .test_segmenter import FEATURES_DIR
 from .test_segmenter import MEASURES_DIR
@@ -63,6 +63,33 @@ def test_ij_like_perimeter():
     assert round(perim, 3) == 359.772
 
 
+ECOTAXA_TSV_ROUNDINGS = {  # from Zooscan_print_pid_5.txt
+    "object_major": 1,
+    "object_minor": 1,
+    "object_angle": 1,
+    "object_feret": 1,
+    "object_x": 2,
+    "object_y": 2,
+    "object_xm": 2,
+    "object_ym": 2,
+    "object_perim.": 2,
+    "object_%area": 2,
+    "object_mean": 2,
+    "object_stddev": 3,
+    "object_circ.": 3,
+    "object_skew": 3,
+    "object_kurt": 3,
+    "object_fractal": 3,
+    "object_slope": 3,
+    "object_fcons": 3,
+    "object_symetrieh": 3,
+    "object_symetriev": 3,
+    "object_thickr": 3,
+}
+ECOTAXA_TSV_ROUNDINGS.update
+{"object_meanpos": 3}
+
+
 @pytest.mark.parametrize(
     "img",
     [
@@ -81,7 +108,7 @@ def test_ij_like_measures(img: str):
     feat = Features(image=image, roi=rois[0], threshold=THRESHOLD)
     exp = read_ecotaxa_tsv(MEASURES_DIR / f"ecotaxa_{img}.tsv", TYPE_BY_ECOTAXA)
     act = [feat.as_ecotaxa()]
-    to_legacy_format(act)
+    to_legacy_rounding(act, ECOTAXA_TSV_ROUNDINGS)
     for k in (
         "object_bx",
         "object_by",

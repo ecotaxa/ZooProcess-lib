@@ -84,8 +84,8 @@ class Features(object):
                 continue
             val = fct(self)
             val = float(val) if isinstance(val, np.float64) else val
-            val = round(val, 3) if isinstance(val, float) else val
-            # print(nam, fct(self), val)
+            # val = round(val, 3) if isinstance(val, float) else val
+            # print("AS ECO", nam, fct(self), val)
             ret[nam] = val
         return ret
 

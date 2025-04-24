@@ -1,6 +1,7 @@
 # Pt d'entrée "Segmentation après rajout fond blanc"
 # Rajouter un offset sur le pt d'entrée -> rend les ROI relatives
 # Pt d'entrée "masque de"
+from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
@@ -1549,7 +1550,7 @@ def assert_segmentation(projects, project, sample, method):
     sort_by_coords(found)
     tolerance_problems = []
     if found != ref:
-        tolerance_problems = report_and_fix_tolerances(ref, found)
+        tolerance_problems = report_and_fix_tolerances(ref, found, FEATURES_TOLERANCES)
         try:
             assert_valid_diffs(segmenter, ref, found)
             assert tolerance_problems == []
@@ -1649,22 +1650,26 @@ def test_algo_diff(projects, tmp_path, project, sample):
 
 FEATURES_TOLERANCES = {
     "%Area": 0.001,
+    "X": 0.001,
     "Y": 0.001,
     "Kurt": 0.001,
     "Fractal": 0.05,
     "Convarea": "15%",
+    "MeanPos": 0.001,
 }
 
 
-def report_and_fix_tolerances(expected: List[Dict], actual: List[Dict]) -> List[str]:
+def report_and_fix_tolerances(
+    expected: List[Dict], actual: List[Dict], tolerances: Dict[str, float | str]
+) -> List[str]:
     ret = []
     for an_exp, an_act in zip(expected, actual):
         if an_exp == an_act:
             continue
         if an_exp.keys() != an_act.keys():
-            ret += str((an_exp, an_act))
+            ret.append(str((an_exp, an_act)))
             continue
-        for tolerance_key, tolerance in FEATURES_TOLERANCES.items():
+        for tolerance_key, tolerance in tolerances.items():
             ref_val = an_exp.get(tolerance_key)
             act_val = an_act.get(tolerance_key)
             diff = ref_val - act_val
@@ -1898,8 +1903,19 @@ def to_legacy_format(features_list):
     return features_list
 
 
+def to_legacy_rounding(features_list: List[Dict], roundings: Dict[str, int]):
+    for a_feature_set in features_list:
+        for k, v in a_feature_set.items():
+            rounding = roundings.get(k)
+            if rounding is not None:
+                a_feature_set[k] = round(a_feature_set[k], rounding)
+            else:
+                a_feature_set[k] = round(a_feature_set[k], 10)
+    return features_list
+
+
 def read_measures_from_file(measures):
-    ref = read_result_csv(measures, TYPE_BY_LEGACY)
+    ref = read_measures_csv(measures, TYPE_BY_LEGACY)
     # This filter is _after_ measurements in Legacy
     ref = [
         a_ref

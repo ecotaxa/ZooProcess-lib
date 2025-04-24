@@ -85,7 +85,10 @@ def read_measures_csv(csv_file: Path, typings: Dict[str, Type]) -> List[Dict]:
     return ret
 
 
-def read_ecotaxa_tsv(csv_file: Path, typings: Dict[str, Type]) -> List[Dict]:
+def read_ecotaxa_tsv(
+    csv_file: Path,
+    typings: Dict[str, Type],
+) -> List[Dict]:
     ret = []
     with open(csv_file, "r") as f:
         reader = csv.DictReader(f, delimiter="\t")
@@ -95,11 +98,10 @@ def read_ecotaxa_tsv(csv_file: Path, typings: Dict[str, Type]) -> List[Dict]:
                 first_line = False
                 continue
             to_add = {}
-            print(a_line)
             for k, v in typings.items():
                 if k in a_line:
                     typing = float if typings[k] == np.float64 else typings[k]
-                    to_add[k] = round(typing(a_line[k]), 3)
-                    print (a_line[k], to_add[k])
+                    to_add[k] = typing(a_line[k])
+                    print("TSV: ", a_line[k], to_add[k])
             ret.append(to_add)
     return ret
