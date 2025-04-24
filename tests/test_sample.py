@@ -43,7 +43,7 @@ from .projects_for_test import (
 from .test_utils import (
     save_diff_image,
     diff_actual_with_ref_and_source,
-    read_result_csv,
+    read_measures_csv,
 )
 
 THRESHOLD = 243

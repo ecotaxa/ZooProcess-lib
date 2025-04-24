@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Tuple
 
 import cv2
 import numpy as np
@@ -8,7 +9,7 @@ from .img_tools import crophw, crop, saveimage, draw_box
 
 
 class Background:
-    """port of algorithms from legacy Zooscan_1asep.txt macro"""
+    """Port of algorithms from legacy Zooscan_1asep.txt macro"""
 
     def __init__(
         self,
@@ -94,7 +95,7 @@ class Background:
 
     def resized_for_sample_scan(
         self, sample_scan_cropx: int, sample_scan_cropy: int
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         larg = sample_scan_cropx / self.backratio
         haut = sample_scan_cropy / self.backratio
         fondx0 = self.lf - larg

@@ -4,14 +4,18 @@ import cv2
 import numpy as np
 import pytest
 
-from ZooProcess_lib.Features import Features, TYPE_BY_LEGACY
+from ZooProcess_lib.Features import Features, TYPE_BY_ECOTAXA
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Custom import fractal_mp, ij_perimeter
 from ZooProcess_lib.img_tools import loadimage
-from .test_sample import to_legacy_format, report_and_fix_tolerances
+from .test_sample import (
+    to_legacy_format,
+    report_and_fix_tolerances,
+    FEATURES_TOLERANCES,
+)
 from .test_segmenter import FEATURES_DIR
 from .test_segmenter import MEASURES_DIR
-from .test_utils import read_result_csv
+from .test_utils import read_ecotaxa_tsv
 
 
 def test_ij_like_EDM():
@@ -75,14 +79,22 @@ def test_ij_like_measures(img: str):
     rois = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
     assert len(rois) == 1
     feat = Features(image=image, roi=rois[0], threshold=THRESHOLD)
-    exp = read_result_csv(MEASURES_DIR / f"meas_{img}.csv", TYPE_BY_LEGACY)
-    act = [feat.as_legacy()]
+    exp = read_ecotaxa_tsv(MEASURES_DIR / f"ecotaxa_{img}.tsv", TYPE_BY_ECOTAXA)
+    act = [feat.as_ecotaxa()]
     to_legacy_format(act)
-    for k in ("BX", "BY", "XStart", "YStart"):  # Remove image-related features
+    for k in (
+        "object_bx",
+        "object_by",
+        "object_xstart",
+        "object_ystart",
+    ):  # Remove image-related features
         del exp[0][k]
         del act[0][k]
     tolerance_problems = []
+    ECOTAXA_TOLERANCES = {
+        "object_" + k.lower(): v for k, v in FEATURES_TOLERANCES.items()
+    }
     if exp != act:
-        tolerance_problems = report_and_fix_tolerances(exp, act)
-    assert exp == act
+        tolerance_problems = report_and_fix_tolerances(exp, act, ECOTAXA_TOLERANCES)
+    assert act == exp
     assert tolerance_problems == []

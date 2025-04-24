@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from functools import cached_property
 from typing import Dict, List, Callable, Any, Set, Optional, get_type_hints, Type
 
@@ -25,6 +26,12 @@ TO_LEGACY: Dict[
 TYPE_BY_LEGACY: Dict[
     str, Type
 ] = {}  # Key=legacy property name, Value=a type e.g. int of np.float64
+TO_ECOTAXA: Dict[
+    str, Callable
+] = {}  # Key=ecotaxa feature name, Value=bound method to call
+TYPE_BY_ECOTAXA: Dict[
+    str, Type
+] = {}  # Key=ecotaxa feature name, Value=a type e.g. int of np.float64
 
 
 def legacy(name: str) -> Callable[[Any], Callable[[tuple[Any, ...]], None]]:
@@ -34,6 +41,10 @@ def legacy(name: str) -> Callable[[Any], Callable[[tuple[Any, ...]], None]]:
         assert ret_type is not None
         TO_LEGACY[name] = f
         TYPE_BY_LEGACY[name] = ret_type
+        ecotaxa_name = "object_" + name.lower()
+        # ecotaxa_name += "." if name == "circ" else ""
+        TO_ECOTAXA[ecotaxa_name] = f
+        TYPE_BY_ECOTAXA[ecotaxa_name] = ret_type
 
         def wrapped_f(*args):
             return f(*args)
@@ -63,6 +74,19 @@ class Features(object):
             if only and leg not in only:
                 continue
             ret[leg] = fct(self)
+        return ret
+
+    def as_ecotaxa(self, only: Optional[Set[str]] = None) -> Dict[str, int | float]:
+        """Return present object as (part of) an Ecotaxa import line"""
+        ret = {}
+        for nam, fct in TO_ECOTAXA.items():
+            if only and nam not in only:
+                continue
+            val = fct(self)
+            val = float(val) if isinstance(val, np.float64) else val
+            val = round(val, 3) if isinstance(val, float) else val
+            # print(nam, fct(self), val)
+            ret[nam] = val
         return ret
 
     @legacy("BX")
@@ -308,9 +332,87 @@ class Features(object):
             angle=self.angle,
             area=self.area,
             pixel_size=25.4 / Segmenter.RESOLUTION,
-            coords=(self.bx, self.by)
+            coords=(self.bx, self.by),
         )
         return symmetry_h, symmetry_v, thick_ratio
+
+    #
+    # Derived (from others) features, no need to cache them
+    #
+    @property
+    @legacy("Esd")
+    def esd(self) -> float:
+        """Equivalent Spherical Diameter = 2 * SQR(Area / Pi)"""
+        return 2 * math.sqrt(self.area / math.pi)
+
+    @property
+    @legacy("elongation")
+    def elongation(self) -> float:
+        """major / minor (‘ellipse' elongation)"""
+        return self.major / self.minor
+
+    @property
+    @legacy("range")
+    def range(self) -> float:
+        """max - min"""
+        return self.max - self.min
+
+    @property
+    @legacy("meanpos")
+    def meanpos(self) -> float:
+        """(mean-max) / (mean-min)"""
+        return (self.mean - self.max) / (self.mean - self.min)
+
+    @property
+    @legacy("cv")
+    def cv(self) -> np.float64:
+        """100*(stddev/mean)"""
+        return 100 * (self.stddev / self.mean)
+
+    @property
+    @legacy("sr")
+    def sr(self) -> float:
+        """100*(stddev/(max-min))"""
+        if self.max - self.min != 0:
+            return 100 * (self.stddev / (self.max - self.min))
+        else:
+            return np.nan
+
+    @property
+    @legacy("perimareaexc")
+    def perimareaexc(self) -> float:
+        """perim/(sqrt(area_exc))"""
+        return self.perim / math.sqrt(self.area_exc)
+
+    @property
+    @legacy("feretareaexc")
+    def feretareaexc(self) -> float:
+        """feret/(sqrt(area_exc))"""
+        return self.feret / math.sqrt(self.area_exc)
+
+    @property
+    @legacy("perimmajor")
+    def perimmajor(self) -> float:
+        """perim/major"""
+        return self.perim / self.major
+
+    @property
+    @legacy("perimferet")
+    def perimferet(self) -> float:
+        """perim/feret"""
+        return self.perim / self.feret
+
+    @property
+    @legacy("circex")
+    def circex(self) -> float:
+        """(4*PI*area_exc)/(pow(perim,2))"""
+        return (4 * math.pi * self.area_exc) / (self.perim**2)
+
+    @property
+    @legacy("Circ.")
+    def circ(self) -> float:
+        """Circularity = (4 * Pi * Area) / Perim^2) ; a value of 1 indicates a perfect circle, a value approaching 0 indicates an increasingly elongated polygon"""
+        return (4 * math.pi * self.area) / (self.perim**2)
 
 
 FeaturesListT = List[Features]
