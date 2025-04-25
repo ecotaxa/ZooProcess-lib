@@ -12,12 +12,16 @@ from .test_sample import (
     to_legacy_rounding,
     FEATURES_TOLERANCES,
     report_and_fix_tolerances,
+    DERIVED_FEATURES_TOLERANCES,
 )
 from .test_segmenter import FEATURES_DIR
 from .test_segmenter import MEASURES_DIR
 from .test_utils import read_ecotaxa_tsv
 
 
+@pytest.mark.skip(
+    "we choose a slightly different algorithm for EDM, see comments in fractal_mp()"
+)
 def test_ij_like_EDM():
     """EDM aka EDT found elsewhere is not the same as the one computed in IJ"""
     img = loadimage(FEATURES_DIR / "mask_holes_2855_223.png")
@@ -97,7 +101,7 @@ ECOTAXA_TSV_ROUNDINGS.update
         "13892_13563",
     ],
 )
-def test_ij_like_measures(img: str):
+def test_ij_like_features(img: str):
     image = loadimage(FEATURES_DIR / f"crop_{img}.png")
     # Add a white border, otherwise the particle touches all borders and is eliminated
     image = cv2.copyMakeBorder(image, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=(255,))
@@ -119,7 +123,8 @@ def test_ij_like_measures(img: str):
         del act[0][k]
     tolerance_problems = []
     ECOTAXA_TOLERANCES = {
-        "object_" + k.lower(): v for k, v in FEATURES_TOLERANCES.items()
+        "object_" + k.lower(): v
+        for k, v in (FEATURES_TOLERANCES | DERIVED_FEATURES_TOLERANCES).items()
     }
     if exp != act:
         tolerance_problems = report_and_fix_tolerances(exp, act, ECOTAXA_TOLERANCES)

@@ -9,7 +9,6 @@ import numpy as np
 from numpy import ndarray
 from scipy import stats
 
-from ZooProcess_lib.ImageJLike import parseInt
 from ZooProcess_lib.ROI import ROI
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Calculater import Calculater
@@ -43,7 +42,6 @@ def legacy(name: str) -> Callable[[Any], Callable[[tuple[Any, ...]], None]]:
         TO_LEGACY[name] = f
         TYPE_BY_LEGACY[name] = ret_type
         ecotaxa_name = "object_" + name.lower()
-        # ecotaxa_name += "." if name == "circ" else ""
         TO_ECOTAXA[ecotaxa_name] = f
         TYPE_BY_ECOTAXA[ecotaxa_name] = ret_type
 
@@ -68,11 +66,14 @@ class Features(object):
         # params
         self.threshold = threshold
 
-    def as_legacy(self, only: Optional[Set[str]] = None) -> Dict[str, int | float]:
-        """Return present object as a legacy dictionary, for comparison & other needs"""
+    def as_measures(self, only: Optional[Set[str]] = None) -> Dict[str, int | float]:
+        """Return present object as a dictionary, for comparison & other needs.
+        Only measures, i.e. not derived features, are returned."""
         ret = {}
         for leg, fct in TO_LEGACY.items():
             if only and leg not in only:
+                continue
+            if leg == leg.lower():
                 continue
             ret[leg] = fct(self)
         return ret
@@ -85,8 +86,6 @@ class Features(object):
                 continue
             val = fct(self)
             val = float(val) if isinstance(val, np.float64) else val
-            # val = round(val, 3) if isinstance(val, float) else val
-            # print("AS ECO", nam, fct(self), val)
             ret[nam] = val
         return ret
 
@@ -341,7 +340,7 @@ class Features(object):
     # Derived (from others) features, no need to cache them
     #
     @property
-    @legacy("Esd")
+    @legacy("esd")
     def esd(self) -> float:
         """Equivalent Spherical Diameter = 2 * SQR(Area / Pi)"""
         return 2 * math.sqrt(self.area / math.pi)
@@ -350,7 +349,7 @@ class Features(object):
     @legacy("elongation")
     def elongation(self) -> float:
         """major / minor (‘ellipse' elongation)"""
-        return parseInt(self.major) / parseInt(self.minor)
+        return self.major / self.minor
 
     @property
     @legacy("range")
@@ -368,14 +367,14 @@ class Features(object):
     @legacy("cv")
     def cv(self) -> np.float64:
         """100*(stddev/mean)"""
-        return 100 * (parseInt(self.stddev) / self.mean)
+        return 100 * (self.stddev) / self.mean
 
     @property
     @legacy("sr")
     def sr(self) -> float:
         """100*(stddev/(max-min))"""
         if self.max - self.min != 0:
-            return 100 * (parseInt(self.stddev) / (self.max - self.min))
+            return 100 * (self.stddev / (self.max - self.min))
         else:
             return np.nan
 
@@ -383,31 +382,31 @@ class Features(object):
     @legacy("perimareaexc")
     def perimareaexc(self) -> float:
         """perim/(sqrt(area_exc))"""
-        return parseInt(self.perim) / math.sqrt(self.area_exc)
+        return self.perim / math.sqrt(self.area_exc)
 
     @property
     @legacy("feretareaexc")
     def feretareaexc(self) -> float:
         """feret/(sqrt(area_exc))"""
-        return parseInt(self.feret) / math.sqrt(self.area_exc)
+        return self.feret / math.sqrt(self.area_exc)
 
     @property
     @legacy("perimmajor")
     def perimmajor(self) -> float:
         """perim/major"""
-        return parseInt(self.perim) / parseInt(self.major)
+        return self.perim / self.major
 
     @property
     @legacy("perimferet")
     def perimferet(self) -> float:
         """perim/feret"""
-        return parseInt(self.perim) / parseInt(self.feret)
+        return self.perim / self.feret
 
     @property
     @legacy("circex")
     def circex(self) -> float:
         """(4*PI*area_exc)/(pow(perim,2))"""
-        return (4 * math.pi * self.area_exc) / (parseInt(self.perim)**2)
+        return (4 * math.pi * self.area_exc) / (self.perim**2)
 
     @property
     @legacy("Circ.")
@@ -419,7 +418,7 @@ class Features(object):
 FeaturesListT = List[Features]
 
 
-def legacy_features_list_from_roi_list(
+def legacy_measures_list_from_roi_list(
     image: ndarray, roi_list: List[ROI], threshold: int, only: Optional[Set[str]] = None
 ) -> list[dict[str, int | float]]:
-    return [Features(image, p, threshold).as_legacy(only) for p in roi_list]
+    return [Features(image, p, threshold).as_measures(only) for p in roi_list]

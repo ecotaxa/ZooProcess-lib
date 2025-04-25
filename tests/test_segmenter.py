@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import pytest
 
-from ZooProcess_lib.Features import legacy_features_list_from_roi_list
+from ZooProcess_lib.Features import legacy_measures_list_from_roi_list
 from ZooProcess_lib.ROI import feature_unq
 from ZooProcess_lib.img_tools import loadimage
 from ZooProcess_lib.segmenters.ConnectedComponents import (
@@ -60,7 +60,7 @@ def test_holes_62388():
         Segmenter.METH_TOP_CONTOUR_SPLIT
     )
     features = sorted(
-        legacy_features_list_from_roi_list(
+        legacy_measures_list_from_roi_list(
             image, parts, 243, {"Area", "BX", "BY", "Height", "Width"}
         ),
         key=feature_unq,
@@ -83,13 +83,13 @@ def test_compare_split_methods():
     segmenter = Segmenter(image, 0.3, 100, THRESHOLD)
 
     found_rois_new = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
-    found_feats_new = legacy_features_list_from_roi_list(
+    found_feats_new = legacy_measures_list_from_roi_list(
         image, found_rois_new, THRESHOLD
     )
     sort_by_coords(found_feats_new)
 
     found_rois_old = segmenter.find_blobs(Segmenter.METH_CONTOUR_TREE)
-    found_feats_compat = legacy_features_list_from_roi_list(
+    found_feats_compat = legacy_measures_list_from_roi_list(
         image, found_rois_old, THRESHOLD
     )
     sort_by_coords(found_feats_compat)
