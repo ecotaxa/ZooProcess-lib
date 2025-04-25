@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from numpy import ndarray
 
-from .ROI import ROI, feature_unq
+from .ROI import ROI, roi_unq
 from .img_tools import cropnp
 from .segmenters.ConnectedComponents import ConnectedComponentsSegmenter
 from .segmenters.ExternalContours import ExternalContoursSegmenter
@@ -77,9 +77,9 @@ class Segmenter(object):
         right_rois = self.find_particles_with_method(right_mask, method)
         # Fix coordinates from right pane
         for right_roi in right_rois:
-            right_roi.features["BX"] += self.width - overlap_size
+            right_roi.x += self.width - overlap_size
         # Merge ROI lists
-        key_func = lambda r: feature_unq(r.features)
+        key_func = lambda r: roi_unq(r)
         right_by_key = {key_func(ri): ri for ri in right_rois}
         left_by_key = {key_func(le): le for le in left_rois}
         assert len(left_by_key) == len(left_rois)

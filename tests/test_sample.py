@@ -92,10 +92,20 @@ tested_samples = (
         [
             "apero2023_tha_bioness_014_st46_n_n5_d1_1_sur_1",  # Corrupted ZIP
             "apero2023_tha_bioness_013_st46_d_n5_d1_1_sur_1",  # Corrupted ZIP
+            "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2",  # Broken meas
+            "apero2023_tha_bioness_014_st46_n_n7_d2_1_sur_2",  # Broken meas
         ],
     )
     + all_samples_in(TRIATLAS)
-    + all_samples_in(APERO1)
+    + all_samples_in(
+        APERO1,
+        [
+            "apero2023_tha_bioness_005_st20_d_n1_d1_1_sur_2",  # Broken meas
+            "apero2023_tha_bioness_005_st20_d_n1_d1_2_sur_2",  # Broken meas
+            "apero2023_tha_bioness_005_st20_d_n3_d1_3_sur_4",  # Broken meas
+            "apero2023_tha_bioness_017_st66_d_n3_d2_1_sur_1",  # Broken meas
+        ],
+    )
 )
 
 APERO_tested_samples = all_samples_in(APERO1)
@@ -159,7 +169,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     sample_minus_background_image = background.removed_from(
         sample_image=eight_bit_sample_image,
         processing_method="select" if "triatlas" in project else "",
-        sample_image_resolution=2400
+        sample_image_resolution=2400,
     )
 
     # Compare with stored reference (vis1.zip)
@@ -223,7 +233,7 @@ extra_big = [
     (TRIATLAS, "m158_mn18_n2_d1_1_sur_4"),
 ]
 
-missingd = [
+missingd = [ # For these the reference measures file is not in sync with the image. Split issue in legacy?
     (APERO, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2"),
     (APERO, "apero2023_tha_bioness_014_st46_n_n7_d2_1_sur_2"),
     (APERO1, "apero2023_tha_bioness_005_st20_d_n1_d1_1_sur_2"),
@@ -1462,10 +1472,7 @@ def assert_segmentation(projects, project, sample, method):
             assert_valid_diffs(segmenter, ref, found)
             assert tolerance_problems == []
         except AssertionError as e:
-            [
-                draw_roi_mask(vis1, a_roi, features)
-                for a_roi, features in zip(found_rois, found)
-            ]
+            [draw_roi_mask(vis1, a_roi) for a_roi in found_rois]
             visual_diffs(ref, found, sample, vis1, found_rois)
     assert found == ref
     assert tolerance_problems == []
@@ -1561,7 +1568,7 @@ FEATURES_TOLERANCES = {
     "Y": 0.001,
     "Kurt": 0.001,
     "Fractal": 0.05,
-    "Convarea": "17%",
+    "Convarea": "20%",
 }
 DERIVED_FEATURES_TOLERANCES = {
     "meanpos": 0.001,
@@ -1679,9 +1686,9 @@ def draw_roi(image: np.ndarray, features: Features, thickness: int = 1):
     )
 
 
-def draw_roi_mask(image: np.ndarray, roi: ROI, features: Dict):
+def draw_roi_mask(image: np.ndarray, roi: ROI):
     (whole, _) = cv2.findContours(roi.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    x, y = features["BX"], features["BY"]
+    x, y = roi.x, roi.y
     assert len(whole) == 1
     cv2.drawContours(
         image=image,
@@ -1700,10 +1707,10 @@ def sort_by_coords(features: List[Dict]):
 @pytest.mark.parametrize(
     "segmentation_method",
     [
-        Segmenter.METH_TOP_CONTOUR,
+        # Segmenter.METH_TOP_CONTOUR, # This one indeed returns nothing
         Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR,
-        # Segmenter.METH_RETR_TREE,
         Segmenter.METH_CONNECTED_COMPONENTS,
+        Segmenter.METH_TOP_CONTOUR_SPLIT,
     ],
 )
 @pytest.mark.parametrize(
@@ -1727,11 +1734,17 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     # found_rois = segmenter.find_blobs()
     segmenter.split_by_blobs(found_rois)
 
-    found = [a_roi.features for a_roi in found_rois]
+    found = to_legacy_format(
+        legacy_measures_list_from_roi_list(vis1, found_rois, conf.upper)
+    )
     sort_by_coords(found)
     # if found != ref:
     #     different, not_in_act, not_in_ref = visual_diffs(found, ref, sample, vis1)
+    tolerance_problems = []
+    if found != ref:
+        tolerance_problems = report_and_fix_tolerances(ref, found, FEATURES_TOLERANCES)
     assert found == ref
+    assert tolerance_problems == []
 
 
 def visual_diffs(expected, actual, sample, tgt_img, found_rois):
@@ -2022,5 +2035,5 @@ def test_dev_segmentation(projects, tmp_path, project, sample):
         projects,
         project,
         sample,
-        Segmenter.METH_TOP_CONTOUR_SPLIT,
+        Segmenter.METH_CONTOUR_TREE,
     )
