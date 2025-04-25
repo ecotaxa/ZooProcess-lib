@@ -1191,10 +1191,3 @@ def find_res(filename):
         # calculate width
         width = (a[0] << 8) + a[1]
     print("IMAGE RESOLUTION IS : ", width, "X", height)
-
-
-def mean_with_4_decimals(img: np.ndarray) -> float:
-    # ImageJ source says 'run("Set Measurements...", "  mean redirect=None decimal=0");'
-    # but debug shows a float with 4 decimals
-    ret = np.mean(img, axis=None)
-    return ret.round(4)

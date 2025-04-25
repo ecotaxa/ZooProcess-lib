@@ -1,11 +1,17 @@
-from pathlib import Path
+from __future__ import annotations
+
 from typing import Tuple
 
-import cv2
 import numpy as np
 
-from .ImageJLike import circular_mean_blur, bilinear_resize
-from .img_tools import crophw, crop, saveimage, draw_box
+from .Border import Border
+from .ImageJLike import circular_mean_blur, bilinear_resize, images_difference
+from .img_tools import (
+    crophw,
+    crop_right,
+    clear_outside,
+    draw_outside_lines,
+)
 
 
 class Background:
@@ -14,10 +20,10 @@ class Background:
     def __init__(
         self,
         image: np.ndarray,
-        image_path: Path,
+        # image_path: Path,
         resolution=300,
-        sample_scan_resolution=2400,
-        output_path=None,  # TODO: Remove
+        # sample_scan_resolution=2400,
+        # output_path=None,  # TODO: Remove
     ):
         """
         :param image: np.ndarray (H, W)
@@ -26,31 +32,29 @@ class Background:
         :param sample_scan_resolution: associated scan resolution
         """
         self.image = image
-        self.name = image_path.name
+        # self.name = image_path.name
 
-        self.output_path = output_path
+        # self.output_path = output_path
 
         self.blancres = resolution
-        self.frametypeback = None
-        if self.name.find("_large_"):
-            self.frametypeback = "large"
-        if self.name.find("_narrow_"):
-            self.frametypeback = "narrow"
+        # self.frametypeback = None
+        # if self.name.find("_large_"):
+        #     self.frametypeback = "large"
+        # if self.name.find("_narrow_"):
+        #     self.frametypeback = "narrow"
 
-        self.backratio = self.compute_backratio(sample_scan_resolution)
+        # self.backratio = self.compute_backratio(sample_scan_resolution)
 
         self.height = self.image.shape[0]
         self.width = self.image.shape[1]
 
-        self.L = int(self.width * self.backratio)
-        self.H = int(self.height * self.backratio)
         self.lf = self.width
         self.hf = self.height
 
-        self.Lm = self.L * 0.95
-        self.LM = self.L * 1.05
-        self.Hm = self.H * 0.95
-        self.HM = self.H * 1.05
+        # self.Lm = self.L * 0.95
+        # self.LM = self.L * 1.05
+        # self.Hm = self.H * 0.95
+        # self.HM = self.H * 1.05
 
     def __str__(self):
         return f"""
@@ -65,39 +69,21 @@ class Background:
             ratio: {self.backratio}
         """
 
-    def mean(self):
-        x1 = self.width / 10
-        y1 = self.height / 10
-        x2 = self.width - x1
-        y2 = self.height - y1
-        w = x2 - x1
-        h = y2 - y1
-        w = 10
-
-        image_cropped = crop(self.image, left=x1, top=y1, right=x2, bottom=y2)
-
-        image_drew = draw_box(self.image, x=x1, y=y1, w=w, h=h)
-        saveimage(image_drew, self.name, "drew", path=self.output_path)
-
-        image_median = cv2.medianBlur(image_cropped, 3)
-        # image_median = image_drew
-
-        mean = np.mean(image_median, axis=None)
-        print(mean)
-        return mean
-
-    def compute_backratio(self, scan_resolution=2400):
+    def compute_backratio(self, scan_resolution: int) -> float:
         return scan_resolution / self.blancres
 
-    def voxel(self, scan_image):
-        # backratio = self.backratio(scan_image)
-        pass
-
-    def resized_for_sample_scan(
-        self, sample_scan_cropx: int, sample_scan_cropy: int
+    def _resized_for_sample_scan(
+        self,
+        sample_scan_cropx: int,
+        sample_scan_cropy: int,
+        sample_scan_resolution: int,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        larg = sample_scan_cropx / self.backratio
-        haut = sample_scan_cropy / self.backratio
+        """Return self, resized to accommodate the sample scan"""
+
+        backratio = self.compute_backratio(sample_scan_resolution)
+        larg = sample_scan_cropx / backratio
+        haut = sample_scan_cropy / backratio
+
         fondx0 = self.lf - larg
         fondy0 = self.hf - haut
         # TODO: What happens on ImageJ side?
@@ -107,15 +93,109 @@ class Background:
         print(f"fond: {fondx0},{fondy0} {haut},{larg}")
 
         image_cropped = crophw(self.image, fondx0, fondy0, larg, haut)
-        # macro: run("Mean...", "radius=3");
+
+        # IJ macro: run("Mean...", "radius=3");
         image_mean = circular_mean_blur(image_cropped, 3)
 
-        # img2 = np.resize(image_mean, (image_mean.shape[0] + 1, image_mean.shape[1]))
-
-        image_resized = bilinear_resize(image_mean, self.L, self.H)
+        L = int(self.width * backratio)
+        H = int(self.height * backratio)
+        image_resized = bilinear_resize(image_mean, L, H)
 
         # saveimage(
         #     image_resized, self.name, "resized", ext="tiff", path=self.output_path
         # )
 
         return image_cropped, image_mean, image_resized
+
+    def removed_from(
+        self,
+        sample_image: np.ndarray,
+        sample_image_resolution: int,
+        processing_method: str,
+    ) -> np.ndarray:
+        border = Border(sample_image, sample_image_resolution, processing_method)
+        (top_limit, bottom_limit, left_limit, right_limit) = border.detect()
+
+        # TODO: below correspond to a not-debugged case "if (greycor > 2 && droite == 0) {" which
+        # is met when borders are not computed.
+        # limitod = border.right_limit_to_removeable_from_image()
+        limitod = border.right_limit_to_removeable_from_right_limit()
+
+        cropped_bg, mean_bg, adjusted_bg = self._resized_for_sample_scan(
+            sample_image.shape[1], sample_image.shape[0], sample_image_resolution
+        )
+
+        # saveimage(cropped_bg, "/tmp/zooprocess/cropped_bg.tif")
+        # ref_cropped_bg = loadimage(Path("/tmp/zooprocess/fond_cropped_legacy.tif"))
+        # diff_actual_with_ref_and_source(ref_cropped_bg, cropped_bg, ref_cropped_bg)
+        # assert np.array_equal(ref_cropped_bg, cropped_bg)
+        # saveimage(mean_bg, "/tmp/zooprocess/mean_bg.tif")
+        # ref_mean_bg = loadimage(Path("/tmp/zooprocess/fond_apres_mean.tif"))
+        # diff_actual_with_ref_and_source(ref_mean_bg, mean_bg, ref_mean_bg)
+        # assert np.array_equal(ref_mean_bg, mean_bg)
+        # saveimage(adjusted_bg, Path("/tmp/zooprocess/resized_bg.tif"))
+        # ref_resized_bg = loadimage(Path("/tmp/zooprocess/fond_apres_resize.tif"))
+        # diff_actual_with_ref_and_source(ref_resized_bg, adjusted_bg, ref_resized_bg)
+        # if not np.array_equal(ref_resized_bg, adjusted_bg):
+        #     nb_errors = diff_actual_with_ref_and_source(
+        #         ref_resized_bg,
+        #         adjusted_bg,
+        #         last_background_image,
+        #         tolerance=0,
+        #     )
+        #     if nb_errors > 0:
+        #         assert False
+        #
+        # TODO: this _only_ corresponds to "if (method == "neutral") {" in legacy
+        sample_minus_background_image = images_difference(adjusted_bg, sample_image)
+        # Invert 8-bit
+        sample_minus_background_image = 255 - sample_minus_background_image
+
+        # ref_after_sub_bg = loadimage(Path("/tmp/zooprocess/fond_apres_subs.tif"))
+        # diff_actual_with_ref_and_source(ref_after_sub_bg, sample_minus_background_image, ref_after_sub_bg)
+        # assert np.array_equal(ref_after_sub_bg, sample_minus_background_image)
+
+        sample_minus_background_image = crop_right(
+            sample_minus_background_image, limitod
+        )
+        # ref_after_sub_and_crop_bg = loadimage(Path("/tmp/zooprocess/fond_apres_subs_et_crop.tif"))
+        # diff_actual_with_ref_and_source(ref_after_sub_and_crop_bg, sample_minus_background_image, ref_after_sub_and_crop_bg)
+        # assert np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image)
+        cleared_width = min(right_limit - left_limit, limitod)
+        clear_outside(
+            sample_minus_background_image,
+            left_limit,
+            top_limit,
+            cleared_width,
+            bottom_limit - top_limit,
+        )
+        # ref_after_sub_and_crop_bg = loadimage(
+        #     Path("/tmp/zooprocess/fond_apres_subs_et_crop_et_clear.tif")
+        # )
+        # if not np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image):
+        #     diff_actual_with_ref_and_source(
+        #         ref_after_sub_and_crop_bg,
+        #         sample_minus_background_image,
+        #         ref_after_sub_and_crop_bg,
+        #     )
+        #     assert False
+        draw_outside_lines(
+            sample_minus_background_image,
+            sample_image.shape,
+            right_limit,
+            left_limit,
+            top_limit,
+            bottom_limit,
+            limitod,
+        )
+        # ref_after_sub_and_crop_bg = loadimage(
+        #     Path("/tmp/zooprocess/fond_apres_subs_et_crop_et_clear_et_lignes.tif")
+        # )
+        # if not np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image):
+        #     diff_actual_with_ref_and_source(
+        #         ref_after_sub_and_crop_bg,
+        #         sample_minus_background_image,
+        #         ref_after_sub_and_crop_bg,
+        #     )
+        #     assert False
+        return sample_minus_background_image

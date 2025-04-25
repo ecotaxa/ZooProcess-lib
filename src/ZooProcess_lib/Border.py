@@ -4,12 +4,17 @@ import os
 import numpy as np
 
 from .ImageJLike import parseInt
-from .img_tools import crophw, saveimage, mean_with_4_decimals, crop
+from .img_tools import crophw, saveimage, crop
 
 
 # TODO: Separate code from tests and debug
 class Border:
-    def __init__(self, image: np.ndarray, background_process: str = "") -> None:
+    def __init__(
+        self,
+        image: np.ndarray,
+        resolution: int,
+        background_process: str = "",
+    ) -> None:
         assert image.dtype == np.uint8
         self.image = image
 
@@ -20,7 +25,7 @@ class Border:
             self.image = crop(image, top=0, left=0, bottom=cropy, right=cropx)
             self.height, self.width = cropy, cropx
 
-        self.resolution = 2400
+        self.resolution = resolution
         self.step = parseInt(self.resolution / 240.0)
 
         self.greytaux = 0.9  # greytaux if greytaux is not None else 0.9
@@ -292,3 +297,10 @@ class Border:
     def right_limit_to_removeable_from_right_limit(self):
         right_limit = self.right_limit()
         return right_limit + (self.width - right_limit) / 10
+
+
+def mean_with_4_decimals(img: np.ndarray) -> float:
+    # ImageJ source says 'run("Set Measurements...", "  mean redirect=None decimal=0");'
+    # but debug shows a float with 4 decimals
+    ret = np.mean(img, axis=None)
+    return round(float(ret), 4)

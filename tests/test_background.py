@@ -33,7 +33,7 @@ def test_init(self, TP):
 
     print(f"{background}")
 
-    background.resized_for_sample_scan()
+    background._resized_for_sample_scan()
 
 
 @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
@@ -68,7 +68,7 @@ def test_resize_background_but_(self, TP):
 
     background = Background(image_unbordered, back_name, output_path=tmp_path)
 
-    image_resized = background.resized_for_sample_scan()
+    image_resized = background._resized_for_sample_scan()
 
     background.mean()
 

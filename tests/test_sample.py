@@ -18,7 +18,6 @@ from ZooProcess_lib.Features import (
     legacy_measures_list_from_roi_list,
     TYPE_BY_LEGACY,
 )
-from ZooProcess_lib.ImageJLike import images_difference
 from ZooProcess_lib.ROI import feature_unq, ROI
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
@@ -27,9 +26,6 @@ from ZooProcess_lib.img_tools import (
     loadimage,
     image_info,
     get_date_time_digitized,
-    crop_right,
-    clear_outside,
-    draw_outside_lines,
     saveimage,
 )
 from ZooProcess_lib.tools import measure_time
@@ -39,15 +35,14 @@ from .projects_for_test import (
     APERO,
     IADO,
     TRIATLAS,
-    APERO1, APERO_REDUCED2,
+    APERO1,
+    APERO_REDUCED2,
 )
 from .test_utils import (
     save_diff_image,
     diff_actual_with_ref_and_source,
     read_measures_csv,
 )
-
-THRESHOLD = 243
 
 
 # from tests.projects_for_test import APERO2000_REDUCED as APERO2000
@@ -159,101 +154,13 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     last_background_image = loadimage(last_background_file, type=cv2.IMREAD_UNCHANGED)
     assert last_background_image.dtype == np.uint8
 
-    border = Border(eight_bit_sample_image, "select" if "triatlas" in project else "")
-    (top_limit, bottom_limit, left_limit, right_limit) = border.detect()
-    # TODO: below correspond to a not-debugged case "if (greycor > 2 && droite == 0) {" which
-    # is met when borders are not computed.
-    # limitod = border.right_limit_to_removeable_from_image()
-    limitod = border.right_limit_to_removeable_from_right_limit()
-    # assert limitod == 24568  # From ImageJ debug
-    # assert right_limit == 24214
+    background = Background(last_background_image, resolution=300)
 
-    bg = Background(last_background_image, last_background_file)
-    cropped_bg, mean_bg, adjusted_bg = bg.resized_for_sample_scan(
-        eight_bit_sample_image.shape[1], eight_bit_sample_image.shape[0]
+    sample_minus_background_image = background.removed_from(
+        sample_image=eight_bit_sample_image,
+        processing_method="select" if "triatlas" in project else "",
+        sample_image_resolution=2400
     )
-
-    # saveimage(cropped_bg, "/tmp/zooprocess/cropped_bg.tif")
-    # ref_cropped_bg = loadimage(Path("/tmp/zooprocess/fond_cropped_legacy.tif"))
-    # diff_actual_with_ref_and_source(ref_cropped_bg, cropped_bg, ref_cropped_bg)
-    # assert np.array_equal(ref_cropped_bg, cropped_bg)
-
-    # saveimage(mean_bg, "/tmp/zooprocess/mean_bg.tif")
-    # ref_mean_bg = loadimage(Path("/tmp/zooprocess/fond_apres_mean.tif"))
-    # diff_actual_with_ref_and_source(ref_mean_bg, mean_bg, ref_mean_bg)
-    # assert np.array_equal(ref_mean_bg, mean_bg)
-
-    # saveimage(adjusted_bg, Path("/tmp/zooprocess/resized_bg.tif"))
-    # ref_resized_bg = loadimage(Path("/tmp/zooprocess/fond_apres_resize.tif"))
-    # diff_actual_with_ref_and_source(ref_resized_bg, adjusted_bg, ref_resized_bg)
-    # if not np.array_equal(ref_resized_bg, adjusted_bg):
-    #     nb_errors = diff_actual_with_ref_and_source(
-    #         ref_resized_bg,
-    #         adjusted_bg,
-    #         last_background_image,
-    #         tolerance=0,
-    #     )
-    #     if nb_errors > 0:
-    #         assert False
-    #
-
-    # TODO: this _only_ corresponds to "if (method == "neutral") {" in legacy
-    sample_minus_background_image = images_difference(
-        adjusted_bg, eight_bit_sample_image
-    )
-    # Invert 8-bit
-    sample_minus_background_image = 255 - sample_minus_background_image
-
-    # ref_after_sub_bg = loadimage(Path("/tmp/zooprocess/fond_apres_subs.tif"))
-    # diff_actual_with_ref_and_source(ref_after_sub_bg, sample_minus_background_image, ref_after_sub_bg)
-    # assert np.array_equal(ref_after_sub_bg, sample_minus_background_image)
-
-    sample_minus_background_image = crop_right(sample_minus_background_image, limitod)
-
-    # ref_after_sub_and_crop_bg = loadimage(Path("/tmp/zooprocess/fond_apres_subs_et_crop.tif"))
-    # diff_actual_with_ref_and_source(ref_after_sub_and_crop_bg, sample_minus_background_image, ref_after_sub_and_crop_bg)
-    # assert np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image)
-
-    cleared_width = min(right_limit - left_limit, limitod)
-    clear_outside(
-        sample_minus_background_image,
-        left_limit,
-        top_limit,
-        cleared_width,
-        bottom_limit - top_limit,
-    )
-
-    # ref_after_sub_and_crop_bg = loadimage(
-    #     Path("/tmp/zooprocess/fond_apres_subs_et_crop_et_clear.tif")
-    # )
-    # if not np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image):
-    #     diff_actual_with_ref_and_source(
-    #         ref_after_sub_and_crop_bg,
-    #         sample_minus_background_image,
-    #         ref_after_sub_and_crop_bg,
-    #     )
-    #     assert False
-
-    draw_outside_lines(
-        sample_minus_background_image,
-        eight_bit_sample_image.shape,
-        right_limit,
-        left_limit,
-        top_limit,
-        bottom_limit,
-        limitod,
-    )
-
-    # ref_after_sub_and_crop_bg = loadimage(
-    #     Path("/tmp/zooprocess/fond_apres_subs_et_crop_et_clear_et_lignes.tif")
-    # )
-    # if not np.array_equal(ref_after_sub_and_crop_bg, sample_minus_background_image):
-    #     diff_actual_with_ref_and_source(
-    #         ref_after_sub_and_crop_bg,
-    #         sample_minus_background_image,
-    #         ref_after_sub_and_crop_bg,
-    #     )
-    #     assert False
 
     # Compare with stored reference (vis1.zip)
     expected_final_image = load_final_ref_image(folder, sample, index)
@@ -1545,7 +1452,7 @@ def assert_segmentation(projects, project, sample, method):
     segmenter.split_by_blobs(found_rois)
 
     found = to_legacy_format(
-        legacy_measures_list_from_roi_list(vis1, found_rois, THRESHOLD)
+        legacy_measures_list_from_roi_list(vis1, found_rois, conf.upper)
     )
     sort_by_coords(found)
     tolerance_problems = []
@@ -1632,7 +1539,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
 
     found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
     found_feats_new = legacy_measures_list_from_roi_list(
-        vis1, found_rois_new, THRESHOLD
+        vis1, found_rois_new, conf.upper
     )
     sort_by_coords(found_feats_new)
 
@@ -1640,7 +1547,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
         Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR
     )
     found_feats_compat = legacy_measures_list_from_roi_list(
-        vis1, found_rois_compat, THRESHOLD
+        vis1, found_rois_compat, conf.upper
     )
     sort_by_coords(found_feats_compat)
 
@@ -2104,6 +2011,9 @@ dev_samples = [
         "apero2023_tha_bioness_014_st46_n_n9_d1_1_sur_8",
     ),
 ]
+dev_samples = [
+    (APERO_REDUCED2, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2")
+]  # Codé en ImageJ !!!
 
 
 @pytest.mark.parametrize("project, sample", dev_samples)
