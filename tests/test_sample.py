@@ -1619,6 +1619,7 @@ def report_and_fix_tolerances(
 
 
 def fix_valid_diffs(act_feats, not_in_legacy, not_in_new, segmenter):
+    actual_was_modified = False
     enclosing_rectangles = [
         (
             a_new["BX"],
@@ -1670,7 +1671,10 @@ def fix_valid_diffs(act_feats, not_in_legacy, not_in_new, segmenter):
             and a_rect[1] <= y2 <= a_rect[3]
         ]
         if ok_geo and len(parent) >= 1:
-            act_feats.add(a_compat)
+            act_feats.append(a_compat)
+            actual_was_modified = True
+    if actual_was_modified:
+        sort_by_coords(act_feats)
 
 
 def draw_roi(image: np.ndarray, features: Features, thickness: int = 1):

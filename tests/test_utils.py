@@ -102,6 +102,6 @@ def read_ecotaxa_tsv(
                 if k in a_line:
                     typing = float if typings[k] == np.float64 else typings[k]
                     to_add[k] = typing(a_line[k])
-                    print("TSV: ", a_line[k], to_add[k])
+                    # print("TSV: ", a_line[k], to_add[k])
             ret.append(to_add)
     return ret
