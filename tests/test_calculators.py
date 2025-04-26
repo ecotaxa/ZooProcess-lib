@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from ZooProcess_lib.Features import Features, TYPE_BY_ECOTAXA
+from ZooProcess_lib.ROI import ecotaxa_tsv_unq
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Custom import fractal_mp, ij_perimeter
 from ZooProcess_lib.img_tools import loadimage
@@ -13,6 +14,7 @@ from .test_sample import (
     FEATURES_TOLERANCES,
     report_and_fix_tolerances,
     DERIVED_FEATURES_TOLERANCES,
+    diff_features_lists,
 )
 from .test_segmenter import FEATURES_DIR
 from .test_segmenter import MEASURES_DIR
@@ -118,15 +120,17 @@ def test_ij_like_features(img: str):
         "object_by",
         "object_xstart",
         "object_ystart",
-    ):  # Remove image-related features
-        del exp[0][k]
-        del act[0][k]
+    ):  # Transfer image-related features
+        act[0][k] = exp[0][k]
     tolerance_problems = []
     ECOTAXA_TOLERANCES = {
         "object_" + k.lower(): v
         for k, v in (FEATURES_TOLERANCES | DERIVED_FEATURES_TOLERANCES).items()
     }
     if exp != act:
-        tolerance_problems = report_and_fix_tolerances(exp, act, ECOTAXA_TOLERANCES)
+        different, not_in_reference, not_in_actual = diff_features_lists(
+            exp, act, ecotaxa_tsv_unq
+        )
+        tolerance_problems = report_and_fix_tolerances(different, ECOTAXA_TOLERANCES)
     assert act == exp
     assert tolerance_problems == []

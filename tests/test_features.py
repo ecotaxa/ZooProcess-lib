@@ -1,4 +1,5 @@
 from ZooProcess_lib.Features import Features
+from ZooProcess_lib.ROI import feature_unq
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.img_tools import loadimage
 from .test_sample import (
@@ -6,6 +7,9 @@ from .test_sample import (
     to_legacy_format,
     sort_by_coords,
     visual_diffs,
+    diff_features_lists,
+    report_and_fix_tolerances,
+    FEATURES_TOLERANCES,
 )
 from .test_segmenter import MEASURES_DIR
 from .test_segmenter import SEGMENTER_DIR
@@ -27,12 +31,37 @@ def test_features_on_simplified_scan():
     features_as_legacy = to_legacy_format([f.as_measures() for f in features])
     sort_by_coords(features_as_legacy)
     ref_features = read_measures_from_file(features_file)
+    damaged_features = {
+        "IntDen",
+        "Max",
+        "Mean",
+        "Kurt",
+        "Skew",
+        "StdDev",
+        "Mode",
+        "Median",
+    }  # The image was damaged, TODO: Re-generate one
+    NOT_SAME_TOLERANCES = FEATURES_TOLERANCES.copy()
+    for dam in damaged_features:
+        if dam in NOT_SAME_TOLERANCES:
+            NOT_SAME_TOLERANCES.pop(dam)
+        for feat in ref_features:
+            if dam in feat:
+                feat.pop(dam)
+        for feat in features_as_legacy:
+            if dam in feat:
+                feat.pop(dam)
     if not ref_features == features_as_legacy:
+        different, not_in_reference, not_in_actual = diff_features_lists(
+            ref_features, features_as_legacy, feature_unq
+        )
+        tolerance_problems = report_and_fix_tolerances(different, NOT_SAME_TOLERANCES)
         visual_diffs(
-            ref_features,
-            features_as_legacy,
+            different,
+            not_in_reference,
+            not_in_actual,
             "apero2023_tha_bioness_013_st46_d_n8_d3",
             image,
-            roi_list,
         )
     assert ref_features == features_as_legacy
+    assert tolerance_problems == []

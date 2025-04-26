@@ -12,7 +12,7 @@ from ZooProcess_lib.segmenters.ConnectedComponents import (
     ConnectedComponentsSegmenter,
     CC,
 )
-from .test_sample import sort_by_coords, assert_valid_diffs
+from .test_sample import sort_by_coords, fix_valid_diffs, diff_features_lists
 
 HERE = Path(__file__).parent
 DATA_DIR = HERE / "data"
@@ -95,8 +95,6 @@ def test_compare_split_methods():
     sort_by_coords(found_feats_compat)
 
     assert found_feats_compat == found_feats_new
-    if found_feats_compat != found_feats_new:
-        assert_valid_diffs(segmenter, found_feats_compat, found_feats_new)
 
 
 def geoloc(stats) -> Dict[Tuple, Tuple]:

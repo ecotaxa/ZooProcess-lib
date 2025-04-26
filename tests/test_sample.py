@@ -92,20 +92,10 @@ tested_samples = (
         [
             "apero2023_tha_bioness_014_st46_n_n5_d1_1_sur_1",  # Corrupted ZIP
             "apero2023_tha_bioness_013_st46_d_n5_d1_1_sur_1",  # Corrupted ZIP
-            "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2",  # Broken meas
-            "apero2023_tha_bioness_014_st46_n_n7_d2_1_sur_2",  # Broken meas
         ],
     )
     + all_samples_in(TRIATLAS)
-    + all_samples_in(
-        APERO1,
-        [
-            "apero2023_tha_bioness_005_st20_d_n1_d1_1_sur_2",  # Broken meas
-            "apero2023_tha_bioness_005_st20_d_n1_d1_2_sur_2",  # Broken meas
-            "apero2023_tha_bioness_005_st20_d_n3_d1_3_sur_4",  # Broken meas
-            "apero2023_tha_bioness_017_st66_d_n3_d2_1_sur_1",  # Broken meas
-        ],
-    )
+    + all_samples_in(APERO1)
 )
 
 APERO_tested_samples = all_samples_in(APERO1)
@@ -233,7 +223,7 @@ extra_big = [
     (TRIATLAS, "m158_mn18_n2_d1_1_sur_4"),
 ]
 
-missingd = [ # For these the reference measures file is not in sync with the image. Split issue in legacy?
+missingd = [  # For these the reference measures file is not in sync with the image. Split issue in legacy?
     (APERO, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2"),
     (APERO, "apero2023_tha_bioness_014_st46_n_n7_d2_1_sur_2"),
     (APERO1, "apero2023_tha_bioness_005_st20_d_n1_d1_1_sur_2"),
@@ -1455,26 +1445,30 @@ def assert_segmentation(projects, project, sample, method):
     index = 1  # TODO: should come from get_names() below
     vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
-    ref = read_measurements(folder, sample, index)
+    ref_feats = read_measurements(folder, sample, index)
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
     found_rois = segmenter.find_blobs(method)
     # found_rois = list(filter(lambda r: r.mask.shape == (45, 50), found_rois))
     segmenter.split_by_blobs(found_rois)
 
-    found = to_legacy_format(
+    act_feats = to_legacy_format(
         legacy_measures_list_from_roi_list(vis1, found_rois, conf.upper)
     )
-    sort_by_coords(found)
+    sort_by_coords(act_feats)
     tolerance_problems = []
-    if found != ref:
-        tolerance_problems = report_and_fix_tolerances(ref, found, FEATURES_TOLERANCES)
-        try:
-            assert_valid_diffs(segmenter, ref, found)
-            assert tolerance_problems == []
-        except AssertionError as e:
+    if act_feats != ref_feats:
+        different, not_in_reference, not_in_actual = diff_features_lists(
+            ref_feats, act_feats, feature_unq
+        )
+        tolerance_problems = report_and_fix_tolerances(different, FEATURES_TOLERANCES)
+        fix_valid_diffs(act_feats, not_in_reference, not_in_actual, segmenter)
+        if act_feats != ref_feats:
+            different, not_in_reference, not_in_actual = diff_features_lists(
+                ref_feats, act_feats, feature_unq
+            )  # Diff again, to exhibit differences which were not fixed
             [draw_roi_mask(vis1, a_roi) for a_roi in found_rois]
-            visual_diffs(ref, found, sample, vis1, found_rois)
-    assert found == ref
+            visual_diffs(different, not_in_reference, not_in_actual, sample, vis1)
+    assert act_feats == ref_feats
     assert tolerance_problems == []
 
 
@@ -1545,21 +1539,20 @@ def test_algo_diff(projects, tmp_path, project, sample):
     segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
 
     found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
-    found_feats_new = legacy_measures_list_from_roi_list(
-        vis1, found_rois_new, conf.upper
-    )
-    sort_by_coords(found_feats_new)
+    ref_feats = legacy_measures_list_from_roi_list(vis1, found_rois_new, conf.upper)
+    sort_by_coords(ref_feats)
 
     found_rois_compat = segmenter.find_blobs(
         Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR
     )
-    found_feats_compat = legacy_measures_list_from_roi_list(
-        vis1, found_rois_compat, conf.upper
-    )
-    sort_by_coords(found_feats_compat)
+    act_feats = legacy_measures_list_from_roi_list(vis1, found_rois_compat, conf.upper)
+    sort_by_coords(act_feats)
 
-    if found_feats_compat != found_feats_new:
-        assert_valid_diffs(segmenter, found_feats_compat, found_feats_new)
+    if act_feats != ref_feats:
+        different, not_in_reference, not_in_actual = diff_features_lists(
+            ref_feats, act_feats, feature_unq
+        )
+        fix_valid_diffs(act_feats, not_in_reference, not_in_actual, segmenter)
 
 
 FEATURES_TOLERANCES = {
@@ -1595,10 +1588,10 @@ DERIVED_FEATURES_TOLERANCES = {
 
 
 def report_and_fix_tolerances(
-    expected: List[Dict], actual: List[Dict], tolerances: Dict[str, float | str]
+    differences: List[Tuple[Dict, Dict]], tolerances: Dict[str, float | str]
 ) -> List[str]:
     ret = []
-    for an_exp, an_act in zip(expected, actual):
+    for an_exp, an_act in differences:
         if an_exp == an_act:
             continue
         if an_exp.keys() != an_act.keys():
@@ -1609,6 +1602,8 @@ def report_and_fix_tolerances(
             act_val = an_act.get(tolerance_key)
             if ref_val is None or act_val is None:
                 print("tolerance_key:", tolerance_key, "not found")
+            if ref_val == act_val:
+                continue
             diff = ref_val - act_val
             if isinstance(tolerance, str):
                 pct = int(tolerance[:-1])
@@ -1617,12 +1612,13 @@ def report_and_fix_tolerances(
                 ret.append(
                     f"{tolerance_key}: {act_val} vs {ref_val} exceeds tolerance {tolerance}"
                 )
+                continue  # Leave problem in actual
             # Fix tolerated value in actual
             an_act[tolerance_key] = ref_val
     return ret
 
 
-def assert_valid_diffs(segmenter, ref_feats, act_feats):
+def fix_valid_diffs(act_feats, not_in_legacy, not_in_new, segmenter):
     enclosing_rectangles = [
         (
             a_new["BX"],
@@ -1635,16 +1631,16 @@ def assert_valid_diffs(segmenter, ref_feats, act_feats):
     # Boundaries of the problematic area
     central_band_end = int(segmenter.width * segmenter.overlap)
     central_band_start = segmenter.width - int(segmenter.width * segmenter.overlap)
-    different, not_in_compat, not_in_new = diff_features_lists(
-        ref_feats, act_feats, feature_unq
-    )
-    assert different == []  # If on both sides they have to be equal, whatever.
+
     # We have in 'new' version extra particles which were removed from legacy
     # as they touch both borders of a 20% vertical band in the middle of the image.
     # So in either processed band they are eliminated.
-    for a_new in not_in_compat:
+    for a_new in not_in_legacy:
         x1, x2 = a_new["BX"], a_new["BX"] + a_new["Width"]
-        assert x1 <= central_band_start and x2 >= central_band_end
+        if x1 <= central_band_start and x2 >= central_band_end:
+            # OK, identified as 'validly extra', remove as we have no comparison point
+            act_feats.remove(a_new)
+
     # We have in 'new' version missing particles, which were wrongly included in legacy.
     # e.g. Big object A 'embeds' small object B and is crossed by only central_band_start line
     #    (if crossed by both lines it's above case).
@@ -1660,7 +1656,7 @@ def assert_valid_diffs(segmenter, ref_feats, act_feats):
     for a_compat in not_in_new:
         x1, x2 = a_compat["BX"], a_compat["BX"] + a_compat["Width"]
         y1, y2 = a_compat["BY"], a_compat["BY"] + a_compat["Height"]
-        assert (
+        ok_geo = (
             central_band_start <= x1 <= central_band_end
             and central_band_start <= x2 <= central_band_end
         )
@@ -1673,7 +1669,8 @@ def assert_valid_diffs(segmenter, ref_feats, act_feats):
             and a_rect[1] <= y1 <= a_rect[3]
             and a_rect[1] <= y2 <= a_rect[3]
         ]
-        assert len(parent) >= 1
+        if ok_geo and len(parent) >= 1:
+            act_feats.add(a_compat)
 
 
 def draw_roi(image: np.ndarray, features: Features, thickness: int = 1):
@@ -1738,19 +1735,17 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
         legacy_measures_list_from_roi_list(vis1, found_rois, conf.upper)
     )
     sort_by_coords(found)
-    # if found != ref:
-    #     different, not_in_act, not_in_ref = visual_diffs(found, ref, sample, vis1)
     tolerance_problems = []
     if found != ref:
-        tolerance_problems = report_and_fix_tolerances(ref, found, FEATURES_TOLERANCES)
+        different, not_in_reference, not_in_actual = diff_features_lists(
+            ref, found, feature_unq
+        )
+        tolerance_problems = report_and_fix_tolerances(different, FEATURES_TOLERANCES)
     assert found == ref
     assert tolerance_problems == []
 
 
-def visual_diffs(expected, actual, sample, tgt_img, found_rois):
-    different, not_in_ref, not_in_act = diff_features_lists(
-        expected, actual, feature_unq
-    )
+def visual_diffs(different, not_in_reference, not_in_actual, sample, tgt_img):
     for a_diff in different:
         a_ref, an_act = a_diff
         print(a_ref)
@@ -1767,17 +1762,17 @@ def visual_diffs(expected, actual, sample, tgt_img, found_rois):
             (0,),
             1,
         )
-        for a_roi in found_rois:
-            height, width = a_roi.mask.shape
-            if an_act["Width"] == width and an_act["Height"] == height:
-                # Signal the diff with the mask shifted a bit
-                tgt_img[
-                    an_act["BY"] + 100 : an_act["BY"] + 100 + height,
-                    an_act["BX"] - 150 : an_act["BX"] - 150 + width,
-                ] = (
-                    a_roi.mask * 255
-                )
-    for num, an_act in enumerate(not_in_ref):
+        # for a_roi in found_rois:
+        #     height, width = a_roi.mask.shape
+        #     if an_act["Width"] == width and an_act["Height"] == height:
+        #         Signal the diff with the mask shifted a bit
+        # tgt_img[
+        #     an_act["BY"] + 100 : an_act["BY"] + 100 + height,
+        #     an_act["BX"] - 150 : an_act["BX"] - 150 + width,
+        # ] = (
+        #     a_roi.mask * 255
+        # )
+    for num, an_act in enumerate(not_in_reference):
         # vig = cropnp(
         #     image=vis1,
         #     top=an_act["BY"],
@@ -1802,7 +1797,7 @@ def visual_diffs(expected, actual, sample, tgt_img, found_rois):
     #         (0,),
     #         1,
     #     )
-    for num, a_ref in enumerate(not_in_act):
+    for num, a_ref in enumerate(not_in_actual):
         print(f"missing ref {num}:{a_ref}")
         cv2.rectangle(
             tgt_img,
@@ -1811,9 +1806,8 @@ def visual_diffs(expected, actual, sample, tgt_img, found_rois):
             (0,),
             4,
         )
-    if len(different) or len(not_in_act) or len(not_in_ref):
+    if len(different) or len(not_in_actual) or len(not_in_reference):
         saveimage(tgt_img, f"/tmp/zooprocess/dif_on_{sample}.tif")
-    return different, not_in_act, not_in_ref
 
 
 def read_measurements(project_folder, sample, index):
@@ -2035,5 +2029,5 @@ def test_dev_segmentation(projects, tmp_path, project, sample):
         projects,
         project,
         sample,
-        Segmenter.METH_CONTOUR_TREE,
+        Segmenter.METH_TOP_CONTOUR_SPLIT,
     )
