@@ -182,7 +182,6 @@ class Features(object):
     def feret(self) -> np.float64:
         """Maximum feret diameter, i.e., the longest distance between any two points along the object boundary"""
         feret_calc = Calculater(self.mask, True)
-        feret_calc.calculate_minferet()
         feret_calc.calculate_maxferet()
         return feret_calc.maxf
 

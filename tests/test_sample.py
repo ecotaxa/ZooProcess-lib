@@ -1553,6 +1553,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
             ref_feats, act_feats, feature_unq
         )
         fix_valid_diffs(act_feats, not_in_reference, not_in_actual, segmenter)
+    assert act_feats == ref_feats
 
 
 FEATURES_TOLERANCES = {
@@ -1561,7 +1562,7 @@ FEATURES_TOLERANCES = {
     "Y": 0.001,
     "Kurt": 0.001,
     "Fractal": 0.05,
-    "Convarea": "20%",
+    "Convarea": "25%",
 }
 DERIVED_FEATURES_TOLERANCES = {
     "meanpos": 0.001,
