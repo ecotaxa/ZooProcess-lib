@@ -9,7 +9,7 @@ from ZooProcess_lib.ROI import ecotaxa_tsv_unq
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Custom import fractal_mp, ij_perimeter
 from ZooProcess_lib.img_tools import loadimage
-from .test_sample import (
+from .data_tools import (
     to_legacy_rounding,
     FEATURES_TOLERANCES,
     report_and_fix_tolerances,

@@ -13,7 +13,7 @@ from ZooProcess_lib.segmenters.ConnectedComponents import (
     CC,
 )
 from .data_dir import SEGMENTER_DIR
-from .test_sample import sort_by_coords
+from .data_tools import sort_by_coords
 
 
 @pytest.mark.skip("interface changed")

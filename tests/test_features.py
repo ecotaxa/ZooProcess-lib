@@ -2,16 +2,16 @@ from ZooProcess_lib.Features import Features
 from ZooProcess_lib.ROI import feature_unq
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.img_tools import loadimage
-from .test_sample import (
+from .data_dir import FEATURES_DIR, SEGMENTER_DIR
+from .data_tools import (
     read_measures_from_file,
     to_legacy_format,
     sort_by_coords,
-    visual_diffs,
     diff_features_lists,
     report_and_fix_tolerances,
     FEATURES_TOLERANCES,
 )
-from .data_dir import FEATURES_DIR, SEGMENTER_DIR
+from .test_utils import visual_diffs
 
 
 def test_features_on_simplified_scan():

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import csv
 from pathlib import Path
 from typing import List, Dict, Type
@@ -105,3 +107,68 @@ def read_ecotaxa_tsv(
                     # print("TSV: ", a_line[k], to_add[k])
             ret.append(to_add)
     return ret
+
+
+def visual_diffs(different, not_in_reference, not_in_actual, sample, tgt_img):
+    for a_diff in different:
+        a_ref, an_act = a_diff
+        print(a_ref)
+        dict_diff = {
+            k: str(v) + " vs " + str(an_act[k])
+            for k, v in a_ref.items()
+            if an_act[k] != v
+        }
+        print("<->", an_act, " : ", dict_diff)
+        cv2.rectangle(
+            tgt_img,
+            (an_act["BX"], an_act["BY"]),
+            (an_act["BX"] + an_act["Width"], an_act["BY"] + an_act["Height"]),
+            (0,),
+            1,
+        )
+        # for a_roi in found_rois:
+        #     height, width = a_roi.mask.shape
+        #     if an_act["Width"] == width and an_act["Height"] == height:
+        #         Signal the diff with the mask shifted a bit
+        # tgt_img[
+        #     an_act["BY"] + 100 : an_act["BY"] + 100 + height,
+        #     an_act["BX"] - 150 : an_act["BX"] - 150 + width,
+        # ] = (
+        #     a_roi.mask * 255
+        # )
+    for num, an_act in enumerate(not_in_reference):
+        # vig = cropnp(
+        #     image=vis1,
+        #     top=an_act["BY"],
+        #     left=an_act["BX"],
+        #     bottom=an_act["BY"] + an_act["Height"],
+        #     right=an_act["BX"] + an_act["Width"],
+        # )
+        print(f"extra {num}:{an_act}")
+        # saveimage(vig, f"/tmp/zooprocess/diff_{num}.png")
+        cv2.rectangle(
+            tgt_img,
+            (an_act["BX"], an_act["BY"]),
+            (an_act["BX"] + an_act["Width"], an_act["BY"] + an_act["Height"]),
+            (0,),
+            1,
+        )
+    # for num, a_ref in enumerate(expected):
+    #     cv2.rectangle(
+    #         tgt_img,
+    #         (a_ref["BX"], a_ref["BY"]),
+    #         (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
+    #         (0,),
+    #         1,
+    #     )
+    for num, a_ref in enumerate(not_in_actual):
+        print(f"missing ref {num}:{a_ref}")
+        cv2.rectangle(
+            tgt_img,
+            (a_ref["BX"], a_ref["BY"]),
+            (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
+            (0,),
+            4,
+        )
+    if len(different) or len(not_in_actual) or len(not_in_reference):
+        saveimage(tgt_img, f"/tmp/zooprocess/dif_on_{sample}.tif")

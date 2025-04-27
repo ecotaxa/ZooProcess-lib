@@ -3,8 +3,6 @@
 # Pt d'entrée "masque de"
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Callable, Any
-
 import cv2
 import numpy as np
 import pytest
@@ -13,7 +11,6 @@ from ZooProcess_lib.Border import Border
 from ZooProcess_lib.Features import (
     Features,
     legacy_measures_list_from_roi_list,
-    TYPE_BY_LEGACY,
 )
 from ZooProcess_lib.ROI import feature_unq, ROI
 from ZooProcess_lib.Segmenter import Segmenter
@@ -21,10 +18,11 @@ from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
     load_zipped_image,
     loadimage,
-    saveimage,
 )
 from ZooProcess_lib.tools import measure_time
-from tests.test_utils import read_measures_csv
+from data_tools import FEATURES_TOLERANCES, report_and_fix_tolerances, diff_features_lists, read_measurements, \
+    to_legacy_format, sort_by_coords
+from test_utils import visual_diffs
 from .env_fixture import projects
 from .projects_for_test import (
     APERO2000,
@@ -199,69 +197,6 @@ def test_algo_diff(projects, tmp_path, project, sample):
     assert act_feats == ref_feats
 
 
-FEATURES_TOLERANCES = {
-    "%Area": 0.001,
-    "X": 0.001,
-    "Y": 0.001,
-    "Kurt": 0.001,
-    "Fractal": 0.05,
-    "Convarea": "25%",
-}
-DERIVED_FEATURES_TOLERANCES = {
-    "meanpos": 0.001,
-    "esd": 0.001,
-    # Below tolerances with rounding to int of the features used (perfectly imitates legacy)
-    # "cv": 0.001,
-    # "feretareaexc": 0.001,
-    # "perimareaexc": 0.001,
-    # "perimferet": 0.001,
-    # "perimmajor": 0.001,
-    # "elongation": 0.001,
-    # "sr": 0.001,
-    # "circex": 0.001,
-    # Below adjusted tolerances b/w the right values and legacy ones, just for the small test_ij_like_features to pass
-    "cv": 0.25,
-    "feretareaexc": 0.01,
-    "perimareaexc": 0.01,
-    "perimferet": 0.1,
-    "perimmajor": 0.1,
-    "elongation": 0.01,
-    "sr": 2,
-    "circex": 0.01,
-}
-
-
-def report_and_fix_tolerances(
-    differences: List[Tuple[Dict, Dict]], tolerances: Dict[str, float | str]
-) -> List[str]:
-    ret = []
-    for an_exp, an_act in differences:
-        if an_exp == an_act:
-            continue
-        if an_exp.keys() != an_act.keys():
-            ret.append(str((an_exp, an_act)))
-            continue
-        for tolerance_key, tolerance in tolerances.items():
-            ref_val = an_exp.get(tolerance_key)
-            act_val = an_act.get(tolerance_key)
-            if ref_val is None or act_val is None:
-                print("tolerance_key:", tolerance_key, "not found")
-            if ref_val == act_val:
-                continue
-            diff = ref_val - act_val
-            if isinstance(tolerance, str):
-                pct = int(tolerance[:-1])
-                tolerance = ref_val * pct / 100.0
-            if abs(diff) > tolerance * 1.0001:  # bloody floats
-                ret.append(
-                    f"{tolerance_key}: {act_val} vs {ref_val} exceeds tolerance {tolerance}"
-                )
-                continue  # Leave problem in actual
-            # Fix tolerated value in actual
-            an_act[tolerance_key] = ref_val
-    return ret
-
-
 def fix_valid_diffs(act_feats, not_in_legacy, not_in_new, segmenter):
     actual_was_modified = False
     enclosing_rectangles = [
@@ -345,10 +280,6 @@ def draw_roi_mask(image: np.ndarray, roi: ROI):
     )
 
 
-def sort_by_coords(features: List[Dict]):
-    features.sort(key=feature_unq)
-
-
 @pytest.mark.parametrize(
     "segmentation_method",
     [
@@ -392,145 +323,6 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     assert found == ref
     assert tolerance_problems == []
 
-
-def visual_diffs(different, not_in_reference, not_in_actual, sample, tgt_img):
-    for a_diff in different:
-        a_ref, an_act = a_diff
-        print(a_ref)
-        dict_diff = {
-            k: str(v) + " vs " + str(an_act[k])
-            for k, v in a_ref.items()
-            if an_act[k] != v
-        }
-        print("<->", an_act, " : ", dict_diff)
-        cv2.rectangle(
-            tgt_img,
-            (an_act["BX"], an_act["BY"]),
-            (an_act["BX"] + an_act["Width"], an_act["BY"] + an_act["Height"]),
-            (0,),
-            1,
-        )
-        # for a_roi in found_rois:
-        #     height, width = a_roi.mask.shape
-        #     if an_act["Width"] == width and an_act["Height"] == height:
-        #         Signal the diff with the mask shifted a bit
-        # tgt_img[
-        #     an_act["BY"] + 100 : an_act["BY"] + 100 + height,
-        #     an_act["BX"] - 150 : an_act["BX"] - 150 + width,
-        # ] = (
-        #     a_roi.mask * 255
-        # )
-    for num, an_act in enumerate(not_in_reference):
-        # vig = cropnp(
-        #     image=vis1,
-        #     top=an_act["BY"],
-        #     left=an_act["BX"],
-        #     bottom=an_act["BY"] + an_act["Height"],
-        #     right=an_act["BX"] + an_act["Width"],
-        # )
-        print(f"extra {num}:{an_act}")
-        # saveimage(vig, f"/tmp/zooprocess/diff_{num}.png")
-        cv2.rectangle(
-            tgt_img,
-            (an_act["BX"], an_act["BY"]),
-            (an_act["BX"] + an_act["Width"], an_act["BY"] + an_act["Height"]),
-            (0,),
-            1,
-        )
-    # for num, a_ref in enumerate(expected):
-    #     cv2.rectangle(
-    #         tgt_img,
-    #         (a_ref["BX"], a_ref["BY"]),
-    #         (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
-    #         (0,),
-    #         1,
-    #     )
-    for num, a_ref in enumerate(not_in_actual):
-        print(f"missing ref {num}:{a_ref}")
-        cv2.rectangle(
-            tgt_img,
-            (a_ref["BX"], a_ref["BY"]),
-            (a_ref["BX"] + a_ref["Width"], a_ref["BY"] + a_ref["Height"]),
-            (0,),
-            4,
-        )
-    if len(different) or len(not_in_actual) or len(not_in_reference):
-        saveimage(tgt_img, f"/tmp/zooprocess/dif_on_{sample}.tif")
-
-
-def read_measurements(project_folder, sample, index):
-    work_files = project_folder.zooscan_scan.work.get_files(sample, index)
-    measures = work_files["meas"]
-    ref = read_measures_from_file(measures)
-    return ref
-
-
-def to_legacy_format(features_list):
-    rounded_to_3 = set(
-        [
-            a_feat
-            for a_feat, a_type in TYPE_BY_LEGACY.items()
-            if a_type in (float, np.float64)
-        ]
-    )
-    for a_features in features_list:
-        for a_round in rounded_to_3:
-            if a_round in a_features:
-                # IJ.java method d2s
-                to_round = a_features[a_round]
-                replacement = ij_round(to_round)
-                a_features[a_round] = float(replacement)
-    return features_list
-
-
-def ij_round(to_round):
-    if abs(to_round) < 1e-3:
-        rounded = round(to_round, 7)
-        if "e" in str(rounded):
-            rounded = f"{to_round:.3E}"
-    else:
-        rounded = round(to_round, 3)
-    return rounded
-
-
-def to_legacy_rounding(features_list: List[Dict], roundings: Dict[str, int]):
-    for a_feature_set in features_list:
-        for k, v in a_feature_set.items():
-            rounding = roundings.get(k)
-            if rounding is not None:
-                a_feature_set[k] = round(a_feature_set[k], rounding)
-            else:
-                a_feature_set[k] = round(a_feature_set[k], 10)
-    return features_list
-
-def read_measures_from_file(measures):
-    ref = read_measures_csv(measures, TYPE_BY_LEGACY)
-    # This filter is _after_ measurements in Legacy
-    ref = [
-        a_ref
-        for a_ref in ref
-        if a_ref["Width"] / a_ref["Height"] < Segmenter.max_w_to_h_ratio
-    ]
-    sort_by_coords(ref)
-    return ref
-
-
-def diff_features_lists(
-    ref: List[Dict], act: List[Dict], key_func: Callable[[Dict], Any]
-) -> Tuple[List[Tuple[Dict, Dict]], List[Dict], List[Dict]]:
-    different = []
-    not_in_act = []
-    refs_by_key = {key_func(a_ref): a_ref for a_ref in ref}
-    acts_by_key = {key_func(an_act): an_act for an_act in act}
-    for ref_key, a_ref in refs_by_key.items():
-        in_act = acts_by_key.get(ref_key)
-        if in_act is None:
-            not_in_act.append(a_ref)
-        else:
-            if in_act != a_ref:
-                different.append((a_ref, in_act))
-            acts_by_key.pop(ref_key)
-    return different, list(acts_by_key.values()), not_in_act
 
 
 def test_dev_linear_response_time(projects, tmp_path):
