@@ -31,7 +31,7 @@ def read_home():
 def _loadenv() -> None:
     """ Import all env files in present directory into process environment"""
     for an_env in glob(f"*.env", root_dir=HERE):
-        path = Path(an_env)
+        path = Path(HERE, an_env)
         with open(path, "r") as f:
             lines = f.readlines()
             for a_line in lines:
