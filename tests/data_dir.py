@@ -34,7 +34,7 @@ for file, url in big_files:
     file_ok = True
     try:
         big_file_stat = os.stat(big_proj_file)
-        file_ok = big_file_stat.st_size > 0
+        file_ok = big_file_stat.st_size > 1
     except FileNotFoundError:
         file_ok = False
     if not file_ok:
