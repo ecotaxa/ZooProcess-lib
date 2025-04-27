@@ -16,8 +16,7 @@ from .test_sample import (
     DERIVED_FEATURES_TOLERANCES,
     diff_features_lists,
 )
-from .test_segmenter import FEATURES_DIR
-from .test_segmenter import MEASURES_DIR
+from .data_dir import MEASURES_DIR, FEATURES_DIR
 from .test_utils import read_ecotaxa_tsv
 
 
@@ -26,7 +25,7 @@ from .test_utils import read_ecotaxa_tsv
 )
 def test_ij_like_EDM():
     """EDM aka EDT found elsewhere is not the same as the one computed in IJ"""
-    img = loadimage(FEATURES_DIR / "mask_holes_2855_223.png")
+    img = loadimage(MEASURES_DIR / "mask_holes_2855_223.png")
     img = 1 - (img.astype(np.uint8) // 255)
     meas, areas = fractal_mp(img)
     from_ij = [
@@ -63,7 +62,7 @@ def test_ij_like_EDM():
 
 def test_ij_like_perimeter():
     """Verify a perimeter to match the expected one from legacy pp"""
-    img = loadimage(FEATURES_DIR / "mask_holes_2855_223.png")
+    img = loadimage(MEASURES_DIR / "mask_holes_2855_223.png")
     img_conv = 1 - img // 255
     perim = ij_perimeter(img_conv)
     assert round(perim, 3) == 359.772
@@ -104,7 +103,7 @@ ECOTAXA_TSV_ROUNDINGS.update
     ],
 )
 def test_ij_like_features(img: str):
-    image = loadimage(FEATURES_DIR / f"crop_{img}.png")
+    image = loadimage(MEASURES_DIR / f"crop_{img}.png")
     # Add a white border, otherwise the particle touches all borders and is eliminated
     image = cv2.copyMakeBorder(image, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=(255,))
     THRESHOLD = 243
@@ -112,7 +111,7 @@ def test_ij_like_features(img: str):
     rois = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
     assert len(rois) == 1
     feat = Features(image=image, roi=rois[0], threshold=THRESHOLD)
-    exp = read_ecotaxa_tsv(MEASURES_DIR / f"ecotaxa_{img}.tsv", TYPE_BY_ECOTAXA)
+    exp = read_ecotaxa_tsv(FEATURES_DIR / f"ecotaxa_{img}.tsv", TYPE_BY_ECOTAXA)
     act = [feat.as_ecotaxa()]
     to_legacy_rounding(act, ECOTAXA_TSV_ROUNDINGS)
     for k in (

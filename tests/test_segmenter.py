@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Dict, Tuple
 
 import cv2
@@ -7,21 +6,14 @@ import pytest
 
 from ZooProcess_lib.Features import legacy_measures_list_from_roi_list
 from ZooProcess_lib.ROI import feature_unq
+from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.img_tools import loadimage
 from ZooProcess_lib.segmenters.ConnectedComponents import (
     ConnectedComponentsSegmenter,
     CC,
 )
-from .test_sample import sort_by_coords, fix_valid_diffs, diff_features_lists
-
-HERE = Path(__file__).parent
-DATA_DIR = HERE / "data"
-IMAGES_DIR = DATA_DIR / "images"
-SEGMENTER_DIR = IMAGES_DIR / "segmenter"
-FEATURES_DIR = IMAGES_DIR / "measures"  # TODO: swap!
-MEASURES_DIR = DATA_DIR / "features"
-
-from ZooProcess_lib.Segmenter import Segmenter
+from .data_dir import SEGMENTER_DIR
+from .test_sample import sort_by_coords
 
 
 @pytest.mark.skip("interface changed")

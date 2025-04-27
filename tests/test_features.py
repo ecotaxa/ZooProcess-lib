@@ -11,14 +11,13 @@ from .test_sample import (
     report_and_fix_tolerances,
     FEATURES_TOLERANCES,
 )
-from .test_segmenter import MEASURES_DIR
-from .test_segmenter import SEGMENTER_DIR
+from .data_dir import FEATURES_DIR, SEGMENTER_DIR
 
 
 def test_features_on_simplified_scan():
     image_path = SEGMENTER_DIR / "apero2023_tha_bioness_013_st46_d_n8_d3_1_vis1.png"
     image = loadimage(image_path)
-    features_file = MEASURES_DIR / "apero2023_tha_bioness_013_st46_d_n8_d3_1_meas.txt"
+    features_file = FEATURES_DIR / "apero2023_tha_bioness_013_st46_d_n8_d3_1_meas.txt"
     THRESHOLD = 243
     segmenter = Segmenter(image, 0.3, 100, THRESHOLD)
     roi_list = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
