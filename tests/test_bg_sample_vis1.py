@@ -1,0 +1,70 @@
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+from ZooProcess_lib.Background import Background
+from ZooProcess_lib.img_tools import loadimage, load_zipped_image
+from data_dir import BACKGROUND_DIR, SAMPLE_DIR, WORK_DIR
+from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
+
+
+def test_background_plus_sample_to_vis1(tmp_path):
+    """Ensure we can mimic sample - background -> work vis1 equivalent"""
+    # Read 8bit sample scan
+    eight_bit_sample_file = SAMPLE_DIR / "apero2023_tha_bioness_017_st66_d_n1_d3_1.tif"
+    assert eight_bit_sample_file.exists()
+    eight_bit_sample_image = loadimage(eight_bit_sample_file, type=cv2.IMREAD_UNCHANGED)
+    assert eight_bit_sample_image.dtype == np.uint8
+
+    # Read 8bit combined background scan
+    last_background_file = BACKGROUND_DIR / "20240529_0946_background_large_manual.tif"
+    last_background_image = loadimage(last_background_file, type=cv2.IMREAD_UNCHANGED)
+    assert last_background_image.dtype == np.uint8
+
+    background = Background(last_background_image, resolution=300)
+
+    sample_minus_background_image = background.removed_from(
+        sample_image=eight_bit_sample_image,
+        processing_method="",
+        sample_image_resolution=2400,
+    )
+
+    # Compare with stored reference (vis1.zip)
+    expected_final_image = load_zipped_image(
+        WORK_DIR / "apero2023_tha_bioness_017_st66_d_n1_d3_1_vis1.zip"
+    )
+    assert sample_minus_background_image.shape == expected_final_image.shape
+
+    # Add separator mask, it is present in test data
+    sep_image = loadimage(
+        WORK_DIR / "apero2023_tha_bioness_017_st66_d_n1_d3_1_sep.gif",
+        type=cv2.COLOR_BGR2GRAY,
+    )
+    assert sep_image.dtype == np.uint8
+    assert sep_image.shape == sample_minus_background_image.shape
+    # TODO if useful in V10: extract all this, checks on the mask, etc, etc.
+    sample_minus_background_image_plus_sep = (
+        sample_minus_background_image.astype(np.uint16) + sep_image
+    )
+    sample_minus_background_image = np.clip(
+        sample_minus_background_image_plus_sep, 0, 255
+    ).astype(np.uint8)
+
+    if not np.array_equal(expected_final_image, sample_minus_background_image):
+        save_diff_image(
+            expected_final_image,
+            sample_minus_background_image,
+            Path("/tmp/zooprocess/diff.jpg"),
+        )
+        nb_real_errors = diff_actual_with_ref_and_source(
+            expected_final_image,
+            sample_minus_background_image,
+            sample_minus_background_image,
+            tolerance=0,  # In case there is some debug to do, of course with 0 it's strict equality
+        )
+        if nb_real_errors > 0:
+            assert False
+        # assert np.array_equal(sample_minus_background_image[0], expected_final_image[0])
+
+    assert expected_final_image.shape == sample_minus_background_image.shape
