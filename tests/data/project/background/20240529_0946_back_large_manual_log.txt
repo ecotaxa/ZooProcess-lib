@@ -1,0 +1,81 @@
+------------------------------------------------------------------------------------------
+Vuescan_Config_File =  vuescan_zooscan_2400dpi_frame2_large.ini
+------------------------------------------------------------------------------------------
+[VueScan]
+[Input]
+Source=PerfectionV700
+Options=2
+DefaultFolder=Y:\\Zooscan_apero_tha_bioness_sn033\\Zooscan_back
+TIFFFileName=20240529_0946_back_large_1+.tif
+RawFileName=20240529_0946_back_large_raw_1+.tif
+[Input-PerfectionV700-Flatbed]
+Media=1
+BitsPerPixel=3
+MakeGrayFrom=2
+PreviewResolution=8
+ScanResolution=4
+Rotation=3
+Mirror=1
+FileType=2
+[Crop-PerfectionV700-Flatbed]
+CropSize=0
+XSize=30000
+YSize=50000
+AutoOffset=0
+PreviewArea=0
+PreviewXSize=30000
+PreviewYSize=50000
+PreviewXOffset=5247
+PreviewYOffset=4016
+[Color-PerfectionV700-Flatbed]
+ColorBalance=0
+[Output]
+JPEGFile=0
+TIFFFileName=20240529_0946_back_large_1+.tif
+FileType=2
+DefaultFolder=Y:\\Zooscan_apero_tha_bioness_sn033\\Zooscan_back
+RawFileName=20240529_0946_back_large_raw_1+.tif
+RawFileType=2
+RawCompression=0
+RawSizeReduction=4
+[Output-PerfectionV700-Flatbed]
+RawFile=1
+PDFFile=0
+TIFFile=1
+FileType=2
+Copyright=Zooscan_CNRS_2016_backgrounds
+LogFile=0
+Options=2
+[Prefs-PerfectionV700-Flatbed]
+CropUnits=0
+PrintedUnits=0
+[Prefs]
+GraphType=2
+ExternalEditor=0
+WindowXOffset=10
+WindowYOffset=10
+WindowXSize=1861
+WindowYSize=1380
+GuidedMode=0
+XOffset=5247
+YOffset=4016
+Options=1
+FontSize=7
+VueScanUpdatePrompt=9.8.33
+ 
+[LUT]
+Color_Balance=  manual
+Averaged_Min=  735.5
+Averaged_Max=  61401
+Gamma=  1
+Order=  before
+Grey_mode_auto=  no
+OD_range=  1.8
+Ratio=  1.15
+Frame= 0   Median= 54810.4
+Frame= 1   Median= 51975.6
+16bits_Averaged_MEDIAN=  53393
+8bits_Averaged_MEDIAN=  222
+8bits_Averaged_StdDev=  17.2817
+Median_filter= no
+Background= initialprocess

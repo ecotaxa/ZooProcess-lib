@@ -13,7 +13,7 @@ CV2_VERTICAL_FLIP_CODE = 0
 CV2_NO_TIFF_COMPRESSION = 1
 
 
-def Zooscan_combine_backgrounds(from_files: List[Path], to_file: Path, lut: Lut):
+def Zooscan_combine_backgrounds(from_files: List[Path], to_file: Path):
     """Process is e.g.:
     IN:
     20250204_1003_back_large_raw_2.tif
