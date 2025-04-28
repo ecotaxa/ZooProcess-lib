@@ -1,12 +1,13 @@
 
 import unittest
-import pytest
-
 from pathlib import Path
 
-from ZooProcess_lib.zooprocess2 import zooprocessv10,  Analyze_sample
-from ZooProcess_lib.ZooscanProject import ZooscanProject
+import pytest
+
 from ZooProcess_lib.img_tools import mkdir
+from ZooProcess_lib.zooprocess2 import zooprocessv10, Analyze_sample
+
+
 class test_zooprocess2(unittest.TestCase):
 
     @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")  

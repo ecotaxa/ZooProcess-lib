@@ -12,8 +12,8 @@ from ZooProcess_lib.img_tools import (
     loadimage, saveimage,
     rotate90c, getPath,
 )
-from tests.env_fixture import projects
-from tests.projects_for_test import APERO2000
+from .env_fixture import projects
+from .projects_for_test import APERO2000
 
 
 @pytest.fixture(scope="module")

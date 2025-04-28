@@ -112,14 +112,16 @@ def bilinear_resize(image: np.ndarray, new_width: int, new_height: int) -> np.nd
     return ret
 
 
-def _bilinear_using_skimage(image, new_height, new_width):
+def _bilinear_using_skimage(image, new_height, new_width): # pragma: no cover
+    """ Unused test implementation """
     from skimage.transform import resize_local_mean
 
     ret = resize_local_mean(image, (new_height, new_width), grid_mode=False) * 256
     return ret
 
 
-def _bilinear_using_pil(image, new_height, new_width):
+def _bilinear_using_pil(image, new_height, new_width):  # pragma: no cover
+    """ Unused test implementation """
     from PIL import Image
     from PIL.Image import Resampling
 
@@ -131,7 +133,8 @@ def _bilinear_using_pil(image, new_height, new_width):
 
 def _bilinear_resize_using_opencv_warpaffine(
     image: np.ndarray, new_width: int, new_height: int
-):
+):  # pragma: no cover
+    """ Unused test implementation """
     height, width = image.shape[:2]
     scale_x = new_height / height
     scale_y = new_width / width
@@ -241,11 +244,14 @@ class ImageJLikeResizer(object):
         right_row = src_row[1:].take(self.x_bases).astype(np.int16)
         return left_row, right_row
 
-    def _ij_get_interpolated_pixel(self, x: float, y: float) -> np.float64:
+    def _ij_get_interpolated_pixel(
+        self, x: float, y: float
+    ) -> np.float64:  # pragma: no cover
         """
         Interpolates pixel value at given coordinates using bilinear interpolation.
             :param x: x-coordinate (float).
             :param y: y-coordinate (float).
+        Unused reference implementation
         """
         xbase = int(x)
         ybase = int(y)

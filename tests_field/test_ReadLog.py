@@ -2,8 +2,8 @@ from pathlib import Path
 
 from ZooProcess_lib.ReadLog import LogReader
 from ZooProcess_lib.ZooscanProject import ArchivedZooscanProject
-from tests.env_fixture import projects
-from tests.projects_for_test import ROND_CARRE
+from .env_fixture import projects
+from .projects_for_test import ROND_CARRE
 
 
 def test_readfile(projects):

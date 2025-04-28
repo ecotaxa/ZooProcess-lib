@@ -1,11 +1,11 @@
 import unittest
-import pytest
-
 from pathlib import Path
 
-from ZooProcess_lib.zooprocess2 import zooprocessv10
-from ZooProcess_lib.ZooscanProject import ZooscanProject, buildZooscanProject
+import pytest
+
+from ZooProcess_lib.ZooscanProject import buildZooscanProject
 from ZooProcess_lib.img_tools import mkdir
+from ZooProcess_lib.zooprocess2 import zooprocessv10
 
 
 class test_zooprocess_from_piqv(unittest.TestCase):

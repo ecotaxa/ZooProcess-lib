@@ -18,8 +18,8 @@ from ZooProcess_lib.img_tools import (
 )
 from ZooProcess_lib.tools import is_file_exist
 from ZooProcess_lib.zooprocess import ZooProcess
-from env_fixture import projects
-from tests.projects_for_test import APERO2000
+from .env_fixture import projects
+from .projects_for_test import APERO2000
 
 debug = False
 

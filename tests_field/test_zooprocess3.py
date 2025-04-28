@@ -6,8 +6,8 @@ import pytest
 from ZooProcess_lib.ZooscanProject import ZooscanProject
 from ZooProcess_lib.img_tools import mkdir
 from ZooProcess_lib.zooprocess3 import zooprocessv10, Analyze_sample
-from env_fixture import projects
-from projects_for_test import ROND_CARRE
+from .env_fixture import projects
+from .projects_for_test import ROND_CARRE
 
 
 class test_zooprocess2(unittest.TestCase):

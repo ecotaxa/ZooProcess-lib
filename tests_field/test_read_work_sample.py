@@ -2,8 +2,8 @@ import numpy as np
 
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import load_zipped_image
-from tests.env_fixture import projects
-from tests.projects_for_test import APERO2000
+from env_fixture import projects
+from projects_for_test import APERO2000
 
 
 def test_read_sample_in_work(projects, tmp_path):
