@@ -24,8 +24,8 @@ from ZooProcess_lib.img_tools import (
 )
 from ZooProcess_lib.median import picheral_median
 from ZooProcess_lib.to8bit import convertion
-from tests.env_fixture import projects
-from tests.projects_for_test import APERO, APERO2000
+from .env_fixture import projects
+from .projects_for_test import APERO, APERO2000
 
 
 @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")

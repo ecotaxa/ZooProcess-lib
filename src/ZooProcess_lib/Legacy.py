@@ -30,7 +30,7 @@ def averaged_median_mean(image: np.ndarray) -> Tuple[float, float]:
         By = int(By)
         W = int(W)
         step = int(step)
-        img = crophw(image, By, BX, step, W)
+        img = crophw(image, BX, By, W, step)
 
         median = np.median(img, axis=None)
         mediansum = mediansum + median

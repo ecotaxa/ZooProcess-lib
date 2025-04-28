@@ -5,6 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Union, Dict, TypedDict, Optional, Generator
 
+from ZooProcess_lib.Lut import Lut
+
 
 class ZooscanFolder:
     def __init__(self, home: Path, project: str) -> None:
@@ -101,6 +103,9 @@ class Zooscan_config_Folder:
                 args.append(value)
             return ZooscanConfig(*args)
 
+    def read_lut(self) -> Lut:
+        config_file = self.path / "lut.txt"
+        return Lut.read(config_file)
 
 class Zooscan_scan_Folder:
     _zooscan_path = "Zooscan_scan"
@@ -199,6 +204,23 @@ class Zooscan_back_Folder:
         not_after = list(filter(lambda d: d[0] < max_date, sorted_dates))
         last_date, last_date_str = not_after[-1]
         return self.content[last_date_str]["final_background"]
+
+    def get_raw_background_file(self, scan_date: str, index: int = None) -> Path:
+        """Return conventional file path for scanned background image"""
+        assert scan_date in self.get_dates()
+        index_str = ""
+        if index:
+            index_str = "_" + str(index)
+        return Path(self.path, scan_date + "_back_large_raw" + index_str + ".tif")
+
+    def get_processed_background_file(self, scan_date: str, index: int = None) -> Path:
+        """Return conventional file path for scanned background image"""
+        assert scan_date in self.get_dates()
+        index_str = ""
+        if index:
+            index_str = "_" + str(index)
+        return Path(self.path, scan_date + "_back_large" + index_str + ".tif")
+
 
 
 class Zooscan_scan_work_Folder:
