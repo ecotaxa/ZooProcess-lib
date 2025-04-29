@@ -117,7 +117,6 @@ class ExternalContoursSegmenter:
             if a_rect.touching(height, width):
                 filtering_stats[1] += 1
                 continue
-
             # Even if contour was around a filled rectangle it would not meet min criterion
             # -> don't bother drawing the contour, which is expensive
             if a_rect.area < s_p_min:

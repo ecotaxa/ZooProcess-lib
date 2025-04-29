@@ -21,6 +21,7 @@ class Extractor(object):
         self,
         image: np.ndarray,
         resolution: int,
+        threshold: int,
         longline_mm: float,
         rois: List[ROI],
         destination_dir: Path,
@@ -29,6 +30,7 @@ class Extractor(object):
         assert destination_dir.exists()
         self.image = image
         self.resolution = resolution
+        self.threshold = threshold
         self.longline_mm = longline_mm
         self.longline = longline_mm * resolution / 25.4
         self.rois = rois
@@ -105,4 +107,6 @@ class Extractor(object):
         )
         # Whiten background -> push to 255 as min is black
         thumbnail = np.bitwise_or(crop, 255 - a_roi.mask * 255)
+        # Whiten holes
+        thumbnail[thumbnail > self.threshold] = 255
         return thumbnail

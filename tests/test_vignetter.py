@@ -18,7 +18,6 @@ from ZooProcess_lib.img_tools import (
     loadimage,
     add_separated_mask,
 )
-from test_utils import diff_actual_with_ref_and_source
 from .data_dir import BACK_TIME, BACKGROUND_DIR, CONFIG_DIR, RAW_DIR, WORK_DIR
 
 
@@ -79,6 +78,7 @@ def test_thumbnail_generator(tmp_path):
     extractor = Extractor(
         sample_scan,
         sample_info.resolution,
+        conf.upper,
         conf.longline_mm,
         rois,
         thumbs_dir,
