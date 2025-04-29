@@ -17,12 +17,12 @@ from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
     load_zipped_image,
-    loadimage,
+    load_tiff_image_and_info,
 )
 from ZooProcess_lib.tools import measure_time
-from data_tools import FEATURES_TOLERANCES, report_and_fix_tolerances, diff_features_lists, read_measurements, \
+from tests.data_tools import FEATURES_TOLERANCES, report_and_fix_tolerances, diff_features_lists, read_measurements, \
     to_legacy_format, sort_by_coords
-from test_utils import visual_diffs
+from tests.test_utils import visual_diffs, read_measures_csv
 from .env_fixture import projects
 from .projects_for_test import (
     APERO2000,
@@ -40,8 +40,8 @@ def test_8bit_sample_border(projects, tmp_path):
     index = 1
     src_8bit_sample_file = folder.zooscan_scan.get_8bit_file(sample, index)
     assert src_8bit_sample_file.exists()
-    src_image = loadimage(src_8bit_sample_file, type=cv2.IMREAD_UNCHANGED)
-    border = Border(src_image, resolution=2400)
+    src_info, src_image = load_tiff_image_and_info(src_8bit_sample_file)
+    border = Border(src_image, resolution=src_info.resolution)
     (top, bottom, left, right) = border.detect()
     # ImageJ debug on same image, macro Zooscan_1asep.txt
     Right_limit = 24520
@@ -63,8 +63,9 @@ def load_final_ref_image(folder, sample, index):
     work_files_in_sample = folder.zooscan_scan.work.get_files(sample, index)
     zipped_combined = work_files_in_sample.get("combz")
     assert zipped_combined.exists()
-    reference_image = load_zipped_image(zipped_combined)
-    return reference_image
+    ref_info, reference_image = load_zipped_image(zipped_combined)
+    # Note: the resolution is absent from the zipped TIFF
+    return ref_info, reference_image
 
 
 @pytest.mark.parametrize(
@@ -84,16 +85,16 @@ def test_segmentation(projects, tmp_path, project, sample):
 def assert_segmentation(projects, project, sample, method):
     folder = ZooscanFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
-    vis1 = load_final_ref_image(folder, sample, index)
+    info_vis1, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
     ref_feats = read_measurements(folder, sample, index)
-    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
+    segmenter = Segmenter(vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
     found_rois = segmenter.find_blobs(method)
     # found_rois = list(filter(lambda r: r.mask.shape == (45, 50), found_rois))
     segmenter.split_by_blobs(found_rois)
 
     act_feats = to_legacy_format(
-        legacy_measures_list_from_roi_list(vis1, found_rois, conf.upper)
+        legacy_measures_list_from_roi_list(vis1,conf.resolution, found_rois, conf.upper)
     )
     sort_by_coords(act_feats)
     tolerance_problems = []
@@ -125,9 +126,9 @@ def assert_linear_response_time(projects, tmp_path, test_set, method):
     for num_test, (project, sample) in enumerate(test_set):
         folder = ZooscanFolder(projects, project)
         index = 1  # TODO: should come from get_names() below
-        vis1 = load_final_ref_image(folder, sample, index)
+        _, vis1 = load_final_ref_image(folder, sample, index)
         conf = folder.zooscan_config.read()
-        segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
+        segmenter = Segmenter(vis1, 2400, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
         spent, found_rois = measure_time(segmenter.find_blobs, method)
         # Minimal & fast
         assert found_rois != []
@@ -174,10 +175,10 @@ def test_algo_diff(projects, tmp_path, project, sample):
     """
     folder = ZooscanFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
-    vis1 = load_final_ref_image(folder, sample, index)
+    _, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
 
-    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
+    segmenter = Segmenter(vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
 
     found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
     ref_feats = legacy_measures_list_from_roi_list(vis1, found_rois_new, conf.upper)
@@ -297,10 +298,10 @@ def draw_roi_mask(image: np.ndarray, roi: ROI):
 def test_nothing_found(projects, tmp_path, project, sample, segmentation_method):
     folder = ZooscanFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
-    vis1 = load_final_ref_image(folder, sample, index)
+    _, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
     ref = read_measurements(folder, sample, index)
-    segmenter = Segmenter(vis1, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
+    segmenter = Segmenter(vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
     # found_rois = segmenter.find_blobs(
     #     Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
     # )

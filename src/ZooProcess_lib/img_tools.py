@@ -5,16 +5,16 @@ from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, Callable, Union
 from zipfile import ZipFile
 
-import PIL
 import cv2
 import numpy as np
 from PIL import Image
 from PIL.ExifTags import Base, TAGS
+from PIL.ImageFile import ImageFile
 
 from .Lut import Lut
 from .tools import timeit
 
-PIL.Image.MAX_IMAGE_PIXELS = 375000000
+Image.MAX_IMAGE_PIXELS = 375000000
 
 debug = True  # False
 
@@ -154,13 +154,11 @@ def saveimage(
         print(f"Saving {new_filename}")
 
     if dpi:
-        from PIL import Image
-
         pil_image = Image.fromarray(image)
         if debug:
             print(f"** Save file ** (pil) {new_filename}")
         # TODO: Fails silently?
-        pil_image.save(new_filename, dpi=dpi)
+        pil_image.save(new_filename, dpi=dpi, compression="tiff_lzw")
     else:
         path_as_str = Path(new_filename).absolute().as_posix()
         if debug:
@@ -195,7 +193,7 @@ def loadimage(
     print(f"Loading {new_filename}")
     if new_filename.name.endswith(".gif"):
         # patent issue? opencv cannot read GIF
-        pil_image = PIL.Image.open(new_filename)
+        pil_image = Image.open(new_filename)
         image = np.array(pil_image)
     else:
         image = cv2.imread(new_filename, type)
@@ -204,17 +202,6 @@ def loadimage(
     if image is None:  # TODO: wrong diag if format issue or any
         raise Exception(f"file: {filename} doesn't exist\nat path {new_filename}")
     return image
-
-
-def load_zipped_image(file_path: Path) -> np.ndarray:
-    assert file_path.name.lower().endswith(".zip")
-    print(f"Loading {file_path}")
-    with ZipFile(file_path, "r") as img_zip:
-        inside = img_zip.filelist
-        assert len(inside) == 1
-        the_file = inside[0]
-        file_content = np.frombuffer(img_zip.read(the_file), np.uint8)
-        return cv2.imdecode(file_content, flags=cv2.IMREAD_UNCHANGED)
 
 
 # Is not needed in python 3.13, https://github.com/python/cpython/issues/111835
@@ -399,7 +386,7 @@ def crop(
 
 
 def crop_right(image: np.ndarray, right: Union[float, int]) -> np.ndarray:
-    cropped_image = image[0:, 0 : int(right)]
+    cropped_image = image[0:, 0: int(right)]
     return cropped_image
 
 
@@ -408,9 +395,9 @@ def clear_outside(
 ) -> None:
     """In-place modify the input image so that any pixel outside the input rectangle in set to 255 AKA white."""
     image[0:top, :] = 255
-    image[top + height :, :] = 255
-    image[top : top + height :, 0:right] = 255
-    image[top : top + height :, right + width :] = 255
+    image[top + height:, :] = 255
+    image[top: top + height:, 0:right] = 255
+    image[top: top + height:, right + width:] = 255
 
 
 def draw_outside_lines(
@@ -444,7 +431,7 @@ def draw_outside_lines(
 def cropped_if_larger(image: np.ndarray, right: int, bottom: int) -> np.ndarray:
     img_bottom, img_right = image.shape
     if img_bottom > bottom or img_right > right:
-        return image[0 : min(bottom, img_bottom), 0 : min(right, img_right)]
+        return image[0: min(bottom, img_bottom), 0: min(right, img_right)]
     return image
 
 
@@ -866,14 +853,18 @@ class ImageInfo(Dict[str, Any]):
         return self["Image Size"][1]
 
     @property
+    def resolutions(self) -> Tuple[int, int]:
+        dpi_vert, dpi_horiz = self["dpi"]
+        return int(dpi_vert), int(dpi_horiz)
+
+    @property
     def resolution(self) -> int:
         dpi_vert, dpi_horiz = self["dpi"]
         assert dpi_vert == dpi_horiz
         return int(dpi_vert)
 
 
-def image_info(image_path: Path) -> ImageInfo:
-    image = Image.open(image_path)
+def image_info(image: ImageFile) -> ImageInfo:
     info_dict = {
         "Filename": image.filename,
         "Image Size": image.size,
@@ -937,9 +928,9 @@ def map_uint16_to_uint8(img, lower_bound=None, upper_bound=None):
     -------
     numpy.ndarray[uint8]
     """
-    if not (0 <= lower_bound < 2**16) and lower_bound is not None:
+    if not (0 <= lower_bound < 2 ** 16) and lower_bound is not None:
         raise ValueError('"lower_bound" must be in the range [0, 65535]')
-    if not (0 <= upper_bound < 2**16) and upper_bound is not None:
+    if not (0 <= upper_bound < 2 ** 16) and upper_bound is not None:
         raise ValueError('"upper_bound" must be in the range [0, 65535]')
     if lower_bound is None:
         lower_bound = np.min(img)
@@ -951,7 +942,7 @@ def map_uint16_to_uint8(img, lower_bound=None, upper_bound=None):
         [
             np.zeros(lower_bound, dtype=np.uint16),
             np.linspace(0, 255, upper_bound - lower_bound).astype(np.uint16),
-            np.ones(2**16 - upper_bound, dtype=np.uint16) * 255,
+            np.ones(2 ** 16 - upper_bound, dtype=np.uint16) * 255,
         ]
     )
     return lut[img].astype(np.uint8)
@@ -1191,3 +1182,23 @@ def find_res(filename):
         # calculate width
         width = (a[0] << 8) + a[1]
     print("IMAGE RESOLUTION IS : ", width, "X", height)
+
+
+def load_tiff_image_and_info(file_path: Path) -> Tuple[ImageInfo, np.ndarray]:
+    image = Image.open(file_path)
+    info = image_info(image)
+    data = np.array(image)
+    return info, data
+
+
+def load_zipped_image(file_path: Path) -> Tuple[ImageInfo, np.ndarray]:
+    assert file_path.name.lower().endswith(".zip")
+    print(f"Loading {file_path}")
+    with ZipFile(file_path, "r") as img_zip:
+        inside = img_zip.filelist
+        assert len(inside) == 1
+        the_file = inside[0]
+        with img_zip.open(the_file) as img_file:
+            image = Image.open(img_file)
+            img_info = image_info(image)
+            return img_info, np.array(image)

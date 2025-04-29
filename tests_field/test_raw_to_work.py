@@ -4,11 +4,18 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pytest
+from PIL import Image
 
 from ZooProcess_lib.Background import Background
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
-from ZooProcess_lib.img_tools import image_info, get_date_time_digitized, loadimage
+from ZooProcess_lib.img_tools import (
+    image_info,
+    get_date_time_digitized,
+    loadimage,
+    load_tiff_image_and_info,
+)
 from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
+from .env_fixture import projects
 from .projects_repository import tested_samples
 from .test_sample import load_final_ref_image
 
@@ -30,7 +37,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
 
     # Read raw sample scan, just for its date
     raw_sample_file = folder.zooscan_scan.raw.get_file(sample, index)
-    img_info = image_info(raw_sample_file)
+    img_info = image_info(Image.open(raw_sample_file))
     digitized_at = get_date_time_digitized(img_info)
     if digitized_at is None:
         file_stats = raw_sample_file.stat()  # TODO: Encapsulate this
@@ -42,24 +49,26 @@ def test_raw_to_work(projects, tmp_path, project, sample):
         raw_sample_file.name
     )
     assert eight_bit_sample_file.exists()
-    eight_bit_sample_image = loadimage(eight_bit_sample_file, type=cv2.IMREAD_UNCHANGED)
+    sample_info, eight_bit_sample_image = load_tiff_image_and_info(
+        eight_bit_sample_file
+    )
     assert eight_bit_sample_image.dtype == np.uint8
 
     # Read 8bit combined background scan
     last_background_file = folder.zooscan_back.get_last_background_before(digitized_at)
-    last_background_image = loadimage(last_background_file, type=cv2.IMREAD_UNCHANGED)
+    bg_info, last_background_image = load_tiff_image_and_info(last_background_file)
     assert last_background_image.dtype == np.uint8
 
-    background = Background(last_background_image, resolution=300)
+    background = Background(last_background_image, resolution=bg_info.resolution)
 
     sample_minus_background_image = background.removed_from(
         sample_image=eight_bit_sample_image,
         processing_method="select" if "triatlas" in project else "",
-        sample_image_resolution=2400,
+        sample_image_resolution=sample_info.resolution,
     )
 
     # Compare with stored reference (vis1.zip)
-    expected_final_image = load_final_ref_image(folder, sample, index)
+    _, expected_final_image = load_final_ref_image(folder, sample, index)
     assert sample_minus_background_image.shape == expected_final_image.shape
 
     # saveimage(sample_minus_background_image, "/tmp/zooprocess/final_with_bg.tif")

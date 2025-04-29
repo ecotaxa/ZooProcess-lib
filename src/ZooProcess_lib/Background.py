@@ -20,10 +20,7 @@ class Background:
     def __init__(
         self,
         image: np.ndarray,
-        # image_path: Path,
-        resolution=300,
-        # sample_scan_resolution=2400,
-        # output_path=None,  # TODO: Remove
+        resolution,
     ):
         """
         :param image: np.ndarray (H, W)

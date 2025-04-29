@@ -58,9 +58,10 @@ class Features(object):
     A set of computations made on a crop (AKA vignette) extracted from an image.
     """
 
-    def __init__(self, image: ndarray, roi: ROI, threshold: int):
+    def __init__(self, image: ndarray, resolution: int, roi: ROI, threshold: int):
         self.mask = roi.mask
         self.image = image
+        self.resolution = resolution
         self.bx = roi.x
         self.by = roi.y
         # params
@@ -330,7 +331,7 @@ class Features(object):
             y_centroid=self.y_centroid,
             angle=self.angle,
             area=self.area,
-            pixel_size=25.4 / Segmenter.RESOLUTION,
+            pixel_size=25.4 / self.resolution,
             coords=(self.bx, self.by),
         )
         return symmetry_h, symmetry_v, thick_ratio
@@ -418,6 +419,6 @@ FeaturesListT = List[Features]
 
 
 def legacy_measures_list_from_roi_list(
-    image: ndarray, roi_list: List[ROI], threshold: int, only: Optional[Set[str]] = None
+    image: ndarray, resolution:int, roi_list: List[ROI], threshold: int, only: Optional[Set[str]] = None
 ) -> list[dict[str, int | float]]:
-    return [Features(image, p, threshold).as_measures(only) for p in roi_list]
+    return [Features(image, resolution, p, threshold).as_measures(only) for p in roi_list]

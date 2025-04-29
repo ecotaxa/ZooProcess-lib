@@ -48,12 +48,12 @@ def test_holes_62388():
     # This image biggest particle has a pattern in holes, their contour touches the particle itself
     image = loadimage(SEGMENTER_DIR / "cc_62388.png")
     image = cv2.copyMakeBorder(image, 4, 4, 4, 4, cv2.BORDER_CONSTANT, value=(255,))
-    parts = Segmenter(image, 0.1, 100000, 243).find_blobs(
+    parts = Segmenter(image, 2400, 0.1, 100000, 243).find_blobs(
         Segmenter.METH_TOP_CONTOUR_SPLIT
     )
     features = sorted(
         legacy_measures_list_from_roi_list(
-            image, parts, 243, {"Area", "BX", "BY", "Height", "Width"}
+            image, 2400, parts, 243, {"Area", "BX", "BY", "Height", "Width"}
         ),
         key=feature_unq,
         reverse=True,
@@ -72,17 +72,18 @@ def test_compare_split_methods():
         SEGMENTER_DIR / "apero2023_tha_bioness_013_st46_d_n8_d3_1_vis1.png"
     )
     THRESHOLD = 243
-    segmenter = Segmenter(image, 0.3, 100, THRESHOLD)
+    RESOLUTION = 2400
+    segmenter = Segmenter(image, RESOLUTION, 0.3, 100, THRESHOLD)
 
     found_rois_new = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
     found_feats_new = legacy_measures_list_from_roi_list(
-        image, found_rois_new, THRESHOLD
+        image, RESOLUTION, found_rois_new, THRESHOLD
     )
     sort_by_coords(found_feats_new)
 
     found_rois_old = segmenter.find_blobs(Segmenter.METH_CONTOUR_TREE)
     found_feats_compat = legacy_measures_list_from_roi_list(
-        image, found_rois_old, THRESHOLD
+        image, RESOLUTION, found_rois_old, THRESHOLD
     )
     sort_by_coords(found_feats_compat)
 

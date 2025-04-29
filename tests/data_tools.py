@@ -7,7 +7,7 @@ import numpy as np
 from ZooProcess_lib.Features import TYPE_BY_LEGACY
 from ZooProcess_lib.ROI import feature_unq
 from ZooProcess_lib.Segmenter import Segmenter
-from test_utils import read_measures_csv
+from .test_utils import read_measures_csv
 
 FEATURES_TOLERANCES = {
     "%Area": 0.001,

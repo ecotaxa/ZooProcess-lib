@@ -2,8 +2,8 @@ import numpy as np
 
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import load_zipped_image
-from env_fixture import projects
-from projects_for_test import APERO2000
+from .env_fixture import projects
+from .projects_for_test import APERO2000
 
 
 def test_read_sample_in_work(projects, tmp_path):
@@ -18,5 +18,5 @@ def test_read_sample_in_work(projects, tmp_path):
     zipped_raw = work_files_in_sample.get("combz")
     source_zip = zipped_raw
     assert source_zip.exists()
-    reference_image = load_zipped_image(source_zip)
+    _, reference_image = load_zipped_image(source_zip)
     assert reference_image.dtype == np.uint8

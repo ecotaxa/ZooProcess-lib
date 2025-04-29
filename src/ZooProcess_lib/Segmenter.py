@@ -16,7 +16,6 @@ class Segmenter(object):
     Divide an image into segments and store the result sub-images.
     """
 
-    RESOLUTION = 2400
     # Constants for 2-image processing. Historical.
     Wlimit = 20000
     Hlimit = 6500
@@ -31,11 +30,12 @@ class Segmenter(object):
     METH_CONNECTED_COMPONENTS_SPLIT = 16
     LEGACY_COMPATIBLE = 64
 
-    def __init__(self, image: ndarray, minsize: float, maxsize: float, threshold: int):
+    def __init__(self, image: ndarray, resolution: int, minsize: float, maxsize: float, threshold: int):
         assert image.dtype == np.uint8
         self.image = image
+        self.resolution = resolution
         self.height, self.width = image.shape[:2]
-        pixel = 25.4 / self.RESOLUTION
+        pixel = 25.4 / self.resolution
         sm_min = (3.1416 / 4) * pow(minsize, 2)
         sm_max = (3.1416 / 4) * pow(maxsize, 2)
         # s_p_* are in pixel^2
@@ -266,4 +266,3 @@ class Segmenter(object):
         vignette = np.bitwise_or(crop, 255 - a_roi.mask * 255)
         saveimage(vignette, Path(f"/tmp/zooprocess/vignettes/vignette_{features.bx}_{features.by}.png"))
         saveimage(a_roi.mask * 255, Path(f"/tmp/zooprocess/vignettes/mask_{features.bx}_{features.by}.png"))
-

@@ -9,6 +9,7 @@ from ZooProcess_lib.ROI import ecotaxa_tsv_unq
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Custom import fractal_mp, ij_perimeter
 from ZooProcess_lib.img_tools import loadimage
+from .data_dir import MEASURES_DIR, FEATURES_DIR
 from .data_tools import (
     to_legacy_rounding,
     FEATURES_TOLERANCES,
@@ -16,7 +17,6 @@ from .data_tools import (
     DERIVED_FEATURES_TOLERANCES,
     diff_features_lists,
 )
-from .data_dir import MEASURES_DIR, FEATURES_DIR
 from .test_utils import read_ecotaxa_tsv
 
 
@@ -107,10 +107,10 @@ def test_ij_like_features(img: str):
     # Add a white border, otherwise the particle touches all borders and is eliminated
     image = cv2.copyMakeBorder(image, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=(255,))
     THRESHOLD = 243
-    segmenter = Segmenter(image, 0.3, 100, THRESHOLD)
+    segmenter = Segmenter(image, 2400, 0.3, 100, THRESHOLD)
     rois = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
     assert len(rois) == 1
-    feat = Features(image=image, roi=rois[0], threshold=THRESHOLD)
+    feat = Features(image=image, resolution=2400, roi=rois[0], threshold=THRESHOLD)
     exp = read_ecotaxa_tsv(FEATURES_DIR / f"ecotaxa_{img}.tsv", TYPE_BY_ECOTAXA)
     act = [feat.as_ecotaxa()]
     to_legacy_rounding(act, ECOTAXA_TSV_ROUNDINGS)
