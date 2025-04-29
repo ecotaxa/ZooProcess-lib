@@ -54,11 +54,11 @@ class Extractor(object):
         # Resized image is plain one...
         # ...+ 20% border and footer in height
         final_height = parseInt(height * 1.4 + self.FOOTER)
-        # ...and +30% border with enough space for line in width
+        # ...and +20% border with enough space for line in width
         final_width = parseInt(max(width * 1.4, self.longline + 2 * self.X1))
         # draw a new frame big enough and paste
         resized = np.full((final_height, final_width), 255, dtype=np.uint8)
-        y_offset = round(height * 0.2)
+        y_offset = (final_height - self.FOOTER - height) // 2
         x_offset = (final_width - width) // 2
         resized[y_offset : y_offset + height, x_offset : x_offset + width] = image
         # Paint the scale

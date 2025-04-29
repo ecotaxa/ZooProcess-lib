@@ -1,4 +1,5 @@
 import os
+import zipfile
 from pathlib import Path
 from typing import Dict, Tuple, List
 
@@ -86,12 +87,14 @@ def test_thumbnail_generator(tmp_path):
     )
     extractor.extract_all()
     # Reference thumbnails
-    ref_thumbs_dir = tmp_path / "ref_thumbs"  # TODO, a zip and extract it
-    ref_thumbs_dir = WORK_DIR
-    compare_vignettes(ref_thumbs_dir, thumbs_dir)
+    vignettes_dir = tmp_path / "vignettes"
+    with zipfile.ZipFile(WORK_DIR / "vignettes.zip", "r") as zip_ref:
+        zip_ref.extractall(vignettes_dir)
+    ref_thumbs_dir = vignettes_dir
+    compare_vignettes(ref_thumbs_dir, thumbs_dir, conf.upper)
 
 
-def compare_vignettes(ref_thumbs_dir: Path, act_thumbs_dir: Path):
+def compare_vignettes(ref_thumbs_dir: Path, act_thumbs_dir: Path, threshold: int):
     # Tolerate a different extension as long as bitmaps are equal
     ref_images = list_images_in(ref_thumbs_dir)
     act_images = list_images_in(act_thumbs_dir)
@@ -108,19 +111,27 @@ def compare_vignettes(ref_thumbs_dir: Path, act_thumbs_dir: Path):
             in_error = True
             continue
         maybe_same = act_by_size[a_size]
+        # unique = False
+        # if len(ref_images) == 1 and len(maybe_same) == 1:
+        #     unique = True
         for a_ref_name, a_ref_img in ref_images.items():
-            for act_img in maybe_same.values():
-                nb_real_errors = diff_actual_with_ref_and_source(
-                    a_ref_img,
-                    act_img,
-                    act_img,
-                    tolerance=1,  # In case there is some debug to do, of course with 0 it's strict equality
-                )
-                print(f"nb_real_errors={nb_real_errors}")
-                # if np.array_equal(a_ref_img, act_img):
+            for act_name, act_img in maybe_same.items():
+                # Ref jpegs are lossy (see some histograms above 243), we need to compare with a tolerance
+                abs_diff = np.abs(a_ref_img.astype(np.int16) - act_img.astype(np.int16))
+                max_diff = np.max(abs_diff)
+                if max_diff in (1, 2):
+                    break
+                # diff_summ = np.sum(abs_diff)
+                # obj_pixels = np.count_nonzero(act_img <= threshold)
+                # avg_diff = diff_summ / obj_pixels
+                # if avg_diff <= 12:
                 #     break
+                # if unique:
+                #     print(
+                #         f"imagej {ref_thumbs_dir / a_ref_name}.jpg {act_thumbs_dir / act_name}.png diff={diff_summ} max={max_diff} pixels={obj_pixels} avg={avg_diff}"
+                #     )
             else:
-                print(f"Image {a_ref_name} not found in actual thumbnails")
+                print(f"Image {a_ref_name} not matched in actual thumbnails")
                 in_error = True
     assert not in_error
 
