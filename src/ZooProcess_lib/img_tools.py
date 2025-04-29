@@ -386,7 +386,7 @@ def crop(
 
 
 def crop_right(image: np.ndarray, right: Union[float, int]) -> np.ndarray:
-    cropped_image = image[0:, 0: int(right)]
+    cropped_image = image[0:, 0 : int(right)]
     return cropped_image
 
 
@@ -395,9 +395,9 @@ def clear_outside(
 ) -> None:
     """In-place modify the input image so that any pixel outside the input rectangle in set to 255 AKA white."""
     image[0:top, :] = 255
-    image[top + height:, :] = 255
-    image[top: top + height:, 0:right] = 255
-    image[top: top + height:, right + width:] = 255
+    image[top + height :, :] = 255
+    image[top : top + height :, 0:right] = 255
+    image[top : top + height :, right + width :] = 255
 
 
 def draw_outside_lines(
@@ -431,7 +431,7 @@ def draw_outside_lines(
 def cropped_if_larger(image: np.ndarray, right: int, bottom: int) -> np.ndarray:
     img_bottom, img_right = image.shape
     if img_bottom > bottom or img_right > right:
-        return image[0: min(bottom, img_bottom), 0: min(right, img_right)]
+        return image[0 : min(bottom, img_bottom), 0 : min(right, img_right)]
     return image
 
 
@@ -928,9 +928,9 @@ def map_uint16_to_uint8(img, lower_bound=None, upper_bound=None):
     -------
     numpy.ndarray[uint8]
     """
-    if not (0 <= lower_bound < 2 ** 16) and lower_bound is not None:
+    if not (0 <= lower_bound < 2**16) and lower_bound is not None:
         raise ValueError('"lower_bound" must be in the range [0, 65535]')
-    if not (0 <= upper_bound < 2 ** 16) and upper_bound is not None:
+    if not (0 <= upper_bound < 2**16) and upper_bound is not None:
         raise ValueError('"upper_bound" must be in the range [0, 65535]')
     if lower_bound is None:
         lower_bound = np.min(img)
@@ -942,7 +942,7 @@ def map_uint16_to_uint8(img, lower_bound=None, upper_bound=None):
         [
             np.zeros(lower_bound, dtype=np.uint16),
             np.linspace(0, 255, upper_bound - lower_bound).astype(np.uint16),
-            np.ones(2 ** 16 - upper_bound, dtype=np.uint16) * 255,
+            np.ones(2**16 - upper_bound, dtype=np.uint16) * 255,
         ]
     )
     return lut[img].astype(np.uint8)
@@ -1184,6 +1184,16 @@ def find_res(filename):
     print("IMAGE RESOLUTION IS : ", width, "X", height)
 
 
+def save_lossless_small_image(image: np.ndarray, resolution: int, path: Path):
+    ext = path.suffix
+    assert ext in [".jpg", ".jpeg", ".png"]
+    pil_image = Image.fromarray(image)
+    options = {"optimize": True, "dpi": (resolution, resolution)}
+    if ext in (".jpg", ".jpeg"):
+        options["quality"] = 100
+    pil_image.save(path, **options)
+
+
 def load_tiff_image_and_info(file_path: Path) -> Tuple[ImageInfo, np.ndarray]:
     image = Image.open(file_path)
     info = image_info(image)
@@ -1202,3 +1212,11 @@ def load_zipped_image(file_path: Path) -> Tuple[ImageInfo, np.ndarray]:
             image = Image.open(img_file)
             img_info = image_info(image)
             return img_info, np.array(image)
+
+
+def add_separated_mask(sample_image: np.ndarray, separator_image: np.ndarray):
+    assert separator_image.dtype == np.uint8
+    assert separator_image.shape == sample_image.shape
+    sample_image_plus_sep = sample_image.astype(np.uint16) + separator_image
+    ret = np.clip(sample_image_plus_sep, 0, 255).astype(np.uint8)
+    return ret

@@ -45,7 +45,6 @@ class ZooscanFolder:
 # jpeg= 100
 # zip= 0
 # greycor= 4
-# resolution= 2400
 # greytaux= 0.9
 # yminref= 0
 # doyofset= 150
@@ -63,7 +62,6 @@ class ZooscanFolder:
 # voveldepth= 1
 # voxelunit= pixel
 # backval= 100.0
-# longline_mm= 1.0
 # doxabspos_inch= 0.34
 # doyabspos_inch= 4.04
 # bleft= 16.0
@@ -82,12 +80,24 @@ class ZooscanConfig:
     maxsizeesd_mm: float
     upper: int
     resolution: int
+    longline_mm: float
+
+    @classmethod
+    def read(cls, path: Path) -> "ZooscanConfig":
+        parser = ConfigParser()
+        with open(path, "r") as strm:
+            parser.read_string("[conf]\n" + strm.read())
+            args = []
+            for a_field in dataclasses.fields(cls):
+                value = a_field.type(parser.get("conf", a_field.name))
+                args.append(value)
+            return ZooscanConfig(*args)
 
 
 class Zooscan_config_Folder:
     SUDIR_PATH = "Zooscan_config"
     INSTALL_CONFIG = "process_install_both_config.txt"
-    NEEDED_KEYS = ["minsizeesd_mm", "maxsizeesd_mm"]
+    NEEDED_KEYS = ["minsizeesd_mm", "maxsizeesd_mm", "upper", "resolution", "longline_mm"]
 
     def __init__(self, zooscan_folder: Path) -> None:
         self.path = Path(zooscan_folder, self.SUDIR_PATH)
@@ -95,18 +105,12 @@ class Zooscan_config_Folder:
 
     def read(self) -> ZooscanConfig:
         install_conf = Path(self.path, self.INSTALL_CONFIG)
-        parser = ConfigParser()
-        with open(install_conf, "r") as strm:
-            parser.read_string("[conf]\n" + strm.read())
-            args = []
-            for a_field in dataclasses.fields(ZooscanConfig):
-                value = a_field.type(parser.get("conf", a_field.name))
-                args.append(value)
-            return ZooscanConfig(*args)
+        return ZooscanConfig.read(install_conf)
 
     def read_lut(self) -> Lut:
         config_file = self.path / "lut.txt"
         return Lut.read(config_file)
+
 
 class Zooscan_scan_Folder:
     _zooscan_path = "Zooscan_scan"
@@ -221,7 +225,6 @@ class Zooscan_back_Folder:
         if index:
             index_str = "_" + str(index)
         return Path(self.path, scan_date + "_back_large" + index_str + ".tif")
-
 
 
 class Zooscan_scan_work_Folder:

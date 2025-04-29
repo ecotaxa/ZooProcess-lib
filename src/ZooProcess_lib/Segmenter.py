@@ -30,7 +30,14 @@ class Segmenter(object):
     METH_CONNECTED_COMPONENTS_SPLIT = 16
     LEGACY_COMPATIBLE = 64
 
-    def __init__(self, image: ndarray, resolution: int, minsize: float, maxsize: float, threshold: int):
+    def __init__(
+        self,
+        image: ndarray,
+        resolution: int,
+        minsize: float,
+        maxsize: float,
+        threshold: int,
+    ):
         assert image.dtype == np.uint8
         self.image = image
         self.resolution = resolution
@@ -43,10 +50,12 @@ class Segmenter(object):
         self.s_p_max: int = round(sm_max / (pow(pixel, 2)))
         self.threshold = threshold
 
-    def find_blobs(self, method: int) -> List[ROI]:
+    def find_blobs(self, method: int = METH_TOP_CONTOUR_SPLIT) -> List[ROI]:
         # Threshold the source image to have a b&w mask
         # mask is white objects on black background
-        _th, inv_mask = cv2.threshold(self.image, self.threshold, 1, cv2.THRESH_BINARY_INV)
+        _th, inv_mask = cv2.threshold(
+            self.image, self.threshold, 1, cv2.THRESH_BINARY_INV
+        )
         # saveimage(inv_mask, "/tmp/inv_mask.tif")
         self.sanity_check(inv_mask)
         if method & self.LEGACY_COMPATIBLE:
@@ -247,22 +256,3 @@ class Segmenter(object):
         for ndx, a_roi in enumerate(rois):
             # self.extract_vignette(a_roi)
             pass
-
-    def extract_vignette(self, a_roi):
-        # TODO: Into another source. Not the same place in the pipeline
-        from .Features import Features
-        features = Features(self.image, a_roi, self.threshold)
-        from .img_tools import saveimage
-        from pathlib import Path
-        crop = cropnp(
-            self.image,
-            top=features.by,
-            left=features.bx,
-            bottom=features.by + features.height,
-            right=features.bx + features.width,
-        )
-        saveimage(crop, Path(f"/tmp/zooprocess/vignettes/crop_{features.bx}_{features.by}.png"))
-        # Whiten background -> push to 255 as min is black
-        vignette = np.bitwise_or(crop, 255 - a_roi.mask * 255)
-        saveimage(vignette, Path(f"/tmp/zooprocess/vignettes/vignette_{features.bx}_{features.by}.png"))
-        saveimage(a_roi.mask * 255, Path(f"/tmp/zooprocess/vignettes/mask_{features.bx}_{features.by}.png"))

@@ -10,12 +10,12 @@ from data_dir import BACK_TIME, BACKGROUND_DIR
 
 def test_combine_backgrounds(tmp_path):
     """Ensure we combine like legacy the scanned background images"""
-    scan_date = BACK_TIME
+    bg_scan_date = BACK_TIME
     source_files = [
-        Path(BACKGROUND_DIR, f"{scan_date}_back_large_{index}.tif") for index in (1, 2)
+        Path(BACKGROUND_DIR, f"{bg_scan_date}_back_large_{index}.tif") for index in (1, 2)
     ]
     assert [source_file.exists() for source_file in source_files]
-    reference_bg_file = Path(BACKGROUND_DIR, f"{scan_date}_background_large_manual.tif")
+    reference_bg_file = Path(BACKGROUND_DIR, f"{bg_scan_date}_background_large_manual.tif")
     assert reference_bg_file.exists()
     output_path = tmp_path / reference_bg_file.name
     Zooscan_combine_backgrounds(source_files, output_path)
