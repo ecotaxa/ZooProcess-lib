@@ -5,7 +5,7 @@ from typing import List, Tuple, Dict, Callable, Any
 import numpy as np
 
 from ZooProcess_lib.Features import TYPE_BY_LEGACY
-from ZooProcess_lib.ROI import feature_unq
+from ZooProcess_lib.ROI import feature_unq, ROI
 from ZooProcess_lib.Segmenter import Segmenter
 from .test_utils import read_measures_csv
 
@@ -108,6 +108,13 @@ def read_measurements(project_folder, sample, index):
     return ref
 
 
+def read_box_measurements(project_folder, sample, index):
+    work_files = project_folder.zooscan_scan.work.get_files(sample, index)
+    measures = work_files["meas"]
+    ref = read_measures_from_file(measures, only_box=True)
+    return ref
+
+
 def to_legacy_format(features_list):
     rounded_to_3 = set(
         [
@@ -126,8 +133,19 @@ def to_legacy_format(features_list):
     return features_list
 
 
-def read_measures_from_file(measures):
-    ref = read_measures_csv(measures, TYPE_BY_LEGACY)
+BOX_MEASUREMENTS = {
+    "BX": int,
+    "BY": int,
+    "Width": int,
+    "Height": int,
+}
+
+
+def read_measures_from_file(measures, only_box=False):
+    if only_box:
+        ref = read_measures_csv(measures, BOX_MEASUREMENTS)
+    else:
+        ref = read_measures_csv(measures, TYPE_BY_LEGACY)
     # This filter is _after_ measurements in Legacy
     ref = [
         a_ref
@@ -136,6 +154,7 @@ def read_measures_from_file(measures):
     ]
     sort_by_coords(ref)
     return ref
+
 
 def ij_round(to_round):
     if abs(to_round) < 1e-3:
@@ -149,3 +168,8 @@ def ij_round(to_round):
 
 def sort_by_coords(features: List[Dict]):
     features.sort(key=feature_unq)
+
+
+def sort_ROIs_like_legacy(rois: List[ROI], limit: int):
+    # Looks (from ecotaxa TSVs) that the sort is by BY first, then BX, but in 2 chunks separated by image height
+    rois.sort(key=lambda roi: (roi.y + (0 if roi.x < limit else 1000000), roi.x))

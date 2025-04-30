@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import csv
+import os
 from pathlib import Path
-from typing import List, Dict, Type
+from typing import List, Dict, Type, Tuple
 
 import cv2
 import numpy as np
@@ -172,3 +173,74 @@ def visual_diffs(different, not_in_reference, not_in_actual, sample, tgt_img):
         )
     if len(different) or len(not_in_actual) or len(not_in_reference):
         saveimage(tgt_img, f"/tmp/zooprocess/dif_on_{sample}.tif")
+
+
+def compare_vignettes(ref_thumbs_dir: Path, act_thumbs_dir: Path, threshold: int):
+    # Tolerate a different extension as long as bitmaps are similar
+    ref_images = list_images_in(ref_thumbs_dir)
+    act_images = list_images_in(act_thumbs_dir)
+    # Basic matches, it will fail for projects with the historical bug on the 20% band
+    assert len(ref_images) == len(act_images)
+    assert set(ref_images.keys()) == set(act_images.keys())
+    # Tricky matches as we have != numbering
+    ref_by_size = categorize_by_size(ref_images)
+    act_by_size = categorize_by_size(act_images)
+    in_error = False
+    for a_size, ref_images in ref_by_size.items():
+        if a_size not in act_by_size:
+            print(f"Size {a_size} not found in actual thumbnails")
+            in_error = True
+            continue
+        maybe_same = act_by_size[a_size]
+        unique = False
+        if len(ref_images) == 1 and len(maybe_same) == 1:
+            unique = True
+        for a_ref_name, a_ref_img in ref_images.items():
+            for act_name, act_img in maybe_same.items():
+                # Ref jpegs are lossy (see some histograms above 243), we need to compare with a tolerance
+                abs_diff = np.abs(a_ref_img.astype(np.int16) - act_img.astype(np.int16))
+                max_diff = np.max(abs_diff)
+                if max_diff in (1, 2):
+                    print(f"Matched {a_ref_name}.jpg with {act_name}.png")
+                    break
+                diff_summ = np.sum(abs_diff)
+                obj_pixels = np.count_nonzero(act_img <= threshold)
+                avg_diff = diff_summ / obj_pixels
+                # if avg_diff <= 12:
+                #     break
+                if unique:
+                    print(
+                        f"imagej {ref_thumbs_dir / a_ref_name}.jpg {act_thumbs_dir / act_name}.png diff={diff_summ} max={max_diff} pixels={obj_pixels} avg={avg_diff}"
+                    )
+            else:
+                print(f"Image {a_ref_name} not matched in actual thumbnails")
+                in_error = True
+    assert not in_error
+
+
+def list_images_in(image_dir: Path):
+    ret = {}  # key: base name, value:image read np.ndarray
+    for a_file in os.listdir(image_dir):
+        if a_file.endswith(".jpg") or a_file.endswith(".png"):
+            img_file = os.path.join(image_dir, a_file)
+            img_data = cv2.imread(img_file, cv2.IMREAD_GRAYSCALE)
+            file_without_ext = a_file[:-4]
+            ret[file_without_ext] = img_data
+            # Apparently jpg encoding damaged pure white
+            # if a_file.endswith(".jpg"):
+            #     img_data[img_data >= 254] = 255
+    return ret
+
+
+def categorize_by_size(
+    images: Dict[str, np.ndarray]
+) -> Dict[Tuple[int, int], Dict[str, np.ndarray]]:
+    ret = {}
+    for img_name, img_data in images.items():
+        height, width = img_data.shape[:2]
+        key = (height, width)
+        if key not in ret:
+            ret[key] = {img_name: img_data}
+        else:
+            ret[key][img_name] = img_data
+    return ret

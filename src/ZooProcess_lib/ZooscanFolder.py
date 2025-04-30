@@ -97,7 +97,13 @@ class ZooscanConfig:
 class Zooscan_config_Folder:
     SUDIR_PATH = "Zooscan_config"
     INSTALL_CONFIG = "process_install_both_config.txt"
-    NEEDED_KEYS = ["minsizeesd_mm", "maxsizeesd_mm", "upper", "resolution", "longline_mm"]
+    NEEDED_KEYS = [
+        "minsizeesd_mm",
+        "maxsizeesd_mm",
+        "upper",
+        "resolution",
+        "longline_mm",
+    ]
 
     def __init__(self, zooscan_folder: Path) -> None:
         self.path = Path(zooscan_folder, self.SUDIR_PATH)
@@ -139,6 +145,8 @@ class BackgroundEntry(TypedDict):
     scans_8bit: List[Path]
     final_background: Optional[Path]
     log_file: Optional[Path]
+    raw_background_1: Optional[Path]
+    raw_background_2: Optional[Path]
 
 
 date_re = re.compile(r"(\d{8}_\d{4})_.*")
@@ -168,10 +176,16 @@ class Zooscan_back_Folder:
                     scans_8bit=[],
                     final_background=None,
                     log_file=None,
+                    raw_background_1=None,
+                    raw_background_2=None,
                 ),
             )
             if a_file.name.endswith("_background_large_manual.tif"):
                 date_entry["final_background"] = a_file
+            if a_file.name.endswith("_back_large_raw_1.tif"):
+                date_entry["raw_background_1"] = a_file
+            if a_file.name.endswith("_back_large_raw_2.tif"):
+                date_entry["raw_background_2"] = a_file
 
         # file_type = {
         #     "_back_large_raw_1": "raw_1",
@@ -209,6 +223,20 @@ class Zooscan_back_Folder:
         not_after = list(filter(lambda d: d[0] < max_date, sorted_dates))
         last_date, last_date_str = not_after[-1]
         return self.content[last_date_str]["final_background"]
+
+    def get_last_raw_backgrounds_before(self, max_date: datetime) -> List[Path]:
+        sorted_dates = sorted(
+            [
+                (datetime.strptime(a_date, "%Y%m%d_%H%M"), a_date)
+                for a_date in self.get_dates()
+            ]
+        )
+        not_after = list(filter(lambda d: d[0] < max_date, sorted_dates))
+        last_date, last_date_str = not_after[-1]
+        return [
+            self.content[last_date_str]["raw_background_1"],
+            self.content[last_date_str]["raw_background_2"],
+        ]
 
     def get_raw_background_file(self, scan_date: str, index: int = None) -> Path:
         """Return conventional file path for scanned background image"""

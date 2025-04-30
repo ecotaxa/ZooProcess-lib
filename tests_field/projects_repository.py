@@ -3,7 +3,15 @@
 #
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from .env_fixture import read_home
-from .projects_for_test import IADO, APERO2000, APERO, TRIATLAS, APERO1, APERO_REDUCED2
+from .projects_for_test import (
+    IADO,
+    APERO2000,
+    APERO,
+    TRIATLAS,
+    APERO1,
+    APERO_REDUCED2,
+    POINT_B_JB,
+)
 
 
 def all_samples_in(project: str, but_not=()) -> list[tuple[str, str]]:
@@ -1299,3 +1307,4 @@ parallel_with_ij = [
     (APERO_REDUCED2, "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2")
 ]  # LS: Coded in ImageJ locally
 
+point_b_jb = all_samples_in(POINT_B_JB)

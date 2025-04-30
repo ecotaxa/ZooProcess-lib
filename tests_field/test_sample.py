@@ -20,9 +20,15 @@ from ZooProcess_lib.img_tools import (
     load_tiff_image_and_info,
 )
 from ZooProcess_lib.tools import measure_time
-from tests.data_tools import FEATURES_TOLERANCES, report_and_fix_tolerances, diff_features_lists, read_measurements, \
-    to_legacy_format, sort_by_coords
-from tests.test_utils import visual_diffs, read_measures_csv
+from tests.data_tools import (
+    FEATURES_TOLERANCES,
+    report_and_fix_tolerances,
+    diff_features_lists,
+    read_measurements,
+    to_legacy_format,
+    sort_by_coords,
+)
+from tests.test_utils import visual_diffs
 from .env_fixture import projects
 from .projects_for_test import (
     APERO2000,
@@ -30,7 +36,8 @@ from .projects_for_test import (
 )
 from .projects_repository import (
     tested_samples,
-    wrong_mask_maybe_gives_no_roi_when_legacy_has, )
+    wrong_mask_maybe_gives_no_roi_when_legacy_has,
+)
 
 
 def test_8bit_sample_border(projects, tmp_path):
@@ -88,13 +95,17 @@ def assert_segmentation(projects, project, sample, method):
     info_vis1, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
     ref_feats = read_measurements(folder, sample, index)
-    segmenter = Segmenter(vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
+    segmenter = Segmenter(
+        vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper
+    )
     found_rois = segmenter.find_blobs(method)
     # found_rois = list(filter(lambda r: r.mask.shape == (45, 50), found_rois))
     segmenter.split_by_blobs(found_rois)
 
     act_feats = to_legacy_format(
-        legacy_measures_list_from_roi_list(vis1,conf.resolution, found_rois, conf.upper)
+        legacy_measures_list_from_roi_list(
+            vis1, conf.resolution, found_rois, conf.upper
+        )
     )
     sort_by_coords(act_feats)
     tolerance_problems = []
@@ -128,7 +139,9 @@ def assert_linear_response_time(projects, tmp_path, test_set, method):
         index = 1  # TODO: should come from get_names() below
         _, vis1 = load_final_ref_image(folder, sample, index)
         conf = folder.zooscan_config.read()
-        segmenter = Segmenter(vis1, 2400, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
+        segmenter = Segmenter(
+            vis1, 2400, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper
+        )
         spent, found_rois = measure_time(segmenter.find_blobs, method)
         # Minimal & fast
         assert found_rois != []
@@ -178,7 +191,9 @@ def test_algo_diff(projects, tmp_path, project, sample):
     _, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
 
-    segmenter = Segmenter(vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
+    segmenter = Segmenter(
+        vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper
+    )
 
     found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
     ref_feats = legacy_measures_list_from_roi_list(vis1, found_rois_new, conf.upper)
@@ -301,7 +316,9 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     _, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
     ref = read_measurements(folder, sample, index)
-    segmenter = Segmenter(vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper)
+    segmenter = Segmenter(
+        vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper
+    )
     # found_rois = segmenter.find_blobs(
     #     Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
     # )
@@ -325,10 +342,10 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     assert tolerance_problems == []
 
 
-
 def test_dev_linear_response_time(projects, tmp_path):
     test_set = tested_samples
     assert_linear_response_time(projects, tmp_path, test_set)
+
 
 dev_samples = [
     (
@@ -336,6 +353,7 @@ dev_samples = [
         "apero2023_tha_bioness_014_st46_n_n9_d1_2_sur_8",
     )
 ]
+
 
 @pytest.mark.parametrize("project, sample", dev_samples)
 def test_dev_segmentation(projects, tmp_path, project, sample):

@@ -53,9 +53,9 @@ class Extractor(object):
         height, width = image.shape
         # Resized image is plain one...
         # ...+ 20% border and footer in height
-        final_height = parseInt(height * 1.4 + self.FOOTER)
+        final_height = round(height * 1.4 + self.FOOTER)
         # ...and +20% border with enough space for line in width
-        final_width = parseInt(max(width * 1.4, self.longline + 2 * self.X1))
+        final_width = round(max(width * 1.4, self.longline + 2 * self.X1))
         # draw a new frame big enough and paste
         resized = np.full((final_height, final_width), 255, dtype=np.uint8)
         y_offset = (final_height - self.FOOTER - height) // 2
@@ -94,6 +94,7 @@ class Extractor(object):
         #     color=(0,),  # color
         #     thickness=1,  # line thickness
         # )
+        # print(f"height: {height}, width: {width} => {final_height}x{final_width} px xoffset: {x_offset} yoffset: {y_offset}")
         return resized
 
     def extract_one(self, a_roi: ROI) -> np.ndarray:
