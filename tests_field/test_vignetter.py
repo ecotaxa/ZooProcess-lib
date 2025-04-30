@@ -1,5 +1,6 @@
 import os
 import random
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -125,9 +126,12 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     # Reference thumbnails
     ref_thumbs_dir = folder.zooscan_scan.work.path / (sample + "_" + str(index))
     compare_vignettes(ref_thumbs_dir, thumbs_dir, conf.upper)
+    # Cleanup if all went well
+    [os.remove(a_file) for a_file in eight_bit_bgs+[combined_bg_file,eight_bit_sample]]
+    shutil.rmtree(thumbs_dir)
 
 
-dev_samples = [(p, s) for (p, s) in all_samples_in(POINT_B_JB) if "197809" in s]
+dev_samples = [(p, s) for (p, s) in all_samples_in(POINT_B_JB)]  # if "197809" in s
 
 
 @pytest.mark.parametrize("project, sample", dev_samples)
