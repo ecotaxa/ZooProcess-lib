@@ -1,3 +1,4 @@
+import os
 import random
 
 import cv2
@@ -41,3 +42,4 @@ def test_identical_converted_8bit_sample(projects, project, sample, tmp_path):
 
     assert expected_image.shape == actual_image.shape
     assert np.array_equal(expected_image, actual_image)
+    os.remove(output_path)

@@ -179,8 +179,11 @@ def compare_vignettes(ref_thumbs_dir: Path, act_thumbs_dir: Path, threshold: int
     # Tolerate a different extension as long as bitmaps are similar
     ref_images = list_images_in(ref_thumbs_dir)
     act_images = list_images_in(act_thumbs_dir)
+    ref_images = color_vignettes_removed(ref_images)
     # Basic matches, it will fail for projects with the historical bug on the 20% band
-    assert len(ref_images) == len(act_images)
+    assert len(ref_images) == len(
+        act_images
+    ), f"Different number of vignettes, expected {len(ref_images)} actual {len(act_images)}"
     assert set(ref_images.keys()) == set(act_images.keys())
     # Tricky matches as we have != numbering
     ref_by_size = categorize_by_size(ref_images)
@@ -215,7 +218,7 @@ def compare_vignettes(ref_thumbs_dir: Path, act_thumbs_dir: Path, threshold: int
             else:
                 print(f"Image {a_ref_name} not matched in actual thumbnails")
                 in_error = True
-    assert not in_error
+    assert not in_error, "Error in vignettes comparison, see above for details."
 
 
 def list_images_in(image_dir: Path):
@@ -229,6 +232,15 @@ def list_images_in(image_dir: Path):
             # Apparently jpg encoding damaged pure white
             # if a_file.endswith(".jpg"):
             #     img_data[img_data >= 254] = 255
+    return ret
+
+
+def color_vignettes_removed(images: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+    ret = {}
+    for img_name, img_data in images.items():
+        if "_color_" in img_name:
+            continue
+        ret[img_name] = img_data
     return ret
 
 

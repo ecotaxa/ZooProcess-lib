@@ -7,7 +7,7 @@ import cv2
 
 from .ImageJLike import convert_16bit_image_to_8bit_min_max
 from .Legacy import averaged_median_mean
-from .img_tools import loadimage, rotate90c, Lut, minAndMax, image_info, saveimage, load_tiff_image_and_info
+from .img_tools import rotate90c, Lut, minAndMax, saveimage, load_tiff_image_and_info
 
 CV2_VERTICAL_FLIP_CODE = 0
 CV2_NO_TIFF_COMPRESSION = 1

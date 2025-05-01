@@ -147,6 +147,7 @@ def read_measures_from_file(measures, only_box=False):
     else:
         ref = read_measures_csv(measures, TYPE_BY_LEGACY)
     # This filter is _after_ measurements in Legacy
+    # TODO: Apparently it was not the case in projects before a certain date.
     ref = [
         a_ref
         for a_ref in ref

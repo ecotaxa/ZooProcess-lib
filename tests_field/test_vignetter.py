@@ -127,7 +127,10 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     ref_thumbs_dir = folder.zooscan_scan.work.path / (sample + "_" + str(index))
     compare_vignettes(ref_thumbs_dir, thumbs_dir, conf.upper)
     # Cleanup if all went well
-    [os.remove(a_file) for a_file in eight_bit_bgs+[combined_bg_file,eight_bit_sample]]
+    [
+        os.remove(a_file)
+        for a_file in eight_bit_bgs + [combined_bg_file, eight_bit_sample]
+    ]
     shutil.rmtree(thumbs_dir)
 
 

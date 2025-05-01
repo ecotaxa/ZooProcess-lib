@@ -18,11 +18,10 @@ def convert_16bit_image_to_8bit_min_max(
     """
     assert img.dtype == np.uint16
     max_val = min(65535, max_val)  # From ij.process.ShortProcessor.setMinAndMax
-    scale = np.float64(256) / (max_val - min_val + 1)
-    min_removed_img = img.astype(np.int32) - min_val
-    min_removed_img[min_removed_img < 0] = 0
-    scaled_img = min_removed_img * scale + 0.5
-    scaled_img[scaled_img > 255] = 255
+    min_removed_img = np.clip(a=img, a_min=min_val, a_max=max_val) - min_val
+    img_range = max_val - min_val + 1
+    scaled_img = (min_removed_img * np.float32(256)) / img_range + 0.5
+    np.clip(a=scaled_img, a_min=None, a_max=255, out=scaled_img)
     return scaled_img.astype(np.uint8)
 
 
@@ -112,8 +111,8 @@ def bilinear_resize(image: np.ndarray, new_width: int, new_height: int) -> np.nd
     return ret
 
 
-def _bilinear_using_skimage(image, new_height, new_width): # pragma: no cover
-    """ Unused test implementation """
+def _bilinear_using_skimage(image, new_height, new_width):  # pragma: no cover
+    """Unused test implementation"""
     from skimage.transform import resize_local_mean
 
     ret = resize_local_mean(image, (new_height, new_width), grid_mode=False) * 256
@@ -121,7 +120,7 @@ def _bilinear_using_skimage(image, new_height, new_width): # pragma: no cover
 
 
 def _bilinear_using_pil(image, new_height, new_width):  # pragma: no cover
-    """ Unused test implementation """
+    """Unused test implementation"""
     from PIL import Image
     from PIL.Image import Resampling
 
@@ -134,7 +133,7 @@ def _bilinear_using_pil(image, new_height, new_width):  # pragma: no cover
 def _bilinear_resize_using_opencv_warpaffine(
     image: np.ndarray, new_width: int, new_height: int
 ):  # pragma: no cover
-    """ Unused test implementation """
+    """Unused test implementation"""
     height, width = image.shape[:2]
     scale_x = new_height / height
     scale_y = new_width / width

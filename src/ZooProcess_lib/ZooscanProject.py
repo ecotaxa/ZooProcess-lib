@@ -37,8 +37,6 @@ class ZooscanProject:
         self.rawscan = Path(self.folder, "Zooscan_scan", "_raw")
         self.workscan = Path(self.folder, "Zooscan_scan", "_work")
 
-        print("__init__ done")
-
     def getRawPath(self, sample, index):
         path = Path(
             self.folder,
@@ -159,9 +157,7 @@ def buildZooscanProject(
     # TPtemp = ProjectClass( project_name="" )
     # testFolder = TPtemp.testfolder.as_posix()
 
-    TP = ZooscanProject(
-        piqvhome=piqvhome, project_name=project_name
-    )
+    TP = ZooscanProject(piqvhome=piqvhome, project_name=project_name)
     # TPtemp = None
 
     return TP
