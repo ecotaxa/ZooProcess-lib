@@ -6,8 +6,7 @@ from typing import Tuple
 
 import numpy as np
 
-from ZooProcess_lib.img_tools import crophw
-from ZooProcess_lib.img_tools_2 import resized_float
+from .img_tools import crophw
 
 
 def averaged_median_mean(image: np.ndarray) -> Tuple[float, float]:
@@ -44,3 +43,11 @@ def averaged_median_mean(image: np.ndarray) -> Tuple[float, float]:
     mean = meansum / k
 
     return median, mean
+
+
+def resized_float(largeur, hauteur) -> Tuple[float, float, float, float]:
+    BX = largeur * 0.03
+    BY = hauteur * 0.05
+    W = largeur * 0.94
+    H = hauteur * 0.93
+    return BX, BY, W, H

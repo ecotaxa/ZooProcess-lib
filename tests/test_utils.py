@@ -8,7 +8,7 @@ from typing import List, Dict, Type, Tuple
 import cv2
 import numpy as np
 
-from ZooProcess_lib.Zooscan_convert import CV2_VERTICAL_FLIP_CODE
+from ZooProcess_lib.Converter import CV2_VERTICAL_FLIP_CODE
 from ZooProcess_lib.img_tools import loadimage, rotate90cc, saveimage
 
 

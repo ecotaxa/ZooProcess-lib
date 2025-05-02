@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from .Lut import Lut
+from .LegacyConfig import Lut
 from .ReadLog import LogReader
 
 

@@ -12,6 +12,7 @@ from ZooProcess_lib.Features import (
     Features,
     legacy_measures_list_from_roi_list,
 )
+from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.ROI import feature_unq, ROI
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
@@ -94,6 +95,7 @@ def assert_segmentation(projects, project, sample, method):
     index = 1  # TODO: should come from get_names() below
     info_vis1, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
+    processor = Processor(conf, lut)
     ref_feats = read_measurements(folder, sample, index)
     segmenter = Segmenter(
         vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper
@@ -139,6 +141,7 @@ def assert_linear_response_time(projects, tmp_path, test_set, method):
         index = 1  # TODO: should come from get_names() below
         _, vis1 = load_final_ref_image(folder, sample, index)
         conf = folder.zooscan_config.read()
+        processor = Processor(conf, None)
         segmenter = Segmenter(
             vis1, 2400, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper
         )
@@ -190,6 +193,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
     index = 1  # TODO: should come from get_names() below
     _, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
+    processor = Processor(conf, None)
 
     segmenter = Segmenter(
         vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper
@@ -315,6 +319,7 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     index = 1  # TODO: should come from get_names() below
     _, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
+    processor = Processor(conf, None)
     ref = read_measurements(folder, sample, index)
     segmenter = Segmenter(
         vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper

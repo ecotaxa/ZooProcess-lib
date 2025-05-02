@@ -1,16 +1,16 @@
 import os
 import zipfile
 from pathlib import Path
+from platform import processor
 
 import cv2
 
 from ZooProcess_lib.Background import Background
 from ZooProcess_lib.Extractor import Extractor
-from ZooProcess_lib.Lut import Lut
+from ZooProcess_lib.LegacyConfig import Lut, ZooscanConfig
+from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.Segmenter import Segmenter
-from ZooProcess_lib.ZooscanFolder import ZooscanConfig
 from ZooProcess_lib.Zooscan_combine_backgrounds import Zooscan_combine_backgrounds
-from ZooProcess_lib.Zooscan_convert import Zooscan_convert
 from ZooProcess_lib.img_tools import (
     load_tiff_image_and_info,
     loadimage,
@@ -25,6 +25,7 @@ def test_thumbnail_generator(tmp_path):
     # A bit of e2e testing as well, see if we can do from _only_ raw images up to thumbnails
     lut = Lut.read(CONFIG_DIR / "lut.txt")
     conf = ZooscanConfig.read(CONFIG_DIR / "process_install_both_config.txt")
+    processor = Processor(conf, lut)
     # Backgrounds pre-processing
     bg_scan_date = BACK_TIME
     bg_raw_files = [
@@ -33,7 +34,7 @@ def test_thumbnail_generator(tmp_path):
     ]
     eight_bit_bgs = [tmp_path / raw_bg_file.name for raw_bg_file in bg_raw_files]
     [
-        Zooscan_convert(raw_bg_file, output_path, lut)
+        processor.converter.do_file(raw_bg_file, output_path)
         for raw_bg_file, output_path in zip(bg_raw_files, eight_bit_bgs)
     ]
     combined_bg_file = Path(tmp_path, f"{bg_scan_date}_background_large_manual.tif")
@@ -41,7 +42,7 @@ def test_thumbnail_generator(tmp_path):
     # Sample pre-processing
     raw_sample_file = RAW_DIR / "apero2023_tha_bioness_017_st66_d_n1_d3_raw_1.tif"
     eight_bit_sample = tmp_path / raw_sample_file.name
-    Zooscan_convert(raw_sample_file, eight_bit_sample, lut)
+    processor.converter.do_file(raw_sample_file, eight_bit_sample)
     # Background removal
     bg_info, background_image = load_tiff_image_and_info(combined_bg_file)
     sample_info, sample_image = load_tiff_image_and_info(eight_bit_sample)

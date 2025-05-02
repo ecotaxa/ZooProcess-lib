@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 
 from ZooProcess_lib.ImageJLike import convert_16bit_image_to_8bit_min_max
-from ZooProcess_lib.Lut import Lut
-from ZooProcess_lib.Zooscan_convert import Zooscan_convert
+from ZooProcess_lib.LegacyConfig import Lut
+from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.img_tools import loadimage
 from data_dir import RAW_DIR, CONFIG_DIR, SAMPLE_DIR
 
@@ -14,7 +14,9 @@ def test_identical_converted_8bit_sample(tmp_path):
 
     output_path = tmp_path / raw_sample_file.name
     lut = Lut.read(CONFIG_DIR / "lut.txt")
-    Zooscan_convert(raw_sample_file, output_path, lut)
+    processor = Processor.from_legacy_config(None, lut)
+    processor.converter.do_file(raw_sample_file, output_path)
+
     actual_image = loadimage(output_path, type=cv2.IMREAD_UNCHANGED)
 
     ref_8bit_sample_file = SAMPLE_DIR / "apero2023_tha_bioness_017_st66_d_n1_d3_1.tif"

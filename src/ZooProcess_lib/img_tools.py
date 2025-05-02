@@ -11,7 +11,7 @@ from PIL import Image
 from PIL.ExifTags import Base, TAGS
 from PIL.ImageFile import ImageFile
 
-from .Lut import Lut
+from .LegacyConfig import Lut
 from .tools import timeit
 
 Image.MAX_IMAGE_PIXELS = 375000000
@@ -716,12 +716,10 @@ def inside_a_bit(largeur, hauteur):
 # min,max,odrange = read_lut()
 
 
-def minAndMax(median, lut: Lut = None) -> Tuple[int, int]:
+def minAndMax(median, lut: Lut) -> Tuple[int, int]:
     """
     Return: (min, smax)
     """
-    if not lut:
-        lut = Lut()
     MINREC = lut.min
     MAXREC = lut.max
     if lut.adjust == "yes":

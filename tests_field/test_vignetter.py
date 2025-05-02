@@ -13,10 +13,10 @@ from ZooProcess_lib.Extractor import Extractor
 from ZooProcess_lib.Features import (
     legacy_measures_list_from_roi_list,
 )
+from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.Zooscan_combine_backgrounds import Zooscan_combine_backgrounds
-from ZooProcess_lib.Zooscan_convert import Zooscan_convert
 from ZooProcess_lib.img_tools import (
     load_tiff_image_and_info,
     loadimage,
@@ -33,7 +33,7 @@ from tests.data_tools import (
 )
 from tests.test_utils import compare_vignettes
 from .env_fixture import projects
-from .projects_for_test import POINT_B_JB
+from .projects_for_test import POINT_B_JB, APERO1, TRIATLAS, IADO
 from .projects_repository import tested_samples, all_samples_in
 
 # The test takes ages, by randomizing the order there are better chances to see problems early
@@ -53,8 +53,9 @@ def test_thumbnail_generator(projects, project, sample, tmp_path):
 def assert_same_vignettes(project, projects, sample, tmp_path):
     # A bit of e2e testing as well, see if we can do from _only_ raw images up to thumbnails
     folder = ZooscanFolder(projects, project)
-    lut = folder.zooscan_config.read_lut()
     conf = folder.zooscan_config.read()
+    lut = folder.zooscan_config.read_lut()
+    processor = Processor(conf, lut)
     index = 1  # TODO: should come from get_names() below
     ref_box_measures = read_box_measurements(folder, sample, index)
     # Read raw sample scan
@@ -69,14 +70,14 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     bg_raw_files = folder.zooscan_back.get_last_raw_backgrounds_before(digitized_at)
     eight_bit_bgs = [tmp_path / raw_bg_file.name for raw_bg_file in bg_raw_files]
     [
-        Zooscan_convert(raw_bg_file, output_path, lut)
+        processor.converter.do_file(raw_bg_file, output_path)
         for raw_bg_file, output_path in zip(bg_raw_files, eight_bit_bgs)
     ]
     combined_bg_file = Path(tmp_path, f"{digitized_at}_background_large_manual.tif")
     Zooscan_combine_backgrounds(eight_bit_bgs, combined_bg_file)
     # Sample pre-processing
     eight_bit_sample = tmp_path / raw_sample_file.name
-    Zooscan_convert(raw_sample_file, eight_bit_sample, lut)
+    processor.converter.do_file(raw_sample_file, eight_bit_sample)
     # Background removal
     bg_info, background_image = load_tiff_image_and_info(combined_bg_file)
     sample_info, sample_image = load_tiff_image_and_info(eight_bit_sample)
@@ -135,6 +136,8 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
 
 
 dev_samples = [(p, s) for (p, s) in all_samples_in(POINT_B_JB)]  # if "197809" in s
+dev_samples = [(TRIATLAS, "m158_mn15_n3_d3")] # Extra vignette not filtered by W/H ratio
+dev_samples = all_samples_in(APERO1)[:8]
 
 
 @pytest.mark.parametrize("project, sample", dev_samples)

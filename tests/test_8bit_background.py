@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
 
-from ZooProcess_lib.Lut import Lut
-from ZooProcess_lib.Zooscan_convert import Zooscan_convert
+from ZooProcess_lib.LegacyConfig import Lut
+from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.img_tools import loadimage
 from data_dir import BACKGROUND_DIR, CONFIG_DIR
 
@@ -15,7 +15,8 @@ def test_identical_converted_8bit_background(tmp_path):
     assert reference_bg_file.exists()
     output_path = tmp_path / source_bg_file.name
     lut = Lut.read(CONFIG_DIR / "lut.txt")
-    Zooscan_convert(source_bg_file, output_path, lut)
+    processor = Processor.from_legacy_config(None, lut)
+    processor.converter.do_file(source_bg_file, output_path)
     expected_image = loadimage(reference_bg_file, type=cv2.IMREAD_UNCHANGED)
     actual_image = loadimage(output_path, type=cv2.IMREAD_UNCHANGED)
     assert expected_image.shape == actual_image.shape
