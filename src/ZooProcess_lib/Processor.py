@@ -38,7 +38,7 @@ class Processor:
 
     @property
     def bg_remover(self) -> BackgroundRemover:
-        return BackgroundRemover()
+        return BackgroundRemover(self.config.background_process)
 
     @property
     def segmenter(self) -> Segmenter:

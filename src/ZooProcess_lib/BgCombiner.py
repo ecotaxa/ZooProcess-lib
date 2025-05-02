@@ -38,11 +38,11 @@ class BackgroundCombiner:
         assert len(background_files) == 2
         info_1, back_1 = load_tiff_image_and_info(background_files[0])
         info_2, back_2 = load_tiff_image_and_info(background_files[1])
-        dest_image = self.do_from_images(
+        dest_image, dest_resolution = self.do_from_images(
             [(back_1, info_1.resolution), (back_2, info_2.resolution)]
         )
         dest_file = to_file.as_posix()
-        saveimage(dest_image, dest_file, dpi=info_1.resolutions)
+        saveimage(dest_image, dest_file, dpi=(dest_resolution, dest_resolution))
 
     def do_from_images(
         self, backs: List[Tuple[np.ndarray, int]]

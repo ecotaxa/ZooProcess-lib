@@ -82,6 +82,7 @@ class Lut:
 
 @dataclasses.dataclass(frozen=True)
 class ZooscanConfig:
+    background_process: str
     minsizeesd_mm: float
     maxsizeesd_mm: float
     upper: int

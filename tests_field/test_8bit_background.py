@@ -60,6 +60,6 @@ def test_identical_converted_8bit_background(
         scan_date, idx
     )
     expected_image = loadimage(reference_bg_file, type=cv2.IMREAD_UNCHANGED)
-    processor = Processor.from_legacy_config(None, folder.zooscan_config.read_lut())
+    processor = Processor.from_legacy_config(folder.zooscan_config.read(), folder.zooscan_config.read_lut())
     actual_image, _ = processor.converter.do_file_to_image(source_bg_file)
     assert np.array_equal(expected_image, actual_image)

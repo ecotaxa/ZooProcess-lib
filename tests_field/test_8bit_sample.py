@@ -28,9 +28,8 @@ random.shuffle(shuffled)
 def test_identical_converted_8bit_sample(projects, project, sample, tmp_path):
     """Ensure we convert like legacy the scanned background images"""
     folder = ZooscanFolder(projects, project)
-    TP = ZooscanProject(projects, project)
     index = 1  # TODO: should come from get_names() below
-    processor = Processor.from_legacy_config(None, TP.readLut())
+    processor = Processor.from_legacy_config(folder.zooscan_config.read(), folder.zooscan_config.read_lut())
 
     raw_sample_file = folder.zooscan_scan.raw.get_file(sample, index)
     actual_image, _ = processor.converter.do_file_to_image(raw_sample_file)

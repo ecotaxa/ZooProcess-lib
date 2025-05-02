@@ -21,8 +21,8 @@ class BackgroundRemover:
     Port of algorithms from legacy Zooscan_1asep.txt macro
     """
 
-    def __init__(self):
-        self.processing_method = ""  # TODO: Get from config
+    def __init__(self, background_process:str):
+        self.background_process = background_process
 
     def do_from_files(self, background_file: Path, sample_file: Path) -> np.ndarray:
         """:background_file: file containing the background image, comes from CombinedBackgrounds"""
@@ -51,7 +51,7 @@ class BackgroundRemover:
         bg_image: np.ndarray,
         bg_resolution: int,
     ) -> np.ndarray:
-        border = Border(sample_image, sample_image_resolution, self.processing_method)
+        border = Border(sample_image, sample_image_resolution, self.background_process)
         (top_limit, bottom_limit, left_limit, right_limit) = border.detect()
 
         # TODO: below correspond to a not-debugged case "if (greycor > 2 && droite == 0) {" which

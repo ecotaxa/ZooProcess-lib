@@ -16,9 +16,13 @@ from ZooProcess_lib.img_tools import (
 )
 from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
 from .env_fixture import projects
+from .projects_for_test import TRIATLAS
 from .projects_repository import tested_samples
 from .test_sample import load_final_ref_image
 
+tested_samples = [
+    (TRIATLAS, "m158_mn06_n3_d3")
+]  # Extra vignette not filtered by W/H ratio
 
 @pytest.mark.parametrize(
     "project, sample",
@@ -28,7 +32,7 @@ from .test_sample import load_final_ref_image
 def test_raw_to_work(projects, tmp_path, project, sample):
     """Ensure we can mimic sample - background -> work vis1 equivalent"""
     folder = ZooscanFolder(projects, project)
-    processor = Processor.from_legacy_config(None, folder.zooscan_config.readLut())
+    processor = Processor.from_legacy_config(folder.zooscan_config.read(), folder.zooscan_config.read_lut())
 
     index = 1  # TODO: should come from get_names() below
 
