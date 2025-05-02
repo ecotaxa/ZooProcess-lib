@@ -3,19 +3,21 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from ZooProcess_lib.LegacyConfig import ZooscanConfig
 from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.img_tools import (
     loadimage,
     load_zipped_image,
     add_separated_mask,
 )
-from data_dir import BACKGROUND_DIR, SAMPLE_DIR, WORK_DIR
+from data_dir import BACKGROUND_DIR, SAMPLE_DIR, WORK_DIR, CONFIG_DIR
 from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
 
 
 def test_background_plus_sample_to_vis1(tmp_path):
     """Ensure we can mimic sample - background -> work vis1 equivalent"""
-    processor = Processor()
+    conf = ZooscanConfig.read(CONFIG_DIR / "process_install_both_config.txt")
+    processor = Processor(conf)
     # Read 8bit sample scan
     eight_bit_sample_file = SAMPLE_DIR / "apero2023_tha_bioness_017_st66_d_n1_d3_1.tif"
     # Read 8bit combined background scan
