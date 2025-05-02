@@ -98,10 +98,7 @@ def assert_segmentation(projects, project, sample, method):
     lut = folder.zooscan_config.read_lut()
     processor = Processor(conf, lut)
     ref_feats = read_measurements(folder, sample, index)
-    segmenter = Segmenter(
-        vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper
-    )
-    found_rois = segmenter.find_blobs(method)
+    found_rois = processor.segmenter.find_ROIs_in_image(vis1, conf.resolution, method)
     # found_rois = list(filter(lambda r: r.mask.shape == (45, 50), found_rois))
 
     act_feats = to_legacy_format(
@@ -116,7 +113,7 @@ def assert_segmentation(projects, project, sample, method):
             ref_feats, act_feats, feature_unq
         )
         tolerance_problems = report_and_fix_tolerances(different, FEATURES_TOLERANCES)
-        fix_valid_diffs(act_feats, not_in_reference, not_in_actual, segmenter)
+        fix_valid_diffs(act_feats, not_in_reference, not_in_actual, info_vis1.width)
         if act_feats != ref_feats:
             different, not_in_reference, not_in_actual = diff_features_lists(
                 ref_feats, act_feats, feature_unq
@@ -142,10 +139,9 @@ def assert_linear_response_time(projects, tmp_path, test_set, method):
         _, vis1 = load_final_ref_image(folder, sample, index)
         conf = folder.zooscan_config.read()
         processor = Processor(conf, None)
-        segmenter = Segmenter(
-            vis1, 2400, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper
+        spent, found_rois = measure_time(
+            processor.segmenter.find_ROIs_in_image, vis1, 2400, method
         )
-        spent, found_rois = measure_time(segmenter.find_blobs, method)
         # Minimal & fast
         assert found_rois != []
         spent_times.append(spent)
@@ -191,33 +187,35 @@ def test_algo_diff(projects, tmp_path, project, sample):
     """
     folder = ZooscanFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
-    _, vis1 = load_final_ref_image(folder, sample, index)
+    info_vis1, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
     processor = Processor(conf, None)
 
-    segmenter = Segmenter(
-        vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper
+    found_rois_new = processor.segmenter.find_ROIs_in_image(
+        vis1, conf.resolution, Segmenter.METH_CONNECTED_COMPONENTS
     )
-
-    found_rois_new = segmenter.find_blobs(Segmenter.METH_CONNECTED_COMPONENTS)
-    ref_feats = legacy_measures_list_from_roi_list(vis1, found_rois_new, conf.upper)
+    ref_feats = legacy_measures_list_from_roi_list(
+        vis1, conf.resolution, found_rois_new, conf.upper
+    )
     sort_by_coords(ref_feats)
 
-    found_rois_compat = segmenter.find_blobs(
-        Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR
+    found_rois_compat = processor.segmenter.find_ROIs_in_image(
+        vis1, conf.resolution, Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR
     )
-    act_feats = legacy_measures_list_from_roi_list(vis1, found_rois_compat, conf.upper)
+    act_feats = legacy_measures_list_from_roi_list(
+        vis1, conf.resolution, found_rois_compat, conf.upper
+    )
     sort_by_coords(act_feats)
 
     if act_feats != ref_feats:
         different, not_in_reference, not_in_actual = diff_features_lists(
             ref_feats, act_feats, feature_unq
         )
-        fix_valid_diffs(act_feats, not_in_reference, not_in_actual, segmenter)
+        fix_valid_diffs(act_feats, not_in_reference, not_in_actual, info_vis1.width)
     assert act_feats == ref_feats
 
 
-def fix_valid_diffs(act_feats, not_in_legacy, not_in_new, segmenter):
+def fix_valid_diffs(act_feats, not_in_legacy, not_in_new, image_width):
     actual_was_modified = False
     enclosing_rectangles = [
         (
@@ -229,8 +227,8 @@ def fix_valid_diffs(act_feats, not_in_legacy, not_in_new, segmenter):
         for a_new in act_feats
     ]
     # Boundaries of the problematic area
-    central_band_end = int(segmenter.width * segmenter.overlap)
-    central_band_start = segmenter.width - int(segmenter.width * segmenter.overlap)
+    central_band_end = int(image_width * Segmenter.overlap)
+    central_band_start = image_width - int(image_width * Segmenter.overlap)
 
     # We have in 'new' version extra particles which were removed from legacy
     # as they touch both borders of a 20% vertical band in the middle of the image.
@@ -321,13 +319,12 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     conf = folder.zooscan_config.read()
     processor = Processor(conf, None)
     ref = read_measurements(folder, sample, index)
-    segmenter = Segmenter(
-        vis1, conf.resolution, conf.minsizeesd_mm, conf.maxsizeesd_mm, conf.upper
-    )
     # found_rois = segmenter.find_blobs(
     #     Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
     # )
-    found_rois = segmenter.find_blobs(segmentation_method)
+    found_rois = processor.segmenter.find_ROIs_in_image(
+        vis1, conf.resolution, segmentation_method
+    )
     # found_rois = segmenter.find_blobs(Segmenter.METH_RETR_TREE)
     # found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
     # found_rois = segmenter.find_blobs()

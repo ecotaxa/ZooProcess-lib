@@ -107,8 +107,8 @@ def test_ij_like_features(img: str):
     # Add a white border, otherwise the particle touches all borders and is eliminated
     image = cv2.copyMakeBorder(image, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=(255,))
     THRESHOLD = 243
-    segmenter = Segmenter(image, 2400, 0.3, 100, THRESHOLD)
-    rois = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
+    segmenter = Segmenter(0.3, 100, THRESHOLD)
+    rois = segmenter.find_ROIs_in_image(image, 2400, Segmenter.METH_TOP_CONTOUR_SPLIT)
     assert len(rois) == 1
     feat = Features(image=image, resolution=2400, roi=rois[0], threshold=THRESHOLD)
     exp = read_ecotaxa_tsv(FEATURES_DIR / f"ecotaxa_{img}.tsv", TYPE_BY_ECOTAXA)

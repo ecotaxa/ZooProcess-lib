@@ -32,61 +32,68 @@ class Segmenter(object):
 
     def __init__(
         self,
-        image: ndarray,
-        resolution: int,
         minsize: float,
         maxsize: float,
         threshold: int,
     ):
-        assert image.dtype == np.uint8
-        self.image = image
-        self.resolution = resolution
-        self.height, self.width = image.shape[:2]
-        pixel = 25.4 / self.resolution
-        sm_min = (3.1416 / 4) * pow(minsize, 2)
-        sm_max = (3.1416 / 4) * pow(maxsize, 2)
-        # s_p_* are in pixel^2
-        self.s_p_min: int = round(sm_min / (pow(pixel, 2)))
-        self.s_p_max: int = round(sm_max / (pow(pixel, 2)))
+        self.minsize = minsize
+        self.maxsize = maxsize
         self.threshold = threshold
 
-    def find_blobs(self, method: int = METH_TOP_CONTOUR_SPLIT) -> List[ROI]:
+    def find_ROIs_in_image(
+        self, image: ndarray, resolution: int, method: int = METH_TOP_CONTOUR_SPLIT
+    ) -> List[ROI]:
+        pixel = 25.4 / resolution
+        sm_min = (3.1416 / 4) * pow(self.minsize, 2)
+        sm_max = (3.1416 / 4) * pow(self.maxsize, 2)
+        # part_size_* are in pixel^2
+        part_size_min: int = round(sm_min / (pow(pixel, 2)))
+        part_size_max: int = round(sm_max / (pow(pixel, 2)))
+        assert image.dtype == np.uint8
+        height, width = image.shape[:2]
         # Threshold the source image to have a b&w mask
         # mask is white objects on black background
-        _th, inv_mask = cv2.threshold(
-            self.image, self.threshold, 1, cv2.THRESH_BINARY_INV
-        )
+        _th, inv_mask = cv2.threshold(image, self.threshold, 1, cv2.THRESH_BINARY_INV)
         # saveimage(inv_mask, "/tmp/inv_mask.tif")
         self.sanity_check(inv_mask)
         if method & self.LEGACY_COMPATIBLE:
             assert (
                 method - self.LEGACY_COMPATIBLE != 0
             ), "Sub-method is mandatory for legacy mode"
-            if self.width > self.Wlimit and self.height > self.Hlimit:
-                return self.find_particles_legacy_way(inv_mask, method)
-        return self.find_particles_with_method(inv_mask, method)
+            if width > self.Wlimit and height > self.Hlimit:
+                return self.find_particles_legacy_way(
+                    inv_mask, method, part_size_min, part_size_max
+                )
+        return self.find_particles_with_method(
+            inv_mask, method, part_size_min, part_size_max
+        )
 
-    def find_particles_legacy_way(self, inv_mask: ndarray, method: int):
+    def find_particles_legacy_way(
+        self, inv_mask: ndarray, method: int, part_size_min: int, part_size_max: int
+    ) -> List[ROI]:
         # Process image in 2 overlapping parts, split vertically.
         # There is a good side effect that, when borders are all around the image, it works.
         # BUT as well the bad side effect that objects in the middle 20% band can appear if embedded
         # or disappear if too large.
-        overlap_size = int(self.width * self.overlap)
-        left_mask = cropnp(
-            inv_mask, top=0, left=0, bottom=self.height, right=overlap_size
+        height, width = inv_mask.shape[:2]
+        overlap_size = int(width * self.overlap)
+        left_mask = cropnp(inv_mask, top=0, left=0, bottom=height, right=overlap_size)
+        left_rois = self.find_particles_with_method(
+            left_mask, method, part_size_min, part_size_max
         )
-        left_rois = self.find_particles_with_method(left_mask, method)
         right_mask = cropnp(
             inv_mask,
             top=0,
-            left=self.width - overlap_size,
-            bottom=self.height,
-            right=self.width,
+            left=width - overlap_size,
+            bottom=height,
+            right=width,
         )
-        right_rois = self.find_particles_with_method(right_mask, method)
+        right_rois = self.find_particles_with_method(
+            right_mask, method, part_size_min, part_size_max
+        )
         # Fix coordinates from right pane
         for right_roi in right_rois:
-            right_roi.x += self.width - overlap_size
+            right_roi.x += width - overlap_size
         # Merge ROI lists
         key_func = lambda r: roi_unq(r)
         right_by_key = {key_func(ri): ri for ri in right_rois}
@@ -102,7 +109,9 @@ class Segmenter(object):
                 right_by_key[left_key] = left_roi
         return list(right_by_key.values())
 
-    def find_particles_with_method(self, inv_mask: ndarray, method: int) -> List[ROI]:
+    def find_particles_with_method(
+        self, inv_mask: ndarray, method: int, part_size_min: int, part_size_max: int
+    ) -> List[ROI]:
         # Required measurements:
         #       area bounding area_fraction limit decimal=2
         # Result:
@@ -111,33 +120,41 @@ class Segmenter(object):
             # Most reliable from execution/complexity points of view
             return ConnectedComponentsSegmenter().find_particles_via_cc(
                 inv_mask,
-                self.s_p_min,
-                self.s_p_max,
+                part_size_min,
+                part_size_max,
                 self.max_w_to_h_ratio,
                 with_split=False,
             )
         elif method & self.METH_CONNECTED_COMPONENTS_SPLIT:
             return ConnectedComponentsSegmenter().find_particles_via_cc(
                 inv_mask,
-                self.s_p_min,
-                self.s_p_max,
+                part_size_min,
+                part_size_max,
                 self.max_w_to_h_ratio,
                 with_split=True,
             )
         elif method & self.METH_CONTOUR_TREE:
             # Universal, but very slow on noisy images, collapses from seconds to ten of minutes
             return RecursiveContoursSegmenter.find_particles_contour_tree(
-                inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio
+                inv_mask, part_size_min, part_size_max, self.max_w_to_h_ratio
             )
         elif method & self.METH_TOP_CONTOUR_SPLIT:
             # Avoid the borders problem
             return ExternalContoursSegmenter.find_particles_contours(
-                inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio, split=True
+                inv_mask,
+                part_size_min,
+                part_size_max,
+                self.max_w_to_h_ratio,
+                split=True,
             )
         else:
             # Fails on 4-borders images (0 contour found)
             return ExternalContoursSegmenter.find_particles_contours(
-                inv_mask, self.s_p_min, self.s_p_max, self.max_w_to_h_ratio, split=False
+                inv_mask,
+                part_size_min,
+                part_size_max,
+                self.max_w_to_h_ratio,
+                split=False,
             )
 
     @staticmethod
@@ -191,7 +208,7 @@ class Segmenter(object):
             )
 
     @staticmethod
-    def denoise_particles_via_cc(inv_mask: ndarray, s_p_min: int):
+    def denoise_particles_via_cc(inv_mask: ndarray, part_size_min: int):
         (
             retval,
             labels,
@@ -201,12 +218,12 @@ class Segmenter(object):
             image=inv_mask, connectivity=8, ltype=cv2.CV_32S, ccltype=cv2.CCL_GRANA
         )
         assert (
-                   cv2.CC_STAT_LEFT,
-                   cv2.CC_STAT_TOP,
-                   cv2.CC_STAT_WIDTH,
-                   cv2.CC_STAT_HEIGHT,
-                   cv2.CC_STAT_AREA,
-               ) == (0, 1, 2, 3, 4)
+            cv2.CC_STAT_LEFT,
+            cv2.CC_STAT_TOP,
+            cv2.CC_STAT_WIDTH,
+            cv2.CC_STAT_HEIGHT,
+            cv2.CC_STAT_AREA,
+        ) == (0, 1, 2, 3, 4)
         ret = []
         print("cc filter, initial: ", retval)
         eliminated_1 = 0
@@ -227,7 +244,7 @@ class Segmenter(object):
                 eliminated_l += 1
                 continue
             # Even if contour was around a filled rectangle it would not meet min criterion
-            if w * h < s_p_min:
+            if w * h < part_size_min:
                 sub_labels = cropnp(
                     image=labels, top=y, left=x, bottom=y + h, right=x + w
                 )
@@ -235,8 +252,8 @@ class Segmenter(object):
                 sub_mask = (sub_labels == cc_id).astype(
                     dtype=np.uint8
                 ) * 255  # 255=shape, 0=not in shape
-                inv_mask[y: y + h, x: x + w] = np.bitwise_xor(
-                    inv_mask[y: y + h, x: x + w], sub_mask
+                inv_mask[y : y + h, x : x + w] = np.bitwise_xor(
+                    inv_mask[y : y + h, x : x + w], sub_mask
                 )
                 eliminated_r += 1
                 continue

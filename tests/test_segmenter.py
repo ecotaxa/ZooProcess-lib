@@ -48,8 +48,8 @@ def test_holes_62388():
     # This image biggest particle has a pattern in holes, their contour touches the particle itself
     image = loadimage(SEGMENTER_DIR / "cc_62388.png")
     image = cv2.copyMakeBorder(image, 4, 4, 4, 4, cv2.BORDER_CONSTANT, value=(255,))
-    parts = Segmenter(image, 2400, 0.1, 100000, 243).find_blobs(
-        Segmenter.METH_TOP_CONTOUR_SPLIT
+    parts = Segmenter(0.1, 100000, 243).find_ROIs_in_image(
+        image, 2400, Segmenter.METH_TOP_CONTOUR_SPLIT
     )
     features = sorted(
         legacy_measures_list_from_roi_list(
@@ -73,15 +73,17 @@ def test_compare_split_methods():
     )
     THRESHOLD = 243
     RESOLUTION = 2400
-    segmenter = Segmenter(image, RESOLUTION, 0.3, 100, THRESHOLD)
+    segmenter = Segmenter(0.3, 100, THRESHOLD)
 
-    found_rois_new = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
+    found_rois_new = segmenter.find_ROIs_in_image(
+        image, RESOLUTION, Segmenter.METH_TOP_CONTOUR_SPLIT
+    )
     found_feats_new = legacy_measures_list_from_roi_list(
         image, RESOLUTION, found_rois_new, THRESHOLD
     )
     sort_by_coords(found_feats_new)
 
-    found_rois_old = segmenter.find_blobs(Segmenter.METH_CONTOUR_TREE)
+    found_rois_old = segmenter.find_ROIs_in_image(image, RESOLUTION, Segmenter.METH_CONTOUR_TREE)
     found_feats_compat = legacy_measures_list_from_roi_list(
         image, RESOLUTION, found_rois_old, THRESHOLD
     )

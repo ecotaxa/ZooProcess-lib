@@ -8,7 +8,6 @@ from PIL import Image
 from ZooProcess_lib.Extractor import Extractor
 from ZooProcess_lib.LegacyConfig import Lut, ZooscanConfig
 from ZooProcess_lib.Processor import Processor
-from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.img_tools import (
     loadimage,
     add_separated_mask,
@@ -51,14 +50,7 @@ def test_thumbnail_generator(tmp_path):
     sample_scan = add_separated_mask(sample_scan, sep_image)
     # Segmentation
     sample_info = image_info(Image.open(eight_bit_sample))  # TODO: Remove
-    segmenter = Segmenter(
-        sample_scan,
-        sample_info.resolution,
-        conf.minsizeesd_mm,
-        conf.maxsizeesd_mm,
-        conf.upper,
-    )
-    rois = segmenter.find_blobs()
+    rois = processor.segmenter.find_ROIs_in_image(sample_scan, sample_info.resolution)
     sort_ROIs_like_legacy(rois, limit=sample_info.height)
     # Thumbnails generation
     thumbs_dir = tmp_path / "thumbs"

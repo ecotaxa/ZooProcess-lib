@@ -20,8 +20,10 @@ def test_features_on_simplified_scan():
     features_file = FEATURES_DIR / "apero2023_tha_bioness_013_st46_d_n8_d3_1_meas.txt"
     THRESHOLD = 243
     RESOLUTION = 2400
-    segmenter = Segmenter(image, RESOLUTION, 0.3, 100, THRESHOLD)
-    roi_list = segmenter.find_blobs(Segmenter.METH_TOP_CONTOUR_SPLIT)
+    segmenter = Segmenter(0.3, 100, THRESHOLD)
+    roi_list = segmenter.find_ROIs_in_image(
+        image, RESOLUTION, Segmenter.METH_TOP_CONTOUR_SPLIT
+    )
     if False:
         the_roi = [r for r in roi_list if (r.x, r.y) == (95, 14000)][0]
         features = [Features(image, the_roi, THRESHOLD)]

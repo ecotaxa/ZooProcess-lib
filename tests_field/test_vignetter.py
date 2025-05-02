@@ -16,7 +16,6 @@ from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
-    load_tiff_image_and_info,
     loadimage,
     add_separated_mask,
     image_info,
@@ -31,7 +30,7 @@ from tests.data_tools import (
 )
 from tests.test_utils import compare_vignettes
 from .env_fixture import projects
-from .projects_for_test import POINT_B_JB, APERO1, TRIATLAS, IADO
+from .projects_for_test import POINT_B_JB, APERO1, TRIATLAS
 from .projects_repository import tested_samples, all_samples_in
 
 # The test takes ages, by randomizing the order there are better chances to see problems early
@@ -86,14 +85,10 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
         sample_scan = add_separated_mask(sample_scan, sep_image)
     # Segmentation
     sample_info = image_info(Image.open(eight_bit_sample))  # TODO: Remove
-    segmenter = Segmenter(
+    rois = processor.segmenter.find_ROIs_in_image(
         sample_scan,
         sample_info.resolution,
-        conf.minsizeesd_mm,
-        conf.maxsizeesd_mm,
-        conf.upper,
     )
-    rois = segmenter.find_blobs()
     sort_ROIs_like_legacy(rois, limit=sample_info.height)
     # Get box measurements, no need to compare thumbnails if they don't match
     actual_measures = to_legacy_format(
@@ -128,7 +123,9 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
 
 
 dev_samples = [(p, s) for (p, s) in all_samples_in(POINT_B_JB)]  # if "197809" in s
-dev_samples = [(TRIATLAS, "m158_mn15_n3_d3")] # Extra vignette not filtered by W/H ratio
+dev_samples = [
+    (TRIATLAS, "m158_mn15_n3_d3")
+]  # Extra vignette not filtered by W/H ratio
 dev_samples = all_samples_in(APERO1)[:8]
 
 

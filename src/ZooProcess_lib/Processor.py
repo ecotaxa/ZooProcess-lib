@@ -7,6 +7,7 @@ from .BgCombiner import BackgroundCombiner
 from .BgRemover import BackgroundRemover
 from .Converter import Converter
 from .LegacyConfig import Lut, ZooscanConfig
+from .Segmenter import Segmenter
 
 
 class Processor:
@@ -37,3 +38,9 @@ class Processor:
     @property
     def bg_remover(self) -> BackgroundRemover:
         return BackgroundRemover()
+
+    @property
+    def segmenter(self) -> Segmenter:
+        return Segmenter(
+            self.config.minsizeesd_mm, self.config.maxsizeesd_mm, self.config.upper
+        )
