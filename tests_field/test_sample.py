@@ -95,6 +95,7 @@ def assert_segmentation(projects, project, sample, method):
     index = 1  # TODO: should come from get_names() below
     info_vis1, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
+    lut = folder.zooscan_config.read_lut()
     processor = Processor(conf, lut)
     ref_feats = read_measurements(folder, sample, index)
     segmenter = Segmenter(
@@ -102,7 +103,6 @@ def assert_segmentation(projects, project, sample, method):
     )
     found_rois = segmenter.find_blobs(method)
     # found_rois = list(filter(lambda r: r.mask.shape == (45, 50), found_rois))
-    segmenter.split_by_blobs(found_rois)
 
     act_feats = to_legacy_format(
         legacy_measures_list_from_roi_list(
@@ -331,7 +331,6 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     # found_rois = segmenter.find_blobs(Segmenter.METH_RETR_TREE)
     # found_rois = segmenter.find_blobs(Segmenter.LEGACY_COMPATIBLE)
     # found_rois = segmenter.find_blobs()
-    segmenter.split_by_blobs(found_rois)
 
     found = to_legacy_format(
         legacy_measures_list_from_roi_list(vis1, found_rois, conf.upper)

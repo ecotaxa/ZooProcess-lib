@@ -13,7 +13,7 @@ from .segmenters.RecursiveContours import RecursiveContoursSegmenter
 
 class Segmenter(object):
     """
-    Divide an image into segments and store the result sub-images.
+    Divide an image into segments and produce ROIs.
     """
 
     # Constants for 2-image processing. Historical.
@@ -250,9 +250,3 @@ class Segmenter(object):
             left,
         )
         return ret
-
-    def split_by_blobs(self, rois: List[ROI]):
-        assert rois, "No ROIs"
-        for ndx, a_roi in enumerate(rois):
-            # self.extract_vignette(a_roi)
-            pass

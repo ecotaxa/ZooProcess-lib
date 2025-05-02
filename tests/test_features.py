@@ -25,7 +25,6 @@ def test_features_on_simplified_scan():
     if False:
         the_roi = [r for r in roi_list if (r.x, r.y) == (95, 14000)][0]
         features = [Features(image, the_roi, THRESHOLD)]
-        segmenter.split_by_blobs([the_roi])
     else:
         features = [Features(image, RESOLUTION, a_roi, THRESHOLD) for a_roi in roi_list]
     features_as_legacy = to_legacy_format([f.as_measures() for f in features])

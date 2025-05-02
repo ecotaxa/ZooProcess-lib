@@ -13,4 +13,4 @@ class ROI(object):
     # Position of the ROI inside its image
     x: int
     y: int
-    mask: ndarray  # convention: 0=not in particle, 1=particle and inside
+    mask: ndarray  # convention: 0=not in particle, 1=particle and eventual holes inside
