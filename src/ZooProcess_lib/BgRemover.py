@@ -32,7 +32,11 @@ class BackgroundRemover:
         sample_info, sample_image = load_tiff_image_and_info(sample_file)
         assert sample_image.dtype == np.uint8
         sample_resolution = sample_info.resolution
-        sample_minus_bg = self.remove_bg_from_sample(
+        sample_minus_bg = self.do_from_images(background_image, bg_resolution, sample_image, sample_resolution)
+        return sample_minus_bg
+
+    def do_from_images(self, background_image, bg_resolution, sample_image, sample_resolution):
+        sample_minus_bg = self._remove_bg_from_sample(
             sample_image=sample_image,
             sample_image_resolution=sample_resolution,
             bg_image=background_image,
@@ -40,7 +44,7 @@ class BackgroundRemover:
         )
         return sample_minus_bg
 
-    def remove_bg_from_sample(
+    def _remove_bg_from_sample(
         self,
         sample_image: np.ndarray,
         sample_image_resolution: int,
@@ -77,7 +81,7 @@ class BackgroundRemover:
             bottom_limit - top_limit,
         )
 
-        draw_outside_lines(
+        _draw_outside_lines(
             sample_minus_background_image,
             sample_image.shape,
             right_limit,
@@ -122,7 +126,7 @@ class BackgroundRemover:
         return image_resized
 
 
-def draw_outside_lines(
+def _draw_outside_lines(
     image: np.array,
     sample_dims: Tuple[int, int],
     right_limit,

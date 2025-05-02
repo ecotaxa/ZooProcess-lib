@@ -158,7 +158,7 @@ def saveimage(
         if debug:
             print(f"** Save file ** (pil) {new_filename}")
         # TODO: Fails silently?
-        pil_image.save(new_filename, dpi=dpi, compression="tiff_lzw")
+        pil_image.save(new_filename, dpi=dpi, compression="tiff_deflate")
     else:
         path_as_str = Path(new_filename).absolute().as_posix()
         if debug:

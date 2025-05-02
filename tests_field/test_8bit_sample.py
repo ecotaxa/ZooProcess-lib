@@ -33,10 +33,7 @@ def test_identical_converted_8bit_sample(projects, project, sample, tmp_path):
     processor = Processor.from_legacy_config(None, TP.readLut())
 
     raw_sample_file = folder.zooscan_scan.raw.get_file(sample, index)
-
-    output_path = tmp_path / raw_sample_file.name
-    processor.converter.do_file(raw_sample_file, output_path)
-    actual_image = loadimage(output_path, type=cv2.IMREAD_UNCHANGED)
+    actual_image, _ = processor.converter.do_file_to_image(raw_sample_file)
 
     ref_8bit_sample_file = folder.zooscan_scan.get_file_produced_from(
         raw_sample_file.name
@@ -46,4 +43,3 @@ def test_identical_converted_8bit_sample(projects, project, sample, tmp_path):
 
     assert expected_image.shape == actual_image.shape
     assert np.array_equal(expected_image, actual_image)
-    os.remove(output_path)

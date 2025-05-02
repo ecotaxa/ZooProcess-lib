@@ -2,7 +2,6 @@ import os
 import random
 import shutil
 from datetime import datetime
-from pathlib import Path
 
 import cv2
 import pytest
@@ -63,18 +62,21 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     assert digitized_at is not None
     # Backgrounds pre-processing
     bg_raw_files = folder.zooscan_back.get_last_raw_backgrounds_before(digitized_at)
-    eight_bit_bgs = [tmp_path / raw_bg_file.name for raw_bg_file in bg_raw_files]
-    [
-        processor.converter.do_file(raw_bg_file, output_path)
-        for raw_bg_file, output_path in zip(bg_raw_files, eight_bit_bgs)
+    bg_converted_files = [
+        processor.converter.do_file_to_image(a_raw_bg_file)
+        for a_raw_bg_file in bg_raw_files
     ]
-    combined_bg_file = Path(tmp_path, f"{digitized_at}_background_large_manual.tif")
-    processor.bg_combiner.do_files(eight_bit_bgs, combined_bg_file)
+    combined_bg_image, bg_resolution = processor.bg_combiner.do_from_images(
+        bg_converted_files
+    )
     # Sample pre-processing
-    eight_bit_sample = tmp_path / raw_sample_file.name
-    processor.converter.do_file(raw_sample_file, eight_bit_sample)
+    eight_bit_sample_image, sample_resolution = processor.converter.do_file_to_image(
+        raw_sample_file
+    )
     # Background removal
-    sample_scan = processor.bg_remover.do_from_files(combined_bg_file, eight_bit_sample)
+    sample_scan = processor.bg_remover.do_from_images(
+        combined_bg_image, bg_resolution, eight_bit_sample_image, sample_resolution
+    )
     # Always add separator mask, if present
     work_files = folder.zooscan_scan.work.get_files(sample, index)
     sep_file = work_files.get("sep")
@@ -82,12 +84,11 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
         sep_image = loadimage(sep_file, type=cv2.COLOR_BGR2GRAY)
         sample_scan = add_separated_mask(sample_scan, sep_image)
     # Segmentation
-    sample_info = image_info(Image.open(eight_bit_sample))  # TODO: Remove
     rois = processor.segmenter.find_ROIs_in_image(
         sample_scan,
-        sample_info.resolution,
+        sample_resolution,
     )
-    sort_ROIs_like_legacy(rois, limit=sample_info.height)
+    sort_ROIs_like_legacy(rois, limit=sample_scan.shape[0])
     # Get box measurements, no need to compare thumbnails if they don't match
     actual_measures = to_legacy_format(
         legacy_measures_list_from_roi_list(
@@ -101,7 +102,7 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     os.makedirs(thumbs_dir)
     processor.extractor.extract_all_from_image(
         sample_scan,
-        sample_info.resolution,
+        sample_resolution,
         rois,
         thumbs_dir,
         sample + "_" + str(index),
@@ -110,10 +111,6 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     ref_thumbs_dir = folder.zooscan_scan.work.path / (sample + "_" + str(index))
     compare_vignettes(ref_thumbs_dir, thumbs_dir, conf.upper)
     # Cleanup if all went well
-    [
-        os.remove(a_file)
-        for a_file in eight_bit_bgs + [combined_bg_file, eight_bit_sample]
-    ]
     shutil.rmtree(thumbs_dir)
 
 

@@ -16,7 +16,7 @@ def test_identical_converted_8bit_background(tmp_path):
     output_path = tmp_path / source_bg_file.name
     lut = Lut.read(CONFIG_DIR / "lut.txt")
     processor = Processor.from_legacy_config(None, lut)
-    processor.converter.do_file(source_bg_file, output_path)
+    processor.converter.do_file_to_file(source_bg_file, output_path)
     expected_image = loadimage(reference_bg_file, type=cv2.IMREAD_UNCHANGED)
     actual_image = loadimage(output_path, type=cv2.IMREAD_UNCHANGED)
     assert expected_image.shape == actual_image.shape
