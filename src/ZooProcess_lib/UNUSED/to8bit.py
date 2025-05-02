@@ -1,7 +1,7 @@
 import cv2
 
-from ZooProcess_lib.img_tools import crop
-from ZooProcess_lib.img_tools import minAndMax, converthisto16to8
+from ..img_tools import crop
+from ..img_tools import minAndMax, converthisto16to8
 
 
 class pieceImage:
@@ -26,7 +26,7 @@ class pieceImage:
         return self.image
 
 
-from ZooProcess_lib.tools import timeit
+from ..tools import timeit
 import numpy as np
 
 
@@ -85,8 +85,8 @@ def splitimage(image, histolut) -> list:
 
 
 import concurrent.futures
-from ZooProcess_lib.img_tools import saveimage
-from ZooProcess_lib.ZooscanProject import ZooscanProject
+from ..img_tools import saveimage
+from ..ZooscanProject import ZooscanProject
 
 
 def convertion(image: np.ndarray, sample: str, TP: ZooscanProject):

@@ -2,7 +2,6 @@ import cv2 as cv
 # import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import norm
-from scipy import ndimage
 from scipy.spatial.distance import pdist, squareform
 
 

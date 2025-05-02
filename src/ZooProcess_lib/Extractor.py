@@ -4,10 +4,10 @@ from typing import List
 import cv2
 import numpy as np
 
-from ZooProcess_lib.ImageJLike import parseInt
-from ZooProcess_lib.ROI import ROI
-from ZooProcess_lib.bitmaps import one_mm_img
-from ZooProcess_lib.img_tools import (
+from .ImageJLike import parseInt
+from .ROI import ROI
+from .bitmaps import one_mm_img
+from .img_tools import (
     cropnp,
     save_lossless_small_image,
 )

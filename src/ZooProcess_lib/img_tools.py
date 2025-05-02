@@ -13,6 +13,7 @@ from PIL.ImageFile import ImageFile
 
 from .LegacyConfig import Lut
 from .tools import timeit
+from .ImageJLike import draw_line
 
 Image.MAX_IMAGE_PIXELS = 375000000
 
@@ -409,7 +410,6 @@ def draw_outside_lines(
     bottom_limit,
     limitod,
 ):
-    from ZooProcess_lib.ImageJLike import draw_line
 
     height, width = sample_dims
     if limitod < width:

@@ -5,8 +5,8 @@ from typing import Tuple
 import cv2
 import numpy as np
 
-from ZooProcess_lib.ImageJLike import parseInt
-from ZooProcess_lib.img_tools import saveimage
+from ..ImageJLike import parseInt
+from ..img_tools import saveimage
 
 
 def imagej_like_symmetry(

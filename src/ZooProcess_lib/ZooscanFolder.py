@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Union, Dict, TypedDict, Optional, Generator
 
-from ZooProcess_lib.LegacyConfig import Lut, ZooscanConfig
+from .LegacyConfig import Lut, ZooscanConfig
 
 
 class ZooscanFolder:

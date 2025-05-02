@@ -9,16 +9,15 @@ import numpy as np
 from numpy import ndarray
 from scipy import stats
 
-from ZooProcess_lib.ROI import ROI
-from ZooProcess_lib.Segmenter import Segmenter
-from ZooProcess_lib.calculators.Calculater import Calculater
-from ZooProcess_lib.calculators.Custom import (
+from .calculators.EllipseFitter import EllipseFitter
+from .calculators.symmetry import imagej_like_symmetry
+from .img_tools import cropnp
+from .ROI import ROI
+from .calculators.Calculater import Calculater
+from .calculators.Custom import (
     fractal_mp,
     ij_perimeter,
 )
-from ZooProcess_lib.calculators.EllipseFitter import EllipseFitter
-from ZooProcess_lib.calculators.symmetry import imagej_like_symmetry
-from ZooProcess_lib.img_tools import cropnp
 
 TO_LEGACY: Dict[
     str, Callable

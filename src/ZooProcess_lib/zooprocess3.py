@@ -109,7 +109,7 @@ class zooprocessv10:
         output_path = Path(self.TP.testfolder)
 
     def background(self, scan_image, imin, imax, min, max):
-        from ZooProcess_lib.to8bit import resized_like
+        from UNUSED.to8bit import resized_like
 
         back_image = loadimage(self.back_name, path=self.TP.back)
 

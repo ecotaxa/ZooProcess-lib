@@ -22,8 +22,8 @@ from ZooProcess_lib.img_tools import (
     # resize,
     # rolling_ball_black_background,
 )
-from ZooProcess_lib.median import picheral_median
-from ZooProcess_lib.to8bit import convertion
+from ..median import picheral_median
+from ..to8bit import convertion
 from .env_fixture import projects
 from .projects_for_test import APERO, APERO2000
 

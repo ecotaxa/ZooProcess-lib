@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from ZooProcess_lib.img_tools import cropnp
+from .img_tools import cropnp
 
 
 class Vignette(object):

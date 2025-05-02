@@ -7,7 +7,7 @@ from typing import Tuple
 import cv2
 import numpy as np
 
-from ZooProcess_lib.img_tools import cropped_if_larger
+from .img_tools import cropped_if_larger
 
 
 def convert_16bit_image_to_8bit_min_max(

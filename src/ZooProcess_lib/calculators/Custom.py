@@ -4,7 +4,6 @@ from math import log, floor
 import cv2
 import numpy as np
 
-from .EDM import euclidean_distance_map
 from ..calculators.Wand import Wand
 
 
