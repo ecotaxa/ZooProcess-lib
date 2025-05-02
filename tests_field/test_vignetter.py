@@ -8,7 +8,6 @@ import cv2
 import pytest
 from PIL import Image
 
-from ZooProcess_lib.Background import Background
 from ZooProcess_lib.Extractor import Extractor
 from ZooProcess_lib.Features import (
     legacy_measures_list_from_roi_list,
@@ -16,7 +15,6 @@ from ZooProcess_lib.Features import (
 from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
-from ZooProcess_lib.Zooscan_combine_backgrounds import Zooscan_combine_backgrounds
 from ZooProcess_lib.img_tools import (
     load_tiff_image_and_info,
     loadimage,
@@ -74,19 +72,12 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
         for raw_bg_file, output_path in zip(bg_raw_files, eight_bit_bgs)
     ]
     combined_bg_file = Path(tmp_path, f"{digitized_at}_background_large_manual.tif")
-    Zooscan_combine_backgrounds(eight_bit_bgs, combined_bg_file)
+    processor.bg_combiner.do_files(eight_bit_bgs, combined_bg_file)
     # Sample pre-processing
     eight_bit_sample = tmp_path / raw_sample_file.name
     processor.converter.do_file(raw_sample_file, eight_bit_sample)
     # Background removal
-    bg_info, background_image = load_tiff_image_and_info(combined_bg_file)
-    sample_info, sample_image = load_tiff_image_and_info(eight_bit_sample)
-    background = Background(background_image, resolution=bg_info.resolution)
-    sample_scan = background.removed_from(
-        sample_image=sample_image,
-        processing_method="select" if "triatlas" in project else "",
-        sample_image_resolution=sample_info.resolution,
-    )
+    sample_scan = processor.bg_remover.do_from_files(combined_bg_file, eight_bit_sample)
     # Always add separator mask, if present
     work_files = folder.zooscan_scan.work.get_files(sample, index)
     sep_file = work_files.get("sep")
@@ -94,6 +85,7 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
         sep_image = loadimage(sep_file, type=cv2.COLOR_BGR2GRAY)
         sample_scan = add_separated_mask(sample_scan, sep_image)
     # Segmentation
+    sample_info = image_info(Image.open(eight_bit_sample))  # TODO: Remove
     segmenter = Segmenter(
         sample_scan,
         sample_info.resolution,

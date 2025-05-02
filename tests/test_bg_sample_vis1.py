@@ -3,11 +3,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from ZooProcess_lib.Background import Background
+from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.img_tools import (
     loadimage,
     load_zipped_image,
-    load_tiff_image_and_info, add_separated_mask,
+    add_separated_mask,
 )
 from data_dir import BACKGROUND_DIR, SAMPLE_DIR, WORK_DIR
 from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
@@ -15,25 +15,13 @@ from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
 
 def test_background_plus_sample_to_vis1(tmp_path):
     """Ensure we can mimic sample - background -> work vis1 equivalent"""
+    processor = Processor()
     # Read 8bit sample scan
     eight_bit_sample_file = SAMPLE_DIR / "apero2023_tha_bioness_017_st66_d_n1_d3_1.tif"
-    assert eight_bit_sample_file.exists()
-    sample_info, eight_bit_sample_image = load_tiff_image_and_info(
-        eight_bit_sample_file
-    )
-    assert eight_bit_sample_image.dtype == np.uint8
-
     # Read 8bit combined background scan
     last_background_file = BACKGROUND_DIR / "20240529_0946_background_large_manual.tif"
-    bg_info, last_background_image = load_tiff_image_and_info(last_background_file)
-    assert last_background_image.dtype == np.uint8
-    background = Background(last_background_image, resolution=bg_info.resolution)
 
-    sample_minus_background_image = background.removed_from(
-        sample_image=eight_bit_sample_image,
-        processing_method="",
-        sample_image_resolution=sample_info.resolution,
-    )
+    sample_minus_background_image = processor.bg_remover.do_from_files(last_background_file, eight_bit_sample_file)
 
     # Compare with stored reference (vis1.zip)
     _, expected_final_image = load_zipped_image(

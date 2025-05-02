@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from ZooProcess_lib.Background import Background
+from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
     image_info,
@@ -28,6 +28,7 @@ from .test_sample import load_final_ref_image
 def test_raw_to_work(projects, tmp_path, project, sample):
     """Ensure we can mimic sample - background -> work vis1 equivalent"""
     folder = ZooscanFolder(projects, project)
+    processor = Processor.from_legacy_config(None, folder.zooscan_config.readLut())
 
     index = 1  # TODO: should come from get_names() below
 
@@ -59,13 +60,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     bg_info, last_background_image = load_tiff_image_and_info(last_background_file)
     assert last_background_image.dtype == np.uint8
 
-    background = Background(last_background_image, resolution=bg_info.resolution)
-
-    sample_minus_background_image = background.removed_from(
-        sample_image=eight_bit_sample_image,
-        processing_method="select" if "triatlas" in project else "",
-        sample_image_resolution=sample_info.resolution,
-    )
+    sample_minus_background_image = processor.bg_remover.do_from_files(last_background_file, eight_bit_sample_file)
 
     # Compare with stored reference (vis1.zip)
     _, expected_final_image = load_final_ref_image(folder, sample, index)

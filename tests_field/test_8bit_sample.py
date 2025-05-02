@@ -18,7 +18,7 @@ from .projects_repository import tested_samples
 shuffled = tested_samples.copy()
 random.shuffle(shuffled)
 
-shuffled = [(APERO1,"apero2023_tha_bioness_018_st66_n_n9_d2_2_sur_2")]
+# shuffled = [(APERO1,"apero2023_tha_bioness_018_st66_n_n9_d2_2_sur_2")]
 
 @pytest.mark.parametrize(
     "project, sample",

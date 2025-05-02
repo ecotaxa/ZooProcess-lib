@@ -1,20 +1,18 @@
 import os
 import zipfile
 from pathlib import Path
-from platform import processor
 
 import cv2
+from PIL import Image
 
-from ZooProcess_lib.Background import Background
 from ZooProcess_lib.Extractor import Extractor
 from ZooProcess_lib.LegacyConfig import Lut, ZooscanConfig
 from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.Segmenter import Segmenter
-from ZooProcess_lib.Zooscan_combine_backgrounds import Zooscan_combine_backgrounds
 from ZooProcess_lib.img_tools import (
-    load_tiff_image_and_info,
     loadimage,
     add_separated_mask,
+    image_info,
 )
 from .data_dir import BACK_TIME, BACKGROUND_DIR, CONFIG_DIR, RAW_DIR, WORK_DIR
 from .data_tools import sort_ROIs_like_legacy
@@ -38,20 +36,13 @@ def test_thumbnail_generator(tmp_path):
         for raw_bg_file, output_path in zip(bg_raw_files, eight_bit_bgs)
     ]
     combined_bg_file = Path(tmp_path, f"{bg_scan_date}_background_large_manual.tif")
-    Zooscan_combine_backgrounds(eight_bit_bgs, combined_bg_file)
+    processor.bg_combiner.do_files(eight_bit_bgs, combined_bg_file)
     # Sample pre-processing
     raw_sample_file = RAW_DIR / "apero2023_tha_bioness_017_st66_d_n1_d3_raw_1.tif"
     eight_bit_sample = tmp_path / raw_sample_file.name
     processor.converter.do_file(raw_sample_file, eight_bit_sample)
     # Background removal
-    bg_info, background_image = load_tiff_image_and_info(combined_bg_file)
-    sample_info, sample_image = load_tiff_image_and_info(eight_bit_sample)
-    background = Background(background_image, resolution=bg_info.resolution)
-    sample_scan = background.removed_from(
-        sample_image=sample_image,
-        processing_method="select",
-        sample_image_resolution=sample_info.resolution,
-    )
+    sample_scan = processor.bg_remover.do_from_files(combined_bg_file, eight_bit_sample)
     # Add separator mask, it is present in test data
     sep_image = loadimage(
         WORK_DIR / "apero2023_tha_bioness_017_st66_d_n1_d3_1_sep.gif",
@@ -59,6 +50,7 @@ def test_thumbnail_generator(tmp_path):
     )
     sample_scan = add_separated_mask(sample_scan, sep_image)
     # Segmentation
+    sample_info = image_info(Image.open(eight_bit_sample))  # TODO: Remove
     segmenter = Segmenter(
         sample_scan,
         sample_info.resolution,

@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import pytest
 
-from ZooProcess_lib.Background import Background
+from ZooProcess_lib.BgRemover import Background
 from ZooProcess_lib.Border import Border
 from ZooProcess_lib.ZooscanProject import ZooscanProject
 from ZooProcess_lib.img_tools import (
@@ -33,7 +33,7 @@ def test_init(self, TP):
 
     print(f"{background}")
 
-    background._resized_for_sample_scan()
+    background._bg_resized_for_sample_scan()
 
 
 @pytest.mark.skip(reason="Skipping this test for now because of XYZ reason.")
@@ -68,7 +68,7 @@ def test_resize_background_but_(self, TP):
 
     background = Background(image_unbordered, back_name, output_path=tmp_path)
 
-    image_resized = background._resized_for_sample_scan()
+    image_resized = background._bg_resized_for_sample_scan()
 
     background.mean()
 

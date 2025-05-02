@@ -3,6 +3,8 @@
 # Just pixels and files.
 from typing import Optional
 
+from .BgCombiner import BackgroundCombiner
+from .BgRemover import BackgroundRemover
 from .Converter import Converter
 from .LegacyConfig import Lut, ZooscanConfig
 
@@ -27,3 +29,11 @@ class Processor:
     @property
     def converter(self) -> Converter:
         return Converter(self.lut)
+
+    @property
+    def bg_combiner(self) -> BackgroundCombiner:
+        return BackgroundCombiner()
+
+    @property
+    def bg_remover(self) -> BackgroundRemover:
+        return BackgroundRemover()
