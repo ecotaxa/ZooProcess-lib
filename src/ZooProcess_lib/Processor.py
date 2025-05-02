@@ -6,6 +6,7 @@ from typing import Optional
 from .BgCombiner import BackgroundCombiner
 from .BgRemover import BackgroundRemover
 from .Converter import Converter
+from .Extractor import Extractor
 from .LegacyConfig import Lut, ZooscanConfig
 from .Segmenter import Segmenter
 
@@ -43,4 +44,10 @@ class Processor:
     def segmenter(self) -> Segmenter:
         return Segmenter(
             self.config.minsizeesd_mm, self.config.maxsizeesd_mm, self.config.upper
+        )
+
+    @property
+    def extractor(self) -> Extractor:
+        return Extractor(
+            self.config.longline_mm, self.config.upper
         )

@@ -8,12 +8,10 @@ import cv2
 import pytest
 from PIL import Image
 
-from ZooProcess_lib.Extractor import Extractor
 from ZooProcess_lib.Features import (
     legacy_measures_list_from_roi_list,
 )
 from ZooProcess_lib.Processor import Processor
-from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
     loadimage,
@@ -101,16 +99,13 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     # Thumbnails generation
     thumbs_dir = tmp_path / "thumbs"
     os.makedirs(thumbs_dir)
-    extractor = Extractor(
+    processor.extractor.extract_all_from_image(
         sample_scan,
         sample_info.resolution,
-        conf.upper,
-        conf.longline_mm,
         rois,
         thumbs_dir,
         sample + "_" + str(index),
     )
-    extractor.extract_all()
     # Reference thumbnails
     ref_thumbs_dir = folder.zooscan_scan.work.path / (sample + "_" + str(index))
     compare_vignettes(ref_thumbs_dir, thumbs_dir, conf.upper)

@@ -5,7 +5,6 @@ from pathlib import Path
 import cv2
 from PIL import Image
 
-from ZooProcess_lib.Extractor import Extractor
 from ZooProcess_lib.LegacyConfig import Lut, ZooscanConfig
 from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.img_tools import (
@@ -55,16 +54,13 @@ def test_thumbnail_generator(tmp_path):
     # Thumbnails generation
     thumbs_dir = tmp_path / "thumbs"
     os.makedirs(thumbs_dir)
-    extractor = Extractor(
+    processor.extractor.extract_all_from_image(
         sample_scan,
         sample_info.resolution,
-        conf.upper,
-        conf.longline_mm,
         rois,
         thumbs_dir,
         "apero2023_tha_bioness_017_st66_d_n1_d3_1",
     )
-    extractor.extract_all()
     # Reference thumbnails
     vignettes_dir = tmp_path / "vignettes"
     with zipfile.ZipFile(WORK_DIR / "vignettes.zip", "r") as zip_ref:

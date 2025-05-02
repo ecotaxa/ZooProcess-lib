@@ -19,43 +19,40 @@ class Extractor(object):
 
     def __init__(
         self,
+        longline_mm: float,
+        threshold: int,
+    ):
+        self.longline_mm = longline_mm
+        self.threshold = threshold
+
+    def extract_all_from_image(
+        self,
         image: np.ndarray,
         resolution: int,
-        threshold: int,
-        longline_mm: float,
         rois: List[ROI],
         destination_dir: Path,
         naming_prefix: str,
     ):
+        longline = self.longline_mm * resolution / 25.4
         assert destination_dir.exists()
-        self.image = image
-        self.resolution = resolution
-        self.threshold = threshold
-        self.longline_mm = longline_mm
-        self.longline = longline_mm * resolution / 25.4
-        self.rois = rois
-        self.destination_dir = destination_dir
-        self.naming_prefix = naming_prefix
-
-    def extract_all(self):
-        for index, a_roi in enumerate(self.rois, 1):
-            img = self.extract_one(a_roi)
-            resized_img = self.add_border_and_legend(img)
-            img_filename = self.naming_prefix + "_" + str(index) + ".png"
-            img_path = self.destination_dir / img_filename
+        for index, a_roi in enumerate(rois, 1):
+            img = self.extract_one(image, a_roi)
+            resized_img = self.add_border_and_legend(img, longline)
+            img_filename = naming_prefix + "_" + str(index) + ".png"
+            img_path = destination_dir / img_filename
             save_lossless_small_image(
                 resized_img,
-                self.resolution,
+                resolution,
                 img_path,
             )
 
-    def add_border_and_legend(self, image: np.ndarray):
+    def add_border_and_legend(self, image: np.ndarray, longline: float):
         height, width = image.shape
         # Resized image is plain one...
         # ...+ 20% border and footer in height
         final_height = round(height * 1.4 + self.FOOTER)
         # ...and +20% border with enough space for line in width
-        final_width = round(max(width * 1.4, self.longline + 2 * self.X1))
+        final_width = round(max(width * 1.4, longline + 2 * self.X1))
         # draw a new frame big enough and paste
         resized = np.full((final_height, final_width), 255, dtype=np.uint8)
         y_offset = (final_height - self.FOOTER - height) // 2
@@ -63,7 +60,7 @@ class Extractor(object):
         resized[y_offset : y_offset + height, x_offset : x_offset + width] = image
         # Paint the scale
         y1 = final_height - 5
-        x2 = parseInt(self.X1 + self.longline)
+        x2 = parseInt(self.X1 + longline)
         cv2.line(
             img=resized,
             pt1=(self.X1 - 1, y1 - 1),
@@ -97,10 +94,10 @@ class Extractor(object):
         # print(f"height: {height}, width: {width} => {final_height}x{final_width} px xoffset: {x_offset} yoffset: {y_offset}")
         return resized
 
-    def extract_one(self, a_roi: ROI) -> np.ndarray:
+    def extract_one(self, image: np.ndarray, a_roi: ROI) -> np.ndarray:
         height, width = a_roi.mask.shape[:2]
         crop = cropnp(
-            self.image,
+            image,
             top=a_roi.y,
             left=a_roi.x,
             bottom=a_roi.y + height,

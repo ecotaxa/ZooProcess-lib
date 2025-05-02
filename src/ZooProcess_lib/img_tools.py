@@ -13,7 +13,6 @@ from PIL.ImageFile import ImageFile
 
 from .LegacyConfig import Lut
 from .tools import timeit
-from .ImageJLike import draw_line
 
 Image.MAX_IMAGE_PIXELS = 375000000
 
@@ -399,33 +398,6 @@ def clear_outside(
     image[top + height :, :] = 255
     image[top : top + height :, 0:right] = 255
     image[top : top + height :, right + width :] = 255
-
-
-def draw_outside_lines(
-    image: np.array,
-    sample_dims: Tuple[int, int],
-    right_limit,
-    left_limit,
-    top_limit,
-    bottom_limit,
-    limitod,
-):
-
-    height, width = sample_dims
-    if limitod < width:
-        width = limitod
-    if right_limit != width and right_limit < limitod:
-        draw_line(image, (right_limit, 0), (right_limit, height / 4), 0, 1)
-        draw_line(image, (right_limit, height / 4 + 4), (right_limit, height), 0, 1)
-    if left_limit != 0:
-        draw_line(image, (left_limit, 0), (left_limit, height / 4), 0, 1)
-        draw_line(image, (left_limit, height / 4 + 4), (left_limit, height), 0, 1)
-    if bottom_limit != height:
-        draw_line(image, (0, bottom_limit), (width / 4, bottom_limit), 0, 1)
-        draw_line(image, (width / 4 + 4, bottom_limit), (width, bottom_limit), 0, 1)
-    if top_limit != 0:
-        draw_line(image, (0, top_limit), (width / 4, top_limit), 0, 1)
-        draw_line(image, (width / 4 + 4, top_limit), (width, top_limit), 0, 1)
 
 
 def cropped_if_larger(image: np.ndarray, right: int, bottom: int) -> np.ndarray:

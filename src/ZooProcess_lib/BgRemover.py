@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Tuple
 
 import numpy as np
 
 from .Border import Border
-from .ImageJLike import circular_mean_blur, bilinear_resize, images_difference
+from .ImageJLike import circular_mean_blur, bilinear_resize, images_difference, draw_line
 from .img_tools import (
     crophw,
     crop_right,
     clear_outside,
-    draw_outside_lines,
     load_tiff_image_and_info,
 )
 
@@ -120,3 +120,30 @@ class BackgroundRemover:
         image_resized = bilinear_resize(image_mean, L, H)
 
         return image_resized
+
+
+def draw_outside_lines(
+    image: np.array,
+    sample_dims: Tuple[int, int],
+    right_limit,
+    left_limit,
+    top_limit,
+    bottom_limit,
+    limitod,
+):
+
+    height, width = sample_dims
+    if limitod < width:
+        width = limitod
+    if right_limit != width and right_limit < limitod:
+        draw_line(image, (right_limit, 0), (right_limit, height / 4), 0, 1)
+        draw_line(image, (right_limit, height / 4 + 4), (right_limit, height), 0, 1)
+    if left_limit != 0:
+        draw_line(image, (left_limit, 0), (left_limit, height / 4), 0, 1)
+        draw_line(image, (left_limit, height / 4 + 4), (left_limit, height), 0, 1)
+    if bottom_limit != height:
+        draw_line(image, (0, bottom_limit), (width / 4, bottom_limit), 0, 1)
+        draw_line(image, (width / 4 + 4, bottom_limit), (width, bottom_limit), 0, 1)
+    if top_limit != 0:
+        draw_line(image, (0, top_limit), (width / 4, top_limit), 0, 1)
+        draw_line(image, (width / 4 + 4, top_limit), (width, top_limit), 0, 1)
