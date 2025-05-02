@@ -1,6 +1,4 @@
-import os
 import random
-from platform import processor
 
 import cv2
 import numpy as np
@@ -8,17 +6,13 @@ import pytest
 
 from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
-from ZooProcess_lib.ZooscanProject import ZooscanProject
 from ZooProcess_lib.img_tools import loadimage
 from .env_fixture import projects
-from .projects_for_test import APERO1
 from .projects_repository import tested_samples
 
 # The test takes ages, by randomizing the order there are better chances to see problems early
 shuffled = tested_samples.copy()
 random.shuffle(shuffled)
-
-# shuffled = [(APERO1,"apero2023_tha_bioness_018_st66_n_n9_d2_2_sur_2")]
 
 @pytest.mark.parametrize(
     "project, sample",

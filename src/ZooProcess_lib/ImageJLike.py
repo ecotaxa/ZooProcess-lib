@@ -18,11 +18,15 @@ def convert_16bit_image_to_8bit_min_max(
     """
     assert img.dtype == np.uint16
     max_val = min(65535, max_val)  # From ij.process.ShortProcessor.setMinAndMax
-    min_removed_img = np.clip(a=img, a_min=min_val, a_max=max_val) - min_val
-    img_range = max_val - min_val + 1
-    scaled_img = (min_removed_img * np.float32(256)) / img_range + 0.5
-    np.clip(a=scaled_img, a_min=None, a_max=255, out=scaled_img)
-    return scaled_img.astype(np.uint8)
+    # Full lookup table on 16bit pixel values
+    all_values = np.arange(0, np.iinfo(img.dtype).max + 1, dtype=np.uint16)
+    np.clip(a=all_values, a_min=min_val, a_max=max_val, out=all_values)
+    val_range = max_val - min_val + 1
+    scaled_values = ((all_values - min_val) * np.float32(256)) / val_range + 0.5
+    np.clip(a=scaled_values, a_min=None, a_max=255, out=scaled_values)
+    scaled_values = scaled_values.astype(np.uint8)
+    ret = scaled_values[img]
+    return ret
 
 
 def divide_round_up(img: np.ndarray, divider: int) -> np.ndarray:
