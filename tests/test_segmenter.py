@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import pytest
 
+from ZooProcess_lib.Extractor import Extractor
 from ZooProcess_lib.Features import (
     feature_unq,
     FeaturesCalculator,
@@ -131,6 +132,39 @@ def test_split_image():
     assert (
         l_ret + c_ret + r_ret >= retval1
     )  # Split objects appear at least twice but filtered out
+
+
+def test_sub_image():
+    image = loadimage(SEGMENTER_DIR / "s_17_3_tot_1_vis1.png")
+    THRESHOLD = 243
+    RESOLUTION = 2400
+    segmenter = Segmenter(0.3, 100, THRESHOLD)
+    extractor = Extractor(1.0, THRESHOLD)
+    rois, _stats = segmenter.find_ROIs_in_image(image, RESOLUTION)
+    several_rois = 0
+    for a_roi in rois:
+        sub_img = extractor.extract_image_at_ROI(image, a_roi, erasing_background=False)
+        sub_img_rois, _ = segmenter.find_ROIs_in_cropped_image(sub_img, RESOLUTION)
+        assert len(sub_img_rois) >= 1
+        if len(sub_img_rois) > 1:
+            several_rois += 1
+            # It's expected that other particles are sometimes in the background of larger ones
+            sub_img_rois.sort(
+                key=lambda roi: roi.mask.shape[0] * roi.mask.shape[1], reverse=True
+            )
+            # But the largest is the one found by the segmenter
+            the_sub_roi = sub_img_rois[0]
+        else:
+            the_sub_roi = sub_img_rois[0]
+        assert np.array_equal(the_sub_roi.mask.shape, a_roi.mask.shape)
+        assert (the_sub_roi.x, the_sub_roi.y) == (0, 0)
+    assert several_rois > 0
+    # Verify that OTOH, the sub-images without background contain a single particle
+    all_sub_images = extractor.extract_all_to_images(image, rois, erasing_background=True)
+    assert len(all_sub_images) == len(rois)
+    for a_sub_image in all_sub_images:
+        sub_img_rois, _ = segmenter.find_ROIs_in_cropped_image(a_sub_image, RESOLUTION)
+        assert len(sub_img_rois) == 1
 
 
 def test_splitting_image_conserves_data():

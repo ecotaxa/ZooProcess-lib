@@ -29,7 +29,7 @@ class Extractor(object):
         self.longline_mm = longline_mm
         self.threshold = threshold
 
-    def extract_all_from_image(
+    def extract_all_with_border_to_dir(
         self,
         image: np.ndarray,
         resolution: int,
@@ -40,8 +40,8 @@ class Extractor(object):
         longline = self.longline_mm * resolution / 25.4
         assert destination_dir.exists()
         for index, a_roi in enumerate(rois, 1):
-            img = self.extract_one(image, a_roi)
-            resized_img = self.add_border_and_legend(img, longline)
+            img = self.extract_image_at_ROI(image, a_roi, True)
+            resized_img = self._add_border_and_legend(img, longline)
             img_filename = naming_prefix + "_" + str(index) + ".png"
             img_path = destination_dir / img_filename
             save_lossless_small_image(
@@ -50,7 +50,20 @@ class Extractor(object):
                 img_path,
             )
 
-    def add_border_and_legend(self, image: np.ndarray, longline: float):
+    def extract_all_to_images(
+        self,
+        image: np.ndarray,
+        rois: List[ROI],
+        erasing_background: bool = False,
+    ):
+        """ Plain extraction to a list of images at ROIs """
+        ret = []
+        for index, a_roi in enumerate(rois, 1):
+            img = self.extract_image_at_ROI(image, a_roi, erasing_background)
+            ret.append(img)
+        return ret
+
+    def _add_border_and_legend(self, image: np.ndarray, longline: float):
         height, width = image.shape
         # Resized image is plain one...
         # ...+ 20% border and footer in height
@@ -98,7 +111,10 @@ class Extractor(object):
         # print(f"height: {height}, width: {width} => {final_height}x{final_width} px xoffset: {x_offset} yoffset: {y_offset}")
         return resized
 
-    def extract_one(self, image: np.ndarray, a_roi: ROI) -> np.ndarray:
+    def extract_image_at_ROI(
+        self, image: np.ndarray, a_roi: ROI, erasing_background: bool = False
+    ) -> np.ndarray:
+        """Extract a sub-image from an image, where the ROI is."""
         height, width = a_roi.mask.shape[:2]
         crop = cropnp(
             image,
@@ -107,8 +123,11 @@ class Extractor(object):
             bottom=a_roi.y + height,
             right=a_roi.x + width,
         )
-        # Whiten background -> push to 255 as min is black
-        thumbnail = np.bitwise_or(crop, 255 - a_roi.mask * 255)
-        # Whiten holes
-        thumbnail[thumbnail > self.threshold] = 255
-        return thumbnail
+        if erasing_background:
+            # Whiten background -> push to 255 as min is black
+            thumbnail = np.bitwise_or(crop, 255 - a_roi.mask * 255)
+            # Whiten holes
+            thumbnail[thumbnail > self.threshold] = 255
+            return thumbnail
+        else:
+            return np.copy(crop)

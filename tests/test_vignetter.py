@@ -54,7 +54,7 @@ def test_thumbnail_generator(tmp_path):
     # Thumbnails generation
     thumbs_dir = tmp_path / "thumbs"
     os.makedirs(thumbs_dir)
-    processor.extractor.extract_all_from_image(
+    processor.extractor.extract_all_with_border_to_dir(
         sample_scan,
         sample_info.resolution,
         rois,

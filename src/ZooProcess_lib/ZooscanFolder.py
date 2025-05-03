@@ -36,11 +36,9 @@ class ZooscanFolder:
         raw = sample + "_" + str(mesure)
 
 
-
 class Zooscan_config_Folder:
     SUDIR_PATH = "Zooscan_config"
     INSTALL_CONFIG = "process_install_both_config.txt"
-
 
     def __init__(self, zooscan_folder: Path) -> None:
         self.path = Path(zooscan_folder, self.SUDIR_PATH)
