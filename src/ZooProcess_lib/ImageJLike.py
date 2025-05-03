@@ -272,10 +272,3 @@ class ImageJLikeResizer(object):
 
 def parseInt(num: float) -> int:
     return int(num + 0.5)
-
-
-def median_mean(image: np.ndarray):
-    # Exact same as ImageJ "Measure" output on full 8-bit tiff background image
-    median = np.median(image, axis=None)
-    mean = np.mean(image, axis=None)
-    return median, mean

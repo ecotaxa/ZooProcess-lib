@@ -55,6 +55,11 @@ class Segmenter(object):
         ret = [ROI(r.x - border, r.y - border, r.mask) for r in rois]
         return ret, stats
 
+    def get_mask_from_image(self, image: ndarray) -> np.ndarray:
+        _, inv_mask = cv2.threshold(image, self.threshold, 1, cv2.THRESH_BINARY_INV)
+        # mask is white (255) objects on black (0) background
+        return inv_mask
+
     def find_ROIs_in_image(
         self, image: ndarray, resolution: int, method: int = METH_TOP_CONTOUR_SPLIT
     ) -> Tuple[List[ROI], List[int]]:
@@ -77,14 +82,14 @@ class Segmenter(object):
                 method - self.LEGACY_COMPATIBLE != 0
             ), "Sub-method is mandatory for legacy mode"
             if width > self.Wlimit and height > self.Hlimit:
-                return self.find_particles_legacy_way(
+                return self._find_particles_legacy_way(
                     inv_mask, method, part_size_min, part_size_max
                 )
-        return self.find_particles_with_method(
+        return self._find_particles_with_method(
             inv_mask, method, part_size_min, part_size_max
         )
 
-    def find_particles_legacy_way(
+    def _find_particles_legacy_way(
         self, inv_mask: ndarray, method: int, part_size_min: int, part_size_max: int
     ) -> Tuple[List[ROI], List[int]]:
         # Process image in 2 overlapping parts, split vertically.
@@ -94,7 +99,7 @@ class Segmenter(object):
         height, width = inv_mask.shape[:2]
         overlap_size = int(width * self.overlap)
         left_mask = cropnp(inv_mask, top=0, left=0, bottom=height, right=overlap_size)
-        left_rois, left_stats = self.find_particles_with_method(
+        left_rois, left_stats = self._find_particles_with_method(
             left_mask, method, part_size_min, part_size_max
         )
         right_mask = cropnp(
@@ -104,7 +109,7 @@ class Segmenter(object):
             bottom=height,
             right=width,
         )
-        right_rois, right_stats = self.find_particles_with_method(
+        right_rois, right_stats = self._find_particles_with_method(
             right_mask, method, part_size_min, part_size_max
         )
         # Fix coordinates from right pane
@@ -127,7 +132,7 @@ class Segmenter(object):
             ls + rs for ls, rs in zip(left_stats, right_stats)
         ]
 
-    def find_particles_with_method(
+    def _find_particles_with_method(
         self, inv_mask: ndarray, method: int, part_size_min: int, part_size_max: int
     ) -> Tuple[List[ROI], List[int]]:
         # Required measurements:
@@ -176,7 +181,10 @@ class Segmenter(object):
             )
 
     @staticmethod
-    def undo_border_lines(inv_mask: ndarray) -> Tuple[int, int, int, int]:
+    def _undo_border_lines(
+        inv_mask: ndarray,
+    ) -> Tuple[int, int, int, int]:  # pragma: no cover
+        """unused experimental code"""
         height, width = inv_mask.shape[:2]
         # Find the 2 border dots in each dimension
         (left, right) = np.where(inv_mask[0] != 0)[0]
@@ -226,7 +234,10 @@ class Segmenter(object):
             )
 
     @staticmethod
-    def denoise_particles_via_cc(inv_mask: ndarray, part_size_min: int):
+    def denoise_particles_via_cc(
+        inv_mask: ndarray, part_size_min: int
+    ):  # pragma: no cover
+        """unused experimental code"""
         (
             retval,
             labels,

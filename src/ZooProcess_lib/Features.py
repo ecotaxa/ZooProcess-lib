@@ -265,20 +265,23 @@ class Features(object):
 
     @cached_property
     # @legacy("ThickR")
-    def thickr(self) -> int:
-        """Thickness ratio : relation between the maximum thickness of an object and the average thickness of the object excluding the maximum."""
+    def thickr(self) -> int:  # pragma: no cover
+        """Thickness ratio : relation between the maximum thickness of an object and the average thickness of the object excluding the maximum.
+        TODO: Fix with new specs"""
         return self._symmetry[2]
 
     @cached_property
     # @legacy("Symetrieh")
-    def symmetry_h(self) -> int:
-        """Bilateral horizontal symmetry index."""
+    def symmetry_h(self) -> int:  # pragma: no cover
+        """Bilateral horizontal symmetry index.
+        TODO: Fix with new specs"""
         return self._symmetry[1]
 
     @cached_property
     # @legacy("Symetriev")
-    def symmetry_v(self) -> int:
-        """Bilateral vertical symmetry index."""
+    def symmetry_v(self) -> int:  # pragma: no cover
+        """Bilateral vertical symmetry index.
+        TODO: Fix with new specs"""
         return self._symmetry[0]
 
     @cached_property
@@ -326,7 +329,8 @@ class Features(object):
         return hist
 
     @cached_property
-    def _symmetry(self):
+    def _symmetry(self):  # pragma: no cover
+        """TODO: Fix with new specs"""
         symmetry_h, symmetry_v, thick_ratio = imagej_like_symmetry(
             mask=self.mask * 255,
             x_centroid=self.x_centroid,
