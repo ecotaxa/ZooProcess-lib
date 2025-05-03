@@ -7,6 +7,7 @@ from .BgCombiner import BackgroundCombiner
 from .BgRemover import BackgroundRemover
 from .Converter import Converter
 from .Extractor import Extractor
+from .Features import FeaturesCalculator
 from .LegacyConfig import Lut, ZooscanConfig
 from .Segmenter import Segmenter
 
@@ -50,4 +51,10 @@ class Processor:
     def extractor(self) -> Extractor:
         return Extractor(
             self.config.longline_mm, self.config.upper
+        )
+
+    @property
+    def calculator(self) -> FeaturesCalculator:
+        return FeaturesCalculator(
+            self.config.upper
         )

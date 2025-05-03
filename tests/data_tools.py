@@ -4,8 +4,8 @@ from typing import List, Tuple, Dict, Callable, Any
 
 import numpy as np
 
-from ZooProcess_lib.Features import TYPE_BY_LEGACY
-from ZooProcess_lib.ROI import feature_unq, ROI
+from ZooProcess_lib.Features import TYPE_BY_LEGACY, feature_unq
+from ZooProcess_lib.ROI import ROI
 from ZooProcess_lib.Segmenter import Segmenter
 from .test_utils import read_measures_csv
 

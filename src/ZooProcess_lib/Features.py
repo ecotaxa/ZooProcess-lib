@@ -9,15 +9,15 @@ import numpy as np
 from numpy import ndarray
 from scipy import stats
 
-from .calculators.EllipseFitter import EllipseFitter
-from .calculators.symmetry import imagej_like_symmetry
-from .img_tools import cropnp
 from .ROI import ROI
 from .calculators.Calculater import Calculater
 from .calculators.Custom import (
     fractal_mp,
     ij_perimeter,
 )
+from .calculators.EllipseFitter import EllipseFitter
+from .calculators.symmetry import imagej_like_symmetry
+from .img_tools import cropnp
 
 TO_LEGACY: Dict[
     str, Callable
@@ -31,6 +31,9 @@ TO_ECOTAXA: Dict[
 TYPE_BY_ECOTAXA: Dict[
     str, Type
 ] = {}  # Key=ecotaxa feature name, Value=a type e.g. int of np.float64
+
+# Unicity inside a list of measures/features
+feature_unq = lambda f: (f["BX"], f["BY"], f["Width"], f["Height"])
 
 
 def legacy(name: str) -> Callable[[Any], Callable[[tuple[Any, ...]], None]]:
@@ -417,7 +420,20 @@ class Features(object):
 FeaturesListT = List[Features]
 
 
-def legacy_measures_list_from_roi_list(
-    image: ndarray, resolution:int, roi_list: List[ROI], threshold: int, only: Optional[Set[str]] = None
-) -> list[dict[str, int | float]]:
-    return [Features(image, resolution, p, threshold).as_measures(only) for p in roi_list]
+class FeaturesCalculator(object):
+    """Features calculator, just to encapsulate a few primitives on several ROIs."""
+
+    def __init__(self, threshold: int):
+        self.threshold = threshold
+
+    def legacy_measures_list_from_roi_list(
+        self,
+        image: ndarray,
+        resolution: int,
+        roi_list: List[ROI],
+        only: Optional[Set[str]] = None,
+    ) -> list[dict[str, int | float]]:
+        return [
+            Features(image, resolution, p, self.threshold).as_measures(only)
+            for p in roi_list
+        ]

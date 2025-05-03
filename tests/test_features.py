@@ -1,5 +1,4 @@
-from ZooProcess_lib.Features import Features
-from ZooProcess_lib.ROI import feature_unq
+from ZooProcess_lib.Features import Features, feature_unq
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.img_tools import loadimage
 from .data_dir import FEATURES_DIR, SEGMENTER_DIR

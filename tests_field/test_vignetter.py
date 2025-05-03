@@ -7,9 +7,6 @@ import cv2
 import pytest
 from PIL import Image
 
-from ZooProcess_lib.Features import (
-    legacy_measures_list_from_roi_list,
-)
 from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
@@ -91,8 +88,8 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     sort_ROIs_like_legacy(rois, limit=sample_scan.shape[0])
     # Get box measurements, no need to compare thumbnails if they don't match
     actual_measures = to_legacy_format(
-        legacy_measures_list_from_roi_list(
-            sample_scan, conf.resolution, rois, conf.upper, BOX_MEASUREMENTS.keys()
+        processor.calculator.legacy_measures_list_from_roi_list(
+            sample_scan, conf.resolution, rois, BOX_MEASUREMENTS.keys()
         )
     )
     sort_by_coords(actual_measures)

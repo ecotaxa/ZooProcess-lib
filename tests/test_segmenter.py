@@ -4,8 +4,10 @@ import cv2
 import numpy as np
 import pytest
 
-from ZooProcess_lib.Features import legacy_measures_list_from_roi_list
-from ZooProcess_lib.ROI import feature_unq
+from ZooProcess_lib.Features import (
+    feature_unq,
+    FeaturesCalculator,
+)
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.img_tools import loadimage
 from ZooProcess_lib.segmenters.ConnectedComponents import (
@@ -52,8 +54,8 @@ def test_holes_62388():
         image, 2400, Segmenter.METH_TOP_CONTOUR_SPLIT
     )
     features = sorted(
-        legacy_measures_list_from_roi_list(
-            image, 2400, parts, 243, {"Area", "BX", "BY", "Height", "Width"}
+        FeaturesCalculator(243).legacy_measures_list_from_roi_list(
+            image, 2400, parts, {"Area", "BX", "BY", "Height", "Width"}
         ),
         key=feature_unq,
         reverse=True,
@@ -74,18 +76,21 @@ def test_compare_split_methods():
     THRESHOLD = 243
     RESOLUTION = 2400
     segmenter = Segmenter(0.3, 100, THRESHOLD)
+    features_calc = FeaturesCalculator(THRESHOLD)
 
     found_rois_new = segmenter.find_ROIs_in_image(
         image, RESOLUTION, Segmenter.METH_TOP_CONTOUR_SPLIT
     )
-    found_feats_new = legacy_measures_list_from_roi_list(
-        image, RESOLUTION, found_rois_new, THRESHOLD
+    found_feats_new = features_calc.legacy_measures_list_from_roi_list(
+        image, RESOLUTION, found_rois_new
     )
     sort_by_coords(found_feats_new)
 
-    found_rois_old = segmenter.find_ROIs_in_image(image, RESOLUTION, Segmenter.METH_CONTOUR_TREE)
-    found_feats_compat = legacy_measures_list_from_roi_list(
-        image, RESOLUTION, found_rois_old, THRESHOLD
+    found_rois_old = segmenter.find_ROIs_in_image(
+        image, RESOLUTION, Segmenter.METH_CONTOUR_TREE
+    )
+    found_feats_compat = features_calc.legacy_measures_list_from_roi_list(
+        image, RESOLUTION, found_rois_old
     )
     sort_by_coords(found_feats_compat)
 

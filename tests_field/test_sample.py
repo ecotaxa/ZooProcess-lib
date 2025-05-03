@@ -10,10 +10,10 @@ import pytest
 from ZooProcess_lib.Border import Border
 from ZooProcess_lib.Features import (
     Features,
-    legacy_measures_list_from_roi_list,
+    feature_unq,
 )
 from ZooProcess_lib.Processor import Processor
-from ZooProcess_lib.ROI import feature_unq, ROI
+from ZooProcess_lib.ROI import ROI
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanFolder
 from ZooProcess_lib.img_tools import (
@@ -102,8 +102,8 @@ def assert_segmentation(projects, project, sample, method):
     # found_rois = list(filter(lambda r: r.mask.shape == (45, 50), found_rois))
 
     act_feats = to_legacy_format(
-        legacy_measures_list_from_roi_list(
-            vis1, conf.resolution, found_rois, conf.upper
+        processor.calculator.legacy_measures_list_from_roi_list(
+            vis1, conf.resolution, found_rois
         )
     )
     sort_by_coords(act_feats)
@@ -194,7 +194,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
     found_rois_new = processor.segmenter.find_ROIs_in_image(
         vis1, conf.resolution, Segmenter.METH_CONNECTED_COMPONENTS
     )
-    ref_feats = legacy_measures_list_from_roi_list(
+    ref_feats = processor.calculator.legacy_measures_list_from_roi_list(
         vis1, conf.resolution, found_rois_new, conf.upper
     )
     sort_by_coords(ref_feats)
@@ -202,7 +202,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
     found_rois_compat = processor.segmenter.find_ROIs_in_image(
         vis1, conf.resolution, Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR
     )
-    act_feats = legacy_measures_list_from_roi_list(
+    act_feats = processor.calculator.legacy_measures_list_from_roi_list(
         vis1, conf.resolution, found_rois_compat, conf.upper
     )
     sort_by_coords(act_feats)
@@ -330,7 +330,9 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     # found_rois = segmenter.find_blobs()
 
     found = to_legacy_format(
-        legacy_measures_list_from_roi_list(vis1, found_rois, conf.upper)
+        processor.calculator.legacy_measures_list_from_roi_list(
+            vis1, conf.resolution, found_rois
+        )
     )
     sort_by_coords(found)
     tolerance_problems = []
