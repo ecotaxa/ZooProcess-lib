@@ -11,19 +11,25 @@ A Python library meant at reproducing as exactly as possible the behavior of Zoo
 
 ## Installation
 
-You can install the package directly from GitHub:
+You can install the package directly from GitHub, it is advised to use a tag, not main.
 
 ```bash
-pip install git+https://github.com/ecotaxa/ZooProcess-lib.git
+pip install git+https://github.com/ecotaxa/ZooProcess-lib.git@v0.1.0
 ```
 
 Or clone the repository and install locally:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ZooProcess-lib.git
+git clone https://github.com/ecotaxa/ZooProcess-lib.git@v0.1.0
 cd ZooProcess-lib
 pip install -e .
 ```
+
+In requirements.txt it should look like:
+
+'''
+ZooProcess-lib@git+https://github.com/ecotaxa/ZooProcess-lib.git@v0.1.0
+'''
 
 ## Requirements
 
@@ -41,13 +47,16 @@ For complete detailed examples, please see the tests directory, especially test_
 
 ### Running Tests
 
+**Note**: You should install manually 'gdown' package before running tests. It's used to download big example TIFF files from a public GDrive folder.
+
 ```bash
-pytest tests/
+cd tests
+python -m pytest --ignore UNUSED/
 ```
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE.txt) file for details.
+See the [LICENSE](LICENSE.txt) file for details.
 
 ## Contributing
 
