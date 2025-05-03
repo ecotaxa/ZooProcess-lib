@@ -1,4 +1,3 @@
-# Pt d'entrée "Segmentation après rajout fond blanc"
 # Rajouter un offset sur le pt d'entrée -> rend les ROI relatives
 # Pt d'entrée "masque de"
 from __future__ import annotations
@@ -98,7 +97,7 @@ def assert_segmentation(projects, project, sample, method):
     lut = folder.zooscan_config.read_lut()
     processor = Processor(conf, lut)
     ref_feats = read_measurements(folder, sample, index)
-    found_rois = processor.segmenter.find_ROIs_in_image(vis1, conf.resolution, method)
+    found_rois, _ = processor.segmenter.find_ROIs_in_image(vis1, conf.resolution, method)
     # found_rois = list(filter(lambda r: r.mask.shape == (45, 50), found_rois))
 
     act_feats = to_legacy_format(
@@ -139,11 +138,11 @@ def assert_linear_response_time(projects, tmp_path, test_set, method):
         _, vis1 = load_final_ref_image(folder, sample, index)
         conf = folder.zooscan_config.read()
         processor = Processor(conf, None)
-        spent, found_rois = measure_time(
+        spent, found_rois_and_stats = measure_time(
             processor.segmenter.find_ROIs_in_image, vis1, 2400, method
         )
         # Minimal & fast
-        assert found_rois != []
+        assert found_rois_and_stats[0] != []
         spent_times.append(spent)
         if num_test % 10 == 0:
             do_perf_stats(spent_times)
@@ -191,7 +190,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
     conf = folder.zooscan_config.read()
     processor = Processor(conf, None)
 
-    found_rois_new = processor.segmenter.find_ROIs_in_image(
+    found_rois_new, _ = processor.segmenter.find_ROIs_in_image(
         vis1, conf.resolution, Segmenter.METH_CONNECTED_COMPONENTS
     )
     ref_feats = processor.calculator.legacy_measures_list_from_roi_list(
@@ -199,7 +198,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
     )
     sort_by_coords(ref_feats)
 
-    found_rois_compat = processor.segmenter.find_ROIs_in_image(
+    found_rois_compat, _ = processor.segmenter.find_ROIs_in_image(
         vis1, conf.resolution, Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_TOP_CONTOUR
     )
     act_feats = processor.calculator.legacy_measures_list_from_roi_list(
@@ -322,7 +321,7 @@ def test_nothing_found(projects, tmp_path, project, sample, segmentation_method)
     # found_rois = segmenter.find_blobs(
     #     Segmenter.LEGACY_COMPATIBLE | Segmenter.METH_CONNECTED_COMPONENTS
     # )
-    found_rois = processor.segmenter.find_ROIs_in_image(
+    found_rois, _ = processor.segmenter.find_ROIs_in_image(
         vis1, conf.resolution, segmentation_method
     )
     # found_rois = segmenter.find_blobs(Segmenter.METH_RETR_TREE)

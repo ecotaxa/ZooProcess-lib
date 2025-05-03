@@ -14,7 +14,10 @@ from .img_tools import (
 
 
 class Extractor(object):
-    """ Thumbnail extractor, from an image and ROI."""
+    """
+    Thumbnail extractor, from an image and ROI.
+    """
+
     X1 = 10
     FOOTER = 31
 

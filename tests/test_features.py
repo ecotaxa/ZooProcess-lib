@@ -20,7 +20,7 @@ def test_features_on_simplified_scan():
     THRESHOLD = 243
     RESOLUTION = 2400
     segmenter = Segmenter(0.3, 100, THRESHOLD)
-    roi_list = segmenter.find_ROIs_in_image(
+    roi_list, _ = segmenter.find_ROIs_in_image(
         image, RESOLUTION, Segmenter.METH_TOP_CONTOUR_SPLIT
     )
     if False:

@@ -81,7 +81,7 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
         sep_image = loadimage(sep_file, type=cv2.COLOR_BGR2GRAY)
         sample_scan = add_separated_mask(sample_scan, sep_image)
     # Segmentation
-    rois = processor.segmenter.find_ROIs_in_image(
+    rois, stats = processor.segmenter.find_ROIs_in_image(
         sample_scan,
         sample_resolution,
     )

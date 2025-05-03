@@ -420,21 +420,7 @@ def cropnp(
     assert (
         top is not None or left is not None or bottom is not None or right is not None
     )
-    # cropped_image = img[80:280, 150:330]
-    # start_row:end_row, start_col:end_col
-    # print(top,left,bottom,right)
-    # if type(top) != int : print("top not int")
-    # if type(left) != int : print("left not int")
-    # if type(bottom) != int : print("bottom not int")
-    # if type(right) != int : print("right not int")
-    # print(f"L:R {left}:{right}, T:B {top}:{bottom}")
-    # try:
-    # cropped_image = image[int(left):int(right), int(top):int(bottom)]
-    # cropped_image = image[int(right):int(left), int(bottom):int(top)]
-    # symetrie à 45°
     cropped_image = image[top:bottom, left:right]
-    # except OSError as error:
-    #   raise error
     return cropped_image
 
 

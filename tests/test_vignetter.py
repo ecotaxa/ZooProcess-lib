@@ -49,7 +49,7 @@ def test_thumbnail_generator(tmp_path):
     sample_scan = add_separated_mask(sample_scan, sep_image)
     # Segmentation
     sample_info = image_info(Image.open(eight_bit_sample))  # TODO: Remove
-    rois = processor.segmenter.find_ROIs_in_image(sample_scan, sample_info.resolution)
+    rois, _ = processor.segmenter.find_ROIs_in_image(sample_scan, sample_info.resolution)
     sort_ROIs_like_legacy(rois, limit=sample_info.height)
     # Thumbnails generation
     thumbs_dir = tmp_path / "thumbs"

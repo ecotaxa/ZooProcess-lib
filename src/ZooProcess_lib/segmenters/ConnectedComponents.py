@@ -13,7 +13,6 @@ from ..img_tools import cropnp, saveimage
 from ..tools import timeit, graph_connected_components
 
 # Left TODO:
-# Use actual threshold value not 243 (in tests)
 # Do specialized prevent_inclusion which does not need holes & see if faster
 # Optimize find_region_using_contours with inverse image
 # hnoise perf: try bincount in a np.for_each loop instead of np.unique
@@ -100,7 +99,7 @@ class ConnectedComponentsSegmenter:
         s_p_max: int,
         max_w_to_h_ratio: float,
         with_split,
-    ) -> List[ROI]:
+    ) -> Tuple[List[ROI], List[int]]:
         height, width = inv_mask.shape[:2]
 
         hnoise = self.horizontal_noise_ratio(inv_mask)  # Takes a few tens of ms
@@ -213,7 +212,7 @@ class ConnectedComponentsSegmenter:
             print(
                 "Initial CCs", retval, "filter stats", filtering_stats, "left", len(ret)
             )
-        return ret
+        return ret, filtering_stats
 
     @classmethod
     def prevent_inclusion(cls, labels: ndarray, mask: ndarray, cc: CC):

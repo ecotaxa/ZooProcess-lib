@@ -86,7 +86,7 @@ class ExternalContoursSegmenter:
         s_p_max: int,
         max_w_to_h_ratio: float,
         split,
-    ) -> List[ROI]:
+    ) -> Tuple[List[ROI],List[int]]:
         # ImageJ calls args are similar to:
         # analysis1 = "minimum=" + Spmin + " maximum=" + Spmax + " circularity=0.00-1.00 bins=20 show=Outlines include exclude flood record";
         # 'include' is 'Include holes'
@@ -159,7 +159,7 @@ class ExternalContoursSegmenter:
         )
         # image_3channels = draw_contours(self.image, self.contours)
         # saveimage(image_3channels, Path("/tmp/contours.tif"))
-        return ret
+        return ret, filtering_stats
 
     @classmethod
     def find_contours(

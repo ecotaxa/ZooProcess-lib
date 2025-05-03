@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 import cv2
 import numpy as np
@@ -12,7 +12,7 @@ class RecursiveContoursSegmenter(object):
     @classmethod
     def find_particles_contour_tree(
         cls, inv_mask: ndarray, s_p_min: int, s_p_max: int, max_w_to_h_ratio: float
-    ) -> List[ROI]:
+    ) -> Tuple[List[ROI], List[int]]:
         height, width = inv_mask.shape[:2]
         # In some cases and despite previous steps, the border of the scan goes fully round the image, so
         # there is a single contour!
@@ -116,4 +116,5 @@ class RecursiveContoursSegmenter(object):
                 continue
             roi = ROI(x, y, contour_mask)
             ret.append(roi)
-        return ret
+        filtering_stats = [0] * 8
+        return ret, filtering_stats  # Just to comply

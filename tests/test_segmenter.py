@@ -49,10 +49,10 @@ def test_denoiser():
 def test_holes_62388():
     # This image biggest particle has a pattern in holes, their contour touches the particle itself
     image = loadimage(SEGMENTER_DIR / "cc_62388.png")
-    image = cv2.copyMakeBorder(image, 4, 4, 4, 4, cv2.BORDER_CONSTANT, value=(255,))
-    parts = Segmenter(0.1, 100000, 243).find_ROIs_in_image(
+    parts, stats = Segmenter(0.1, 100000, 243).find_ROIs_in_cropped_image(
         image, 2400, Segmenter.METH_TOP_CONTOUR_SPLIT
     )
+    assert sum(stats) == 21
     features = sorted(
         FeaturesCalculator(243).legacy_measures_list_from_roi_list(
             image, 2400, parts, {"Area", "BX", "BY", "Height", "Width"}
@@ -61,11 +61,11 @@ def test_holes_62388():
         reverse=True,
     )
     assert features == [
-        {"Area": 244, "BX": 146, "BY": 91, "Height": 26, "Width": 81},
-        {"Area": 1407, "BX": 102, "BY": 110, "Height": 34, "Width": 67},
-        {"Area": 207, "BX": 67, "BY": 7, "Height": 18, "Width": 26},
-        {"Area": 342, "BX": 14, "BY": 96, "Height": 30, "Width": 25},
-        {"Area": 1675, "BX": 4, "BY": 4, "Height": 148, "Width": 258},
+        {"Area": 244, "BX": 142, "BY": 87, "Height": 26, "Width": 81},
+        {"Area": 1407, "BX": 98, "BY": 106, "Height": 34, "Width": 67},
+        {"Area": 207, "BX": 63, "BY": 3, "Height": 18, "Width": 26},
+        {"Area": 342, "BX": 10, "BY": 92, "Height": 30, "Width": 25},
+        {"Area": 1675, "BX": 0, "BY": 0, "Height": 148, "Width": 258},
     ]
 
 
@@ -78,7 +78,7 @@ def test_compare_split_methods():
     segmenter = Segmenter(0.3, 100, THRESHOLD)
     features_calc = FeaturesCalculator(THRESHOLD)
 
-    found_rois_new = segmenter.find_ROIs_in_image(
+    found_rois_new, _ = segmenter.find_ROIs_in_image(
         image, RESOLUTION, Segmenter.METH_TOP_CONTOUR_SPLIT
     )
     found_feats_new = features_calc.legacy_measures_list_from_roi_list(
@@ -86,7 +86,7 @@ def test_compare_split_methods():
     )
     sort_by_coords(found_feats_new)
 
-    found_rois_old = segmenter.find_ROIs_in_image(
+    found_rois_old, _ = segmenter.find_ROIs_in_image(
         image, RESOLUTION, Segmenter.METH_CONTOUR_TREE
     )
     found_feats_compat = features_calc.legacy_measures_list_from_roi_list(

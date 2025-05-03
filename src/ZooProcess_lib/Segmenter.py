@@ -40,9 +40,25 @@ class Segmenter(object):
         self.maxsize = maxsize
         self.threshold = threshold
 
+    def find_ROIs_in_cropped_image(
+        self, image: ndarray, resolution: int, method: int = METH_TOP_CONTOUR_SPLIT
+    ) -> Tuple[List[ROI], List[int]]:
+        """Find ROIs in a sub-image, aka cropped image.
+        The only difference with below is that particles touching the border are _not_ eliminated.
+        """
+        border = 1
+        # Add a white border, otherwise when a particle touches a border it is eliminated
+        image = cv2.copyMakeBorder(
+            image, border, border, border, border, cv2.BORDER_CONSTANT, value=(255,)
+        )
+        rois, stats = self.find_ROIs_in_image(image, resolution, method)
+        ret = [ROI(r.x - border, r.y - border, r.mask) for r in rois]
+        return ret, stats
+
     def find_ROIs_in_image(
         self, image: ndarray, resolution: int, method: int = METH_TOP_CONTOUR_SPLIT
-    ) -> List[ROI]:
+    ) -> Tuple[List[ROI], List[int]]:
+        """:return: (list of ROIs, elimination statistics i.e. number of particles eliminated at different stages)"""
         pixel = 25.4 / resolution
         sm_min = (3.1416 / 4) * pow(self.minsize, 2)
         sm_max = (3.1416 / 4) * pow(self.maxsize, 2)
@@ -70,7 +86,7 @@ class Segmenter(object):
 
     def find_particles_legacy_way(
         self, inv_mask: ndarray, method: int, part_size_min: int, part_size_max: int
-    ) -> List[ROI]:
+    ) -> Tuple[List[ROI], List[int]]:
         # Process image in 2 overlapping parts, split vertically.
         # There is a good side effect that, when borders are all around the image, it works.
         # BUT as well the bad side effect that objects in the middle 20% band can appear if embedded
@@ -78,7 +94,7 @@ class Segmenter(object):
         height, width = inv_mask.shape[:2]
         overlap_size = int(width * self.overlap)
         left_mask = cropnp(inv_mask, top=0, left=0, bottom=height, right=overlap_size)
-        left_rois = self.find_particles_with_method(
+        left_rois, left_stats = self.find_particles_with_method(
             left_mask, method, part_size_min, part_size_max
         )
         right_mask = cropnp(
@@ -88,7 +104,7 @@ class Segmenter(object):
             bottom=height,
             right=width,
         )
-        right_rois = self.find_particles_with_method(
+        right_rois, right_stats = self.find_particles_with_method(
             right_mask, method, part_size_min, part_size_max
         )
         # Fix coordinates from right pane
@@ -107,11 +123,13 @@ class Segmenter(object):
         for left_key, left_roi in left_by_key.items():
             if left_key not in right_by_key:
                 right_by_key[left_key] = left_roi
-        return list(right_by_key.values())
+        return list(right_by_key.values()), [
+            ls + rs for ls, rs in zip(left_stats, right_stats)
+        ]
 
     def find_particles_with_method(
         self, inv_mask: ndarray, method: int, part_size_min: int, part_size_max: int
-    ) -> List[ROI]:
+    ) -> Tuple[List[ROI], List[int]]:
         # Required measurements:
         #       area bounding area_fraction limit decimal=2
         # Result:
