@@ -1,17 +1,18 @@
 # ZooProcess Library
 
-A Python library meant at reproducing as exactly as possible the behavior of ZooProcess-legacy, a tool for processing zooplankton images.
+A Python library meant at reproducing as exactly as possible the behavior of ZooProcess v8.X, a tool for processing Zooscan generated images.
 
 ## Features
 
-- Scanner background processing
-- Vignette and ROIs extraction from scanned images
-- Image segmentation
-- Image features generation
+- Scanner background and plain images processing
+- Background removal from plain image
+- Image segmentation, AKA ROIs extraction from scanned images
+- ROIs features generation
+- Utility classes for legacy filesystem usage
 
 ## Installation
 
-You can install the package directly from GitHub, it is advised to use a tag, not main.
+You can install the package directly from GitHub. It is advised to use a tag, not main which might be unstable.
 
 ```bash
 pip install git+https://github.com/ecotaxa/ZooProcess-lib.git@v0.1.0
@@ -27,15 +28,16 @@ pip install -e .
 
 In requirements.txt it should look like:
 
-'''
+```
 ZooProcess-lib@git+https://github.com/ecotaxa/ZooProcess-lib.git@v0.1.0
-'''
+```
 
 ## Requirements
 
-- Python 3.12 or higher
+- Python 3.10 or higher
 - Dependencies:
   - numpy
+  - scipy
   - opencv-python
   - pillow
 
