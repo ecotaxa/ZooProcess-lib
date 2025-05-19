@@ -12,6 +12,9 @@ from .LegacyConfig import Lut, ZooscanConfig
 from .Segmenter import Segmenter
 
 
+# toto
+
+
 class Processor:
     """ZooProcess v10 image processor"""
 
@@ -49,12 +52,8 @@ class Processor:
 
     @property
     def extractor(self) -> Extractor:
-        return Extractor(
-            self.config.longline_mm, self.config.upper
-        )
+        return Extractor(self.config.longline_mm, self.config.upper)
 
     @property
     def calculator(self) -> FeaturesCalculator:
-        return FeaturesCalculator(
-            self.config.upper
-        )
+        return FeaturesCalculator(self.config.upper)

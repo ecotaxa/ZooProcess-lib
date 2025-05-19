@@ -7,7 +7,7 @@ import pytest
 from PIL import Image
 
 from ZooProcess_lib.Processor import Processor
-from ZooProcess_lib.ZooscanFolder import ZooscanFolder
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder
 from ZooProcess_lib.img_tools import (
     image_info,
     get_date_time_digitized,
@@ -31,7 +31,7 @@ tested_samples = [
 )
 def test_raw_to_work(projects, tmp_path, project, sample):
     """Ensure we can mimic sample - background -> work vis1 equivalent"""
-    folder = ZooscanFolder(projects, project)
+    folder = ZooscanProjectFolder(projects, project)
     processor = Processor.from_legacy_config(folder.zooscan_config.read(), folder.zooscan_config.read_lut())
 
     index = 1  # TODO: should come from get_names() below

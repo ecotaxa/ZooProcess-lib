@@ -6,27 +6,36 @@ from typing import List, Tuple, Union, Dict, TypedDict, Optional, Generator
 from .LegacyConfig import Lut, ZooscanConfig
 
 
-class ZooscanFolder:
+class ZooscanDrive:
+    """A directory with several projects inside and some conventional ones"""
+
+    def __init__(self, drive_path: Path) -> None:
+        self.path = Path(drive_path)
+
+    def list(self) -> Generator[Path, None, None]:
+        # Get all subdirectories in the drive
+        for item in self.path.iterdir():
+            if not item.is_dir():
+                continue
+            if item.name in ("Zooprocess", "Zooscan", "Background"):
+                continue
+            yield item
+
+    def get_project_folder(self, project_name: str) -> "ZooscanProjectFolder":
+        ret = ZooscanProjectFolder(self.path, project_name)
+        assert ret.path.is_dir()
+        return ret
+
+
+class ZooscanProjectFolder:
+    """A directory with a project inside"""
+
     def __init__(self, home: Path, project: str) -> None:
         self.project = project
         self.path = Path(home, project)  # noqa: E501
-        self.zooscan_scan = Zooscan_scan_Folder(self.path)
-        self.zooscan_back = Zooscan_back_Folder(self.path)
-        self.zooscan_config = Zooscan_config_Folder(self.path)
-        self._debug_folders()
-
-    def _debug_folders(self):
-        # folder to save my image processed
-        # self.zooscan_test_folder = self.path + "test2" + "/"
-        # self.vignettes_folder    = self.zooscan_test_folder + '/' + "vignettes"
-        self.zooscan_test_folder = Path(self.path, "test2")
-        self.vignettes_folder = Path(self.zooscan_test_folder, "vignettes")
-
-    def pathold(self, file_scan, file_back):
-        self.zooscan_back_file_path = self.path + self.zooscan_back_folder + file_back
-        self.zooscan_scan_file_path = self.path + self.zooscan_scan_folder + file_scan
-
-        return self.zooscan_back_file_path, self.zooscan_scan_file_path
+        self.zooscan_scan = ZooscanScanFolder(self.path)
+        self.zooscan_back = ZooscanBackFolder(self.path)
+        self.zooscan_config = ZooscanConfigFolder(self.path)
 
     def path(self, folder, file) -> str:
         path = self._absolute_home_project_path + self.project_folder + folder + file
@@ -36,7 +45,7 @@ class ZooscanFolder:
         raw = sample + "_" + str(mesure)
 
 
-class Zooscan_config_Folder:
+class ZooscanConfigFolder:
     SUDIR_PATH = "Zooscan_config"
     INSTALL_CONFIG = "process_install_both_config.txt"
 
@@ -53,13 +62,13 @@ class Zooscan_config_Folder:
         return Lut.read(config_file)
 
 
-class Zooscan_scan_Folder:
-    _zooscan_path = "Zooscan_scan"
+class ZooscanScanFolder:
+    SUBDIR_PATH = "Zooscan_scan"
 
-    def __init__(self, zooscan_scan_folder: Path) -> None:
-        self.path = Path(zooscan_scan_folder, self._zooscan_path)
-        self.raw = Zooscan_scan_raw_Folder(self.path)
-        self.work = Zooscan_scan_work_Folder(self.path)
+    def __init__(self, project_folder: Path) -> None:
+        self.path = Path(project_folder, self.SUBDIR_PATH)
+        self.raw = ZooscanScanRawFolder(self.path)
+        self.work = ZooscanScanWorkFolder(self.path)
 
     def get_file_produced_from(self, raw_file_name: str) -> Path:
         assert "_raw" in raw_file_name
@@ -87,11 +96,11 @@ class BackgroundEntry(TypedDict):
 date_re = re.compile(r"(\d{8}_\d{4})_.*")
 
 
-class Zooscan_back_Folder:
-    _zooscan_path = "Zooscan_back"
+class ZooscanBackFolder:
+    SUBDIR_PATH = "Zooscan_back"
 
     def __init__(self, zooscan_scan_folder: Path) -> None:
-        self.path = Path(zooscan_scan_folder, self._zooscan_path)
+        self.path = Path(zooscan_scan_folder, self.SUBDIR_PATH)
         self.content: Dict[str, BackgroundEntry] = {}
         self.read()
 
@@ -190,11 +199,11 @@ class Zooscan_back_Folder:
         return Path(self.path, scan_date + "_back_large" + index_str + ".tif")
 
 
-class Zooscan_scan_work_Folder:
-    _work = "_work"
+class ZooscanScanWorkFolder:
+    SUBDIR_PATH = "_work"
 
     def __init__(self, zooscan_scan_raw_folder: Path) -> None:
-        self.path = Path(zooscan_scan_raw_folder, self._work)
+        self.path = Path(zooscan_scan_raw_folder, self.SUBDIR_PATH)
 
     def get_files(
         self, sample_name: str, index: int
@@ -227,11 +236,11 @@ class Zooscan_scan_work_Folder:
         return files
 
 
-class Zooscan_scan_raw_Folder:
-    _raw = "_raw"
+class ZooscanScanRawFolder:
+    SUBDIR_PATH = "_raw"
 
     def __init__(self, zooscan_scan_folder: Path) -> None:
-        self.path = Path(zooscan_scan_folder, self._raw)
+        self.path = Path(zooscan_scan_folder, self.SUBDIR_PATH)
 
     def get_samples(self) -> List[Path]:
         raw_files = self.path.glob("*_raw_*")
@@ -262,7 +271,7 @@ class Zooscan_scan_raw_Folder:
         return Path(self.path, f"{name}_raw_{index}.tif")
 
 
-class Zooscan_sample_scan:
+class ZooscanSampleScan:
     _log = "_log"
     _raw = "_raw"
     _meta = "_meta"
@@ -288,7 +297,7 @@ class Zooscan_sample:
         self.metafile = ""
 
 
-class Zooscan_Project:
+class ZooscanProjectOld:
     def __init__(self, projectname, home_path: Path) -> None:
         # self.scans : Array(Zooscan_sample_scan) = []
         self.scans = []
@@ -298,7 +307,7 @@ class Zooscan_Project:
         self.path = Path(home_path, projectname)
         # self.zooscan = ZooscanFolder(project_path.absolute(),home="",piqv="")
         # self.zooscan = ZooscanFolder(project_path.absolute(),home="",piqv="")
-        self.zooscan = ZooscanFolder(home_path, projectname)
+        self.zooscan = ZooscanProjectFolder(home_path, projectname)
         # self.zooscan = ZooscanFolder(self.path)
         self.rawfolder = self.zooscan.zooscan_scan.raw
         # samples = self.zooscan.zooscan_scan.raw.get_samples()

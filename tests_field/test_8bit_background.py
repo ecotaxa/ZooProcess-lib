@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from ZooProcess_lib.Processor import Processor
-from ZooProcess_lib.ZooscanFolder import ZooscanFolder
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder
 from ZooProcess_lib.img_tools import loadimage
 from .env_fixture import projects, read_home
 from .projects_for_test import IADO, APERO2000, APERO, TRIATLAS, APERO1
@@ -16,7 +16,7 @@ all_projects = [IADO, APERO2000, APERO, TRIATLAS, APERO1]
 def all_backgrounds(but_not=()) -> list[tuple[str, str, int]]:
     ret = []
     for a_project in all_projects:
-        folder = ZooscanFolder(read_home(), a_project)
+        folder = ZooscanProjectFolder(read_home(), a_project)
         for scan_date in folder.zooscan_back.get_dates():
             for idx in (1, 2):
                 source_bg_file = folder.zooscan_back.get_raw_background_file(
@@ -54,7 +54,7 @@ def test_identical_converted_8bit_background(
     projects, project, scan_date, idx, tmp_path
 ):
     """Ensure we convert like legacy the scanned background images for all projects"""
-    folder = ZooscanFolder(projects, project)
+    folder = ZooscanProjectFolder(projects, project)
     source_bg_file = folder.zooscan_back.get_raw_background_file(scan_date, idx)
     reference_bg_file = folder.zooscan_back.get_processed_background_file(
         scan_date, idx

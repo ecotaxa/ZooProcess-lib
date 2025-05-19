@@ -14,7 +14,7 @@ from ZooProcess_lib.Features import (
 from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.ROI import ROI
 from ZooProcess_lib.Segmenter import Segmenter
-from ZooProcess_lib.ZooscanFolder import ZooscanFolder
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder
 from ZooProcess_lib.img_tools import (
     load_zipped_image,
     load_tiff_image_and_info,
@@ -42,7 +42,7 @@ from .projects_repository import (
 
 def test_8bit_sample_border(projects, tmp_path):
     """Ensure we compute borders to remove like legacy"""
-    folder = ZooscanFolder(projects, APERO2000)
+    folder = ZooscanProjectFolder(projects, APERO2000)
     sample = "apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_3_sur_4"
     index = 1
     src_8bit_sample_file = folder.zooscan_scan.get_8bit_file(sample, index)
@@ -90,7 +90,7 @@ def test_segmentation(projects, tmp_path, project, sample):
 
 
 def assert_segmentation(projects, project, sample, method):
-    folder = ZooscanFolder(projects, project)
+    folder = ZooscanProjectFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
     info_vis1, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
@@ -133,7 +133,7 @@ def assert_linear_response_time(projects, tmp_path, test_set, method):
     Note: Cannot be done in pytest parametrized test, which are isolated"""
     spent_times = []
     for num_test, (project, sample) in enumerate(test_set):
-        folder = ZooscanFolder(projects, project)
+        folder = ZooscanProjectFolder(projects, project)
         index = 1  # TODO: should come from get_names() below
         _, vis1 = load_final_ref_image(folder, sample, index)
         conf = folder.zooscan_config.read()
@@ -184,7 +184,7 @@ def test_algo_diff(projects, tmp_path, project, sample):
     Read ROIs using legacy algorithm and CC one.
     The differences have to fit in expected patterns.
     """
-    folder = ZooscanFolder(projects, project)
+    folder = ZooscanProjectFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
     info_vis1, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()
@@ -312,7 +312,7 @@ def draw_roi_mask(image: np.ndarray, roi: ROI):
     ids=[sample for (_prj, sample) in wrong_mask_maybe_gives_no_roi_when_legacy_has],
 )
 def test_nothing_found(projects, tmp_path, project, sample, segmentation_method):
-    folder = ZooscanFolder(projects, project)
+    folder = ZooscanProjectFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
     _, vis1 = load_final_ref_image(folder, sample, index)
     conf = folder.zooscan_config.read()

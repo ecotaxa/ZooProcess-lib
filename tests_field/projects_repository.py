@@ -1,7 +1,7 @@
 #
 # Various classification of existing projects, according to their characteristics, e.g. image quality
 #
-from ZooProcess_lib.ZooscanFolder import ZooscanFolder
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder
 from .env_fixture import read_home
 from .projects_for_test import (
     IADO,
@@ -15,7 +15,7 @@ from .projects_for_test import (
 
 
 def all_samples_in(project: str, but_not=()) -> list[tuple[str, str]]:
-    folder = ZooscanFolder(read_home(), project)
+    folder = ZooscanProjectFolder(read_home(), project)
     scans = folder.zooscan_scan.list_samples()
     return [(project, a_scan) for a_scan in sorted(scans) if a_scan not in but_not]
 

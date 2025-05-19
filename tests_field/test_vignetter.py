@@ -8,7 +8,7 @@ import pytest
 from PIL import Image
 
 from ZooProcess_lib.Processor import Processor
-from ZooProcess_lib.ZooscanFolder import ZooscanFolder
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder
 from ZooProcess_lib.img_tools import (
     loadimage,
     add_separated_mask,
@@ -43,7 +43,7 @@ def test_thumbnail_generator(projects, project, sample, tmp_path):
 
 def assert_same_vignettes(project, projects, sample, tmp_path):
     # A bit of e2e testing as well, see if we can do from _only_ raw images up to thumbnails
-    folder = ZooscanFolder(projects, project)
+    folder = ZooscanProjectFolder(projects, project)
     conf = folder.zooscan_config.read()
     lut = folder.zooscan_config.read_lut()
     processor = Processor(conf, lut)

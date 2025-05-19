@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .ZooscanFolder import Zooscan_Project, Zooscan_sample_scan
+from .ZooscanFolder import ZooscanProjectOld, ZooscanSampleScan
 from .img_tools import (
     loadimage,
     saveimage,
@@ -34,7 +34,7 @@ class ZooProcess:
         """
         self.path = project_path
         self.name = project_name
-        self.project = Zooscan_Project(project_name, project_path)
+        self.project = ZooscanProjectOld(project_name, project_path)
 
         self.output_folder = output_folder
 
@@ -61,7 +61,7 @@ class ZooProcess:
         for scan in rawscans:
             image = self.normalize_rawscan(scan)
             samplename, sampleid = self.rawfolder.extract_sample_name(scan)
-            sample_names = Zooscan_sample_scan(samplename, sampleid, self.project.path)
+            sample_names = ZooscanSampleScan(samplename, sampleid, self.project.path)
 
             outputPath = self.project.workfolder.path
             if self.output_folder:

@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from ZooProcess_lib.Processor import Processor
-from ZooProcess_lib.ZooscanFolder import ZooscanFolder
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder
 from ZooProcess_lib.img_tools import loadimage
 from .env_fixture import projects
 from .projects_repository import tested_samples
@@ -21,7 +21,7 @@ random.shuffle(shuffled)
 )
 def test_identical_converted_8bit_sample(projects, project, sample, tmp_path):
     """Ensure we convert like legacy the scanned background images"""
-    folder = ZooscanFolder(projects, project)
+    folder = ZooscanProjectFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
     processor = Processor.from_legacy_config(folder.zooscan_config.read(), folder.zooscan_config.read_lut())
 

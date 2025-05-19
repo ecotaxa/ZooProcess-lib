@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from ZooProcess_lib.Border import Border
-from ZooProcess_lib.ZooscanFolder import Zooscan_Project
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectOld
 from ZooProcess_lib.ZooscanProject import ZooscanProject
 from ZooProcess_lib.img_tools import (
     crop,
@@ -42,7 +42,7 @@ def test_openproject(TP):
     assert ut.path == TP.home
     assert ut.name == TP.project_name
 
-    assert isinstance(ut.project, Zooscan_Project)
+    assert isinstance(ut.project, ZooscanProjectOld)
 
     check = ut.check_folders()
     assert check, "Folder do not exist"
