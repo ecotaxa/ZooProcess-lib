@@ -7,6 +7,7 @@ import numpy as np
 from ZooProcess_lib.Features import TYPE_BY_LEGACY, feature_unq
 from ZooProcess_lib.ROI import ROI
 from ZooProcess_lib.Segmenter import Segmenter
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder
 from .test_utils import read_measures_csv
 
 FEATURES_TOLERANCES = {
@@ -101,14 +102,14 @@ def diff_features_lists(
     return different, list(acts_by_key.values()), not_in_act
 
 
-def read_measurements(project_folder, sample, index):
+def read_measurements(project_folder: ZooscanProjectFolder, sample: str, index: int) -> List[Dict]:
     work_files = project_folder.zooscan_scan.work.get_files(sample, index)
     measures = work_files["meas"]
     ref = read_measures_from_file(measures)
     return ref
 
 
-def read_box_measurements(project_folder, sample, index):
+def read_box_measurements(project_folder: ZooscanProjectFolder, sample: str, index: int) -> List[Dict]:
     work_files = project_folder.zooscan_scan.work.get_files(sample, index)
     measures = work_files["meas"]
     ref = read_measures_from_file(measures, only_box=True)

@@ -82,6 +82,18 @@ class ZooscanScanFolder:
             if a_file.suffix == ".tif":
                 yield a_file.name[:-6]
 
+    def list_samples_with_state(self) -> Generator[str, None, None]:
+        """The .tif in self is not really mandatory, let's not assume it's there
+        ./Zooscan_scan/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1.tif
+        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.bak
+        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.txt
+        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
+        ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
+        """
+        for an_entry in self.work.path.iterdir():
+            if an_entry.is_dir():
+                yield an_entry.name
+
 
 class BackgroundEntry(TypedDict):
     nb_scans: int
