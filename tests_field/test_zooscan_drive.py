@@ -48,32 +48,28 @@ def test_zooscan_drive_list_projects():
         for project in projects_list:
             print(f"  - {project.name}")
 
+            # Verify that we can get a project folder for each project
+            project_folder = drive.get_project_folder(project.name)
+            assert project_folder.path.is_dir(), f"Project folder {project_folder.path} is not a directory"
+
+            # Check that metadata can be correctly read for the project
+            meta_folder = ZooscanMetaFolder(project_folder.path)
             try:
-                # Verify that we can get a project folder for each project
-                project_folder = drive.get_project_folder(project.name)
-                assert project_folder.path.is_dir(), f"Project folder {project_folder.path} is not a directory"
+                project_meta = meta_folder.read_project_meta()
 
-                # Check that metadata can be correctly read for the project
-                meta_folder = ZooscanMetaFolder(project_folder.path)
-                try:
-                    project_meta = meta_folder.read_project_meta()
+                # Verify that the metadata is a ProjectMeta instance
+                assert isinstance(project_meta, ProjectMeta), f"Project metadata is not a ProjectMeta instance"
 
-                    # Verify that the metadata is a ProjectMeta instance
-                    assert isinstance(project_meta, ProjectMeta), f"Project metadata is not a ProjectMeta instance"
+                # Verify that some essential metadata fields are present and have values
+                assert hasattr(project_meta, 'SampleId'), f"Project metadata missing SampleId field"
+                print(f"    Metadata SampleId: {project_meta.SampleId}")
 
-                    # Verify that some essential metadata fields are present and have values
-                    assert hasattr(project_meta, 'SampleId'), f"Project metadata missing SampleId field"
-                    print(f"    Metadata SampleId: {project_meta.SampleId}")
+            except (FileNotFoundError, AssertionError) as meta_error:
+                # Skip projects that don't have metadata or have invalid metadata
+                print(f"    Skipping project {project.name} metadata check due to error: {meta_error}")
 
-                except (FileNotFoundError, AssertionError) as meta_error:
-                    # Skip projects that don't have metadata or have invalid metadata
-                    print(f"    Skipping project {project.name} metadata check due to error: {meta_error}")
-
-                # Increment total projects count for valid projects (regardless of metadata check result)
-                total_projects += 1
-            except (FileNotFoundError, AssertionError, ValueError) as e:
-                # Skip projects that don't have the expected structure or have invalid configuration values
-                print(f"    Skipping project {project.name} due to error: {e}")
+            # Increment total projects count for valid projects (regardless of metadata check result)
+            total_projects += 1
 
     # Verify that we found some projects across all drives in the parent directory
     assert total_projects > 0, "No projects found in any drive in the parent directory"

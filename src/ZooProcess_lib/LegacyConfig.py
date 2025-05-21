@@ -97,7 +97,14 @@ class ZooscanConfig:
             parser.read_string("[conf]\n" + strm.read())
             args = []
             for a_field in dataclasses.fields(cls):
-                value = a_field.type(parser.get("conf", a_field.name))
+                got_val = parser.get("conf", a_field.name)
+                try:
+                    value = a_field.type(got_val)
+                except ValueError:
+                    if a_field.type == int and got_val.endswith(".0"):
+                        value = int(got_val[:-2])
+                    else:
+                        raise
                 args.append(value)
             return ZooscanConfig(*args)
 
