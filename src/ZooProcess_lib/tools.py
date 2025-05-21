@@ -1,8 +1,9 @@
+import csv
 import os
 import sys
 import time
 from pathlib import Path
-from typing import Callable, Any, Tuple
+from typing import Callable, Any, Tuple, List, Dict
 
 import numpy as np
 from numpy import ndarray
@@ -69,6 +70,22 @@ def create_folder(path: Path):
         path_str = str(p.absolute)
 
         eprint("cannot create folder: ", path_str, ", ", str(error))
+
+
+def parse_csv(file_path: Path) -> List[Dict[str, str]]:
+    """Parses a CSV file and returns a list of dictionaries."""
+
+    data: List[Dict[str, str]] = []
+    with open(file_path, "r", newline="", encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file, delimiter=";")
+        for row in reader:
+            cleaned_row = {}
+            for key, value in row.items():
+                cleaned_row[key] = (
+                    value.strip() if value is not None else None
+                )  # Clean whitespace. Handle empty values
+            data.append(cleaned_row)  # Add the cleaned row to the list
+    return data
 
 
 def is_file_exist(path):

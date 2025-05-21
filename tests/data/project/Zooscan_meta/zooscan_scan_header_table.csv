@@ -1,0 +1,11 @@
+scanid;sampleid;scanop;fracid;fracmin;fracsup;fracnb;observation;code;submethod;cellpart;replicates;volini;volprec
+test_tot_1;test;adelaide_perruchon;tot;10;999999;2;no;1;motoda;1;1;1;1
+test2pixels_tot_1;test2pixels;adelaide_perruchon;tot;10;999999;2;no;1;motoda;1;1;1;1
+apero2023_tha_bioness_sup2000_013_st46_d_n4_d1_1_sur_1_1;apero2023_tha_bioness_sup2000_013_st46_d_n4;adelaide_perruchon;d1_1_sur_1;10000;999999;1;no;1;motoda;1;1;1;1
+apero2023_tha_bioness_sup2000_013_st46_d_n4_d2_1_sur_1_1;apero2023_tha_bioness_sup2000_013_st46_d_n4;adelaide_perruchon;d2_1_sur_1;2000;999999;1;no;1;motoda;1;1;1;1
+apero2023_tha_bioness_sup2000_017_st66_d_n1_d1_1_sur_1_1;apero2023_tha_bioness_sup2000_017_st66_d_n1;adelaide_perruchon;d1_1_sur_1;10000;999999;1;no;1;motoda;1;1;1;1
+apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_1_sur_4_1;apero2023_tha_bioness_sup2000_017_st66_d_n1;adelaide_perruchon;d2_1_sur_4;2000;999999;8;no;1;motoda;1;1;1;1
+apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_2_sur_4_1;apero2023_tha_bioness_sup2000_017_st66_d_n1;adelaide_perruchon;d2_2_sur_4;2000;999999;4;no;1;motoda;1;1;1;1
+apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_3_sur_4_1;apero2023_tha_bioness_sup2000_017_st66_d_n1;adelaide_perruchon;d2_3_sur_4;2000;999999;4;no;1;motoda;1;1;1;1
+apero2023_tha_bioness_sup2000_017_st66_d_n1_d2_4_sur_4_1;apero2023_tha_bioness_sup2000_017_st66_d_n1;adelaide_perruchon;d2_4_sur_4;2000;999999;4;no;1;motoda;1;1;1;1
+apero2023_tha_bioness_sup2000_016_st55_d_n9_d2_1_sur_1_1;apero2023_tha_bioness_sup2000_016_st55_d_n9;adelaide_perruchon;d2_1_sur_1;2000;999999;1;no;1;motoda;1;1;1;1

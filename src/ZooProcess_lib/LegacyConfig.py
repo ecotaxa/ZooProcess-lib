@@ -80,6 +80,7 @@ class Lut:
 # greylimit= 10
 # frame= both
 
+
 @dataclasses.dataclass(frozen=True)
 class ZooscanConfig:
     background_process: str
@@ -99,3 +100,92 @@ class ZooscanConfig:
                 value = a_field.type(parser.get("conf", a_field.name))
                 args.append(value)
             return ZooscanConfig(*args)
+
+
+@dataclasses.dataclass(frozen=False)
+class ProjectMeta:
+    """
+    Class to read and store metadata from a metadata.txt file.
+    All fields are explicitly defined with proper type annotations.
+    """
+
+    # String fields
+    SampleId: str = ""  # e.g. apero2023_tha_bioness_sup2000_017_st66_d_n1
+    Scanop: str = ""  # e.g. adelaide_perruchon
+    Ship: str = ""  # e.g. thalassa
+    Scientificprog: str = ""  # e.g. apero
+    Date: str = ""  # e.g. 20230704-0503
+    CTDref: str = ""  # e.g. apero_bio_ctd_017
+    Otherref: str = ""  # e.g. apero_bio_uvp6_017u
+    Nettype: str = ""  # e.g. bioness
+    Observation: str = ""  # e.g. no
+    SubMethod: str = ""  # e.g. motoda
+    Sample_comment: str = ""  # e.g. vol_zooprocess_saisi
+    barcode: str = ""  # e.g. ape000000147
+    FracId: str = ""  # e.g. d2_4_sur_4
+
+    # Integer fields
+    StationId: int = 0  # e.g. 66
+    Depth: int = 0  # e.g. 99999
+    Townb: int = 0  # e.g. 1
+    Towtype: int = 0  # e.g. 1
+    Netmesh: int = 0  # e.g. 2000
+    Netsurf: int = 0  # e.g. 1
+    Zmax: int = 0  # e.g. 1008
+    Zmin: int = 0  # e.g. 820
+    Vol: int = 0  # e.g. 357
+    Fracmin: int = 0  # e.g. 2000
+    Fracsup: int = 0  # e.g. 999999
+    Fracnb: int = 0  # e.g. 4
+    Code: int = 0  # e.g. 1
+    CellPart: int = 0  # e.g. 1
+    Replicates: int = 0  # e.g. 1
+    VolIni: int = 0  # e.g. 1
+    VolPrec: int = 0  # e.g. 1
+    vol_qc: int = 0  # e.g. 1
+    depth_qc: int = 0  # e.g. 1
+    sample_qc: int = 0  # e.g. 1111
+    net_duration: int = 0  # e.g. 20
+    cable_length: int = 0  # e.g. 9999
+    cable_angle: int = 0  # e.g. 99999
+    cable_speed: int = 0  # e.g. 0
+    nb_jar: int = 0  # e.g. 1
+
+    # Float fields
+    Latitude: float = 0.0  # e.g. 51.4322000
+    Longitude: float = 0.0  # e.g. 18.3108000
+    latitude_end: float = 0.0  # e.g. 51.4421000
+    longitude_end: float = 0.0  # e.g. 18.3417000
+    ship_speed_knots: float = 0.0  # e.g. 2
+
+    @classmethod
+    def read(cls, path: Path) -> "ProjectMeta":
+        """
+        Read a metadata.txt file and return a ProjectMeta instance with fields
+        populated from the file.
+        """
+        meta = ProjectMeta()
+        with open(path, "r") as strm:
+            for line in strm:
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip()
+
+                    if hasattr(meta, key):
+                        field_type = type(getattr(meta, key))
+                        try:
+                            if field_type == int:
+                                setattr(meta, key, int(value))
+                            elif field_type == float:
+                                setattr(meta, key, float(value))
+                            else:
+                                setattr(meta, key, value)
+                        except ValueError:
+                            # If conversion fails, keep as string
+                            setattr(meta, key, value)
+                    else:
+                        # For any fields not explicitly defined, add them as strings
+                        setattr(meta, key, value)
+
+        return meta

@@ -3,7 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Union, Dict, TypedDict, Optional, Generator
 
-from .LegacyConfig import Lut, ZooscanConfig
+from .LegacyConfig import Lut, ZooscanConfig, ProjectMeta
+from .tools import parse_csv
 
 
 class ZooscanDrive:
@@ -60,6 +61,25 @@ class ZooscanConfigFolder:
     def read_lut(self) -> Lut:
         config_file = self.path / "lut.txt"
         return Lut.read(config_file)
+
+
+class ZooscanMetaFolder:
+    SUDIR_PATH = "Zooscan_meta"
+    PROJECT_META = "metadata.txt"
+    SAMPLE_HEADER = "zooscan_sample_header_table.csv"
+    SCAN_HEADER = "zooscan_scan_header_table.csv"
+
+    def __init__(self, zooscan_folder: Path) -> None:
+        self.path = Path(zooscan_folder, self.SUDIR_PATH)
+
+    def read_project_meta(self) -> ProjectMeta:
+        return ProjectMeta.read(self.path / self.PROJECT_META)
+
+    def read_samples_table(self) -> List[Dict[str, str]]:
+        return parse_csv(self.path / self.SAMPLE_HEADER)
+
+    def read_scans_table(self) -> List[Dict[str, str]]:
+        return parse_csv(self.path / self.SCAN_HEADER)
 
 
 class ZooscanScanFolder:
@@ -307,6 +327,7 @@ class Zooscan_sample:
         self.workfolder = ""
         self.logfile = ""
         self.metafile = ""
+        self.metadata: List[Metadata] = []
 
 
 class ZooscanProjectOld:
