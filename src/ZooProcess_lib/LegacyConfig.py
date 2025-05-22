@@ -46,7 +46,15 @@ class Lut:
 
 
 # Full dump of a config file, for future use:
+# _Used_:
 # background_process= last
+# minsizeesd_mm= 0.001
+# maxsizeesd_mm= 0.001
+# longline_mm= 0.001
+# resolution= 1000
+# upper= 243
+#
+# _Unused_:
 # enhance_thumbnail= no
 # calibration= created_20241212_1022
 # jpeg= 100
@@ -62,7 +70,6 @@ class Lut:
 # doecart= 20.0
 # subimgx= 0
 # method= neutral
-# upper= 243
 # greyref= 174
 # voxelwidth= 1
 # voxelheigth= 1
@@ -196,3 +203,29 @@ class ProjectMeta:
                         setattr(meta, key, value)
 
         return meta
+
+    def write(self, path: Path) -> None:
+        """
+        Write the ProjectMeta instance to a metadata.txt file in the same format
+        as it is read.
+        """
+        with open(path, "w") as strm:
+            # Write all attributes to the file
+            for attr_name in dir(self):
+                # Skip special attributes, methods, and class variables
+                if (
+                    attr_name.startswith("__")
+                    or callable(getattr(self, attr_name))
+                    or attr_name == "__annotations__"
+                ):
+                    continue
+
+                # Get the attribute value
+                attr_value = getattr(self, attr_name)
+
+                # Skip default values for primitive types
+                if attr_value == "" or attr_value == 0 or attr_value == 0.0:
+                    continue
+
+                # Write the attribute to the file
+                strm.write(f"{attr_name}= {attr_value}\n")

@@ -1,11 +1,9 @@
-import os
+import tempfile
 from pathlib import Path
 
-import pytest
-
-from ZooProcess_lib.ZooscanFolder import ZooscanDrive, ZooscanMetaFolder
 from ZooProcess_lib.LegacyConfig import ProjectMeta
-from .env_fixture import projects, read_home
+from ZooProcess_lib.ZooscanFolder import ZooscanDrive, ZooscanMetaFolder
+from .env_fixture import read_home
 
 
 def test_zooscan_drive_list_projects():
@@ -64,9 +62,42 @@ def test_zooscan_drive_list_projects():
                 assert hasattr(project_meta, 'SampleId'), f"Project metadata missing SampleId field"
                 print(f"    Metadata SampleId: {project_meta.SampleId}")
 
+                # Create a temporary file and write the metadata to it
+                with tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp_file:
+                    temp_path = Path(temp_file.name)
+                    try:
+                        # Write the metadata to the temporary file
+                        project_meta.write(temp_path)
+
+                        # Read the original metadata file content
+                        original_path = meta_folder.path / meta_folder.PROJECT_META
+                        with open(original_path, 'r') as original_file:
+                            original_content = original_file.readlines()
+
+                        # Read the temporary file content
+                        with open(temp_path, 'r') as temp_file:
+                            temp_content = temp_file.readlines()
+
+                        # Compare the content (ignoring order and empty lines)
+                        original_lines = [line.strip() for line in original_content if line.strip()]
+                        temp_lines = [line.strip() for line in temp_content if line.strip()]
+
+                        # Sort the lines for comparison (since the order might be different)
+                        original_lines.sort()
+                        temp_lines.sort()
+
+                        # Assert that the content is the same
+                        assert original_lines == temp_lines, f"Metadata roundtrip test mismatch for project {project.name}"
+                        print(f"    Metadata content verified for project {project.name}")
+                    finally:
+                        # Clean up the temporary file
+                        if temp_path.exists():
+                            temp_path.unlink()
+
             except (FileNotFoundError, AssertionError) as meta_error:
                 # Skip projects that don't have metadata or have invalid metadata
-                print(f"    Skipping project {project.name} metadata check due to error: {meta_error}")
+                # print(f"    Skipping project {project.name} metadata check due to error: {meta_error}")
+                raise
 
             # Increment total projects count for valid projects (regardless of metadata check result)
             total_projects += 1
