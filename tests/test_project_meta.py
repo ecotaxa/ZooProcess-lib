@@ -32,8 +32,8 @@ def test_project_meta_read():
         # Skip fields that aren't in the metadata file
         if (
             getattr(meta, field.name) == ""
-            or getattr(meta, field.name) == 0
-            or getattr(meta, field.name) == 0.0
+            or getattr(meta, field.name) == -1
+            or getattr(meta, field.name) == -1.0
         ):
             continue
 
@@ -51,8 +51,8 @@ def test_project_meta_read():
     assert meta.Latitude == 51.4322000
 
     assert hasattr(meta, "Depth")
-    assert isinstance(meta.Depth, int)
-    assert meta.Depth == 99999
+    assert isinstance(meta.Depth, float)
+    assert meta.Depth == 99999.0
 
     # Verify that fields not explicitly defined are still added as strings
     # (This is for backward compatibility)

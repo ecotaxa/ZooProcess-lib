@@ -38,7 +38,7 @@ def test_project_meta_write():
             written_value = getattr(written_meta, attr_name)
 
             # Skip default values for primitive types
-            if original_value == "" or original_value == 0 or original_value == 0.0:
+            if original_value == "" or original_value == -1 or original_value == -1.0:
                 continue
 
             # Verify that the attribute values are the same

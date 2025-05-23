@@ -139,38 +139,38 @@ class ProjectMeta:
     FracId: str = ""  # e.g. d2_4_sur_4
 
     # Integer fields
-    StationId: int = 0  # e.g. 66
-    Depth: int = 0  # e.g. 99999
-    Townb: int = 0  # e.g. 1
-    Towtype: int = 0  # e.g. 1
-    Netmesh: int = 0  # e.g. 2000
-    Netsurf: int = 0  # e.g. 1
-    Zmax: int = 0  # e.g. 1008
-    Zmin: int = 0  # e.g. 820
-    Vol: int = 0  # e.g. 357
-    Fracmin: int = 0  # e.g. 2000
-    Fracsup: int = 0  # e.g. 999999
-    Fracnb: int = 0  # e.g. 4
-    Code: int = 0  # e.g. 1
-    CellPart: int = 0  # e.g. 1
-    Replicates: int = 0  # e.g. 1
-    VolIni: int = 0  # e.g. 1
-    VolPrec: int = 0  # e.g. 1
-    vol_qc: int = 0  # e.g. 1
-    depth_qc: int = 0  # e.g. 1
-    sample_qc: int = 0  # e.g. 1111
-    net_duration: int = 0  # e.g. 20
-    cable_length: int = 0  # e.g. 9999
-    cable_angle: int = 0  # e.g. 99999
-    cable_speed: int = 0  # e.g. 0
-    nb_jar: int = 0  # e.g. 1
+    StationId: int = -1  # e.g. 66
+    Townb: int = -1  # e.g. 1
+    Towtype: int = -1  # e.g. 1
+    Netmesh: int = -1  # e.g. 2000
+    Netsurf: int = -1  # e.g. 1
+    Vol: int = -1  # e.g. 357
+    Fracmin: int = -1  # e.g. 2000
+    Fracsup: int = -1  # e.g. 999999
+    Fracnb: int = -1  # e.g. 4
+    Code: int = -1  # e.g. 1
+    CellPart: int = -1  # e.g. 1
+    Replicates: int = -1  # e.g. 1
+    VolIni: int = -1  # e.g. 1
+    VolPrec: int = -1  # e.g. 1
+    vol_qc: int = -1  # e.g. 1
+    depth_qc: int = -1  # e.g. 1
+    sample_qc: int = -1  # e.g. 1111
 
     # Float fields
-    Latitude: float = 0.0  # e.g. 51.4322000
-    Longitude: float = 0.0  # e.g. 18.3108000
-    latitude_end: float = 0.0  # e.g. 51.4421000
-    longitude_end: float = 0.0  # e.g. 18.3417000
-    ship_speed_knots: float = 0.0  # e.g. 2
+    Depth: float = -1.0  # e.g. 99999
+    Zmax: float = -1.0  # e.g. 1008
+    Zmin: float = -1.0  # e.g. 820
+    net_duration: float = -1.0  # e.g. 20
+    ship_speed_knots: float = -1.0  # e.g. 2
+    cable_length: float = -1.0  # e.g. 9999
+    cable_angle: float = -1.0  # e.g. 99999
+    cable_speed: float = -1.0  # e.g. 0
+    nb_jar: float = -1.0  # e.g. 1
+    Latitude: float = -1.0  # e.g. 51.4322000
+    Longitude: float = -1.0  # e.g. 18.3108000
+    latitude_end: float = -1.0  # e.g. 51.4421000
+    longitude_end: float = -1.0  # e.g. 18.3417000
 
     @classmethod
     def read(cls, path: Path) -> "ProjectMeta":
@@ -224,7 +224,7 @@ class ProjectMeta:
                 attr_value = getattr(self, attr_name)
 
                 # Skip default values for primitive types
-                if attr_value == "" or attr_value == 0 or attr_value == 0.0:
+                if attr_value == "" or attr_value == -1 or attr_value == -1.0:
                     continue
 
                 # Write the attribute to the file
