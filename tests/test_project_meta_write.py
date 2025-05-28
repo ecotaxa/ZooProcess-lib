@@ -48,3 +48,38 @@ def test_project_meta_write():
     finally:
         # Clean up the temporary file
         temp_path.unlink()
+
+
+def test_project_meta_to_dict():
+    """Test that ProjectMeta.to_dict correctly converts the object to a dictionary."""
+    # Path to the sample metadata.txt file
+    metadata_path = (
+        PROJECT_DIR / ZooscanMetaFolder.SUDIR_PATH / ZooscanMetaFolder.PROJECT_META
+    )
+
+    # Read the metadata file
+    meta = ProjectMeta.read(metadata_path)
+
+    # Convert to dictionary
+    meta_dict = meta.to_dict()
+
+    # Verify that the dictionary is not empty
+    assert meta_dict, "Dictionary should not be empty"
+
+    # Verify that all relevant attributes in the metadata are present in the dictionary
+    for attr_name, attr_value in meta._relevant_attributes():
+        assert attr_name in meta_dict, f"Attribute {attr_name} is missing from the dictionary"
+        assert meta_dict[attr_name] == attr_value, f"Attribute {attr_name} has different value in dictionary: {meta_dict[attr_name]} != {attr_value}"
+
+    # Verify that the dictionary doesn't contain default values
+    for attr_name in dir(meta):
+        # Skip special attributes, methods, and class variables
+        if attr_name.startswith("__") or callable(getattr(meta, attr_name)) or attr_name == "__annotations__":
+            continue
+
+        # Get the attribute value
+        attr_value = getattr(meta, attr_name)
+
+        # Check if it's a default value
+        if attr_value == "" or attr_value == -1 or attr_value == -1.0:
+            assert attr_name not in meta_dict, f"Default value for {attr_name} should not be in the dictionary"

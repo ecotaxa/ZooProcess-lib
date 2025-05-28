@@ -204,28 +204,45 @@ class ProjectMeta:
 
         return meta
 
+    def _relevant_attributes(self):
+        """
+        Generator that yields relevant attributes for writing to a metadata file.
+        Yields tuples of (attr_name, attr_value) for non-default attributes.
+        """
+        for attr_name in dir(self):
+            # Skip special attributes, methods, and class variables
+            if (
+                attr_name.startswith("__")
+                or callable(getattr(self, attr_name))
+                or attr_name == "__annotations__"
+            ):
+                continue
+
+            # Get the attribute value
+            attr_value = getattr(self, attr_name)
+
+            # Skip default values for primitive types
+            if attr_value == "" or attr_value == -1 or attr_value == -1.0:
+                continue
+
+            yield attr_name, attr_value
+
+    def to_dict(self) -> dict:
+        """
+        Convert the ProjectMeta instance to a dictionary using the _relevant_attributes generator.
+        Returns a dictionary with attribute names as keys and their values as values.
+        """
+        return {
+            attr_name: attr_value
+            for attr_name, attr_value in self._relevant_attributes()
+        }
+
     def write(self, path: Path) -> None:
         """
         Write the ProjectMeta instance to a metadata.txt file in the same format
         as it is read.
         """
         with open(path, "w") as strm:
-            # Write all attributes to the file
-            for attr_name in dir(self):
-                # Skip special attributes, methods, and class variables
-                if (
-                    attr_name.startswith("__")
-                    or callable(getattr(self, attr_name))
-                    or attr_name == "__annotations__"
-                ):
-                    continue
-
-                # Get the attribute value
-                attr_value = getattr(self, attr_name)
-
-                # Skip default values for primitive types
-                if attr_value == "" or attr_value == -1 or attr_value == -1.0:
-                    continue
-
-                # Write the attribute to the file
+            # Write all relevant attributes to the file
+            for attr_name, attr_value in self._relevant_attributes():
                 strm.write(f"{attr_name}= {attr_value}\n")

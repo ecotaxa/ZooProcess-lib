@@ -76,7 +76,7 @@ def parse_csv(file_path: Path) -> List[Dict[str, str]]:
     """Parses a CSV file and returns a list of dictionaries."""
 
     data: List[Dict[str, str]] = []
-    with open(file_path, "r", newline="", encoding="utf-8") as csv_file:
+    with open(file_path, "r", newline="", encoding="ISO-8859-1") as csv_file:
         reader = csv.DictReader(csv_file, delimiter=";")
         for row in reader:
             cleaned_row = {}

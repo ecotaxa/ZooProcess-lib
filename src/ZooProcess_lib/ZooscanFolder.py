@@ -37,13 +37,34 @@ class ZooscanProjectFolder:
         self.zooscan_scan = ZooscanScanFolder(self.path)
         self.zooscan_back = ZooscanBackFolder(self.path)
         self.zooscan_config = ZooscanConfigFolder(self.path)
+        self.zooscan_meta = ZooscanMetaFolder(self.path)
 
     def path(self, folder, file) -> str:
         path = self._absolute_home_project_path + self.project_folder + folder + file
         return path
 
-    def sample_path(sample: str, mesure: int):
-        raw = sample + "_" + str(mesure)
+    def list_samples_with_state(self) -> list[str]:
+        """
+        The samples are entries in metadata CSV.
+        """
+        try:
+            return [
+                a_line["sampleid"] for a_line in self.zooscan_meta.read_samples_table()
+            ]
+        except (FileNotFoundError, KeyError):
+            return []
+
+    def list_scans_with_state(self) -> Generator[str, None, None]:
+        """The .tif in self is not really mandatory, let's not assume it's there
+        ./Zooscan_scan/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1.tif
+        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.bak
+        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.txt
+        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
+        ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
+        """
+        for an_entry in self.zooscan_scan.work.path.iterdir():
+            if an_entry.is_dir():
+                yield an_entry.name
 
 
 class ZooscanConfigFolder:
@@ -73,13 +94,25 @@ class ZooscanMetaFolder:
         self.path = Path(zooscan_folder, self.SUDIR_PATH)
 
     def read_project_meta(self) -> ProjectMeta:
+        """Project metadata would rather be named "current metadata".
+        It's a mix of real _project_ meta, which doesn't change over time
+         as e.g., the ship (that all physical samples come from) is constant,
+         _but_ also current values for the physical sample being scanned."""
         return ProjectMeta.read(self.path / self.PROJECT_META)
 
     def read_samples_table(self) -> List[Dict[str, str]]:
-        return parse_csv(self.path / self.SAMPLE_HEADER)
+        return parse_csv(self.samples_table_path)
+
+    @property
+    def samples_table_path(self) -> Path:
+        return self.path / self.SAMPLE_HEADER
 
     def read_scans_table(self) -> List[Dict[str, str]]:
         return parse_csv(self.path / self.SCAN_HEADER)
+
+    @property
+    def scans_table_path(self) -> Path:
+        return self.path / self.SCAN_HEADER
 
 
 class ZooscanScanFolder:
@@ -98,21 +131,11 @@ class ZooscanScanFolder:
         return Path(self.path, sample_name + "_" + str(index) + ".tif")
 
     def list_samples(self) -> Generator[str, None, None]:
+        """Not really samples, rather scans i.e. subsamples, but kept with
+        same name until a rename TODO"""
         for a_file in self.path.iterdir():
             if a_file.suffix == ".tif":
                 yield a_file.name[:-6]
-
-    def list_samples_with_state(self) -> Generator[str, None, None]:
-        """The .tif in self is not really mandatory, let's not assume it's there
-        ./Zooscan_scan/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1.tif
-        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.bak
-        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.txt
-        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
-        ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
-        """
-        for an_entry in self.work.path.iterdir():
-            if an_entry.is_dir():
-                yield an_entry.name
 
 
 class BackgroundEntry(TypedDict):
@@ -215,7 +238,7 @@ class ZooscanBackFolder:
         ]
 
     def get_raw_background_file(self, scan_date: str, index: int = None) -> Path:
-        """Return conventional file path for scanned background image"""
+        """Return a conventional file path for a scanned background image"""
         assert scan_date in self.get_dates()
         index_str = ""
         if index:
