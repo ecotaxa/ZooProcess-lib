@@ -31,9 +31,9 @@ class ZooscanDrive:
 class ZooscanProjectFolder:
     """A directory with a project inside"""
 
-    def __init__(self, home: Path, project: str) -> None:
+    def __init__(self, drive_path: Path, project: str) -> None:
         self.project = project
-        self.path = Path(home, project)  # noqa: E501
+        self.path = Path(drive_path, project)  # noqa: E501
         self.zooscan_scan = ZooscanScanFolder(self.path)
         self.zooscan_back = ZooscanBackFolder(self.path)
         self.zooscan_config = ZooscanConfigFolder(self.path)
@@ -186,26 +186,6 @@ class ZooscanBackFolder:
             if a_file.name.endswith("_back_large_raw_2.tif"):
                 date_entry["raw_background_2"] = a_file
 
-        # file_type = {
-        #     "_back_large_raw_1": "raw_1",
-        #     "_back_large_raw_2": "raw_2",
-        #     "_back_large_1": "scan_1",
-        #     "_back_large_2": "scan_2",
-        #     "_background_": "background",
-        #     "_back_large_manual_log": "log",
-        # }
-        #
-        # files = {}
-        # for file in raw_files:
-        #     types = file_type
-        #     for pattern in file_type:
-        #         if pattern in file.name:
-        #             files[file_type[pattern]] = file
-        #             del types[pattern]
-        #             break
-        #
-        # return files
-
     def get_dates(self) -> List[str]:
         """
         return the list of dates
@@ -246,7 +226,7 @@ class ZooscanBackFolder:
         return Path(self.path, scan_date + "_back_large_raw" + index_str + ".tif")
 
     def get_processed_background_file(self, scan_date: str, index: int = None) -> Path:
-        """Return conventional file path for scanned background image"""
+        """Return a conventional file path for a scanned background image"""
         assert scan_date in self.get_dates()
         index_str = ""
         if index:
