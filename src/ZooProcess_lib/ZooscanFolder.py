@@ -33,6 +33,7 @@ class ZooscanProjectFolder:
 
     def __init__(self, drive_path: Path, project: str) -> None:
         self.project = project
+        self.name = project
         self.path = Path(drive_path, project)  # noqa: E501
         self.zooscan_scan = ZooscanScanFolder(self.path)
         self.zooscan_back = ZooscanBackFolder(self.path)
