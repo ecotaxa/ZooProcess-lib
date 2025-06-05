@@ -39,7 +39,7 @@ class ZooscanProjectFolder:
         self.zooscan_config = ZooscanConfigFolder(self.path)
         self.zooscan_meta = ZooscanMetaFolder(self.path)
 
-    def path(self, folder, file) -> str:
+    def path_old(self, folder, file) -> str:
         path = self._absolute_home_project_path + self.project_folder + folder + file
         return path
 
@@ -60,6 +60,7 @@ class ZooscanProjectFolder:
         ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.bak
         ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.txt
         ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
+        Below file should be identical to content of the scan TSV file.
         ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
         """
         for an_entry in self.zooscan_scan.work.path.iterdir():
