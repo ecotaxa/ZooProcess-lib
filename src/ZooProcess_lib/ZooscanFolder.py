@@ -56,13 +56,25 @@ class ZooscanProjectFolder:
             return []
 
     def list_scans_with_state(self) -> Generator[str, None, None]:
-        """The .tif in self is not really mandatory, let's not assume it's there
-        ./Zooscan_scan/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1.tif
-        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.bak
-        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.txt
-        ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
-        Below file should be identical to content of the scan TSV file.
-        ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
+        """TODO: Finish inventory using:
+        zooscan_lov/Zooscan_apero_tha_bioness_2_sn033$ find . -name "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2*" | sort
+        Directory:
+            ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/
+        CSV lines:
+            ./Zooscan_meta/zooscan_scan_header_table.csv
+            ./Zooscan_meta/zooscan_scan_header_table.bak
+        Files:
+            Images:
+                ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_raw_1.tif
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_vis1.zip
+            Image, not really mandatory:
+                ./Zooscan_scan/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1.tif
+            Text files:
+                ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.bak
+                ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.txt
+                ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
+                Below file should be identical to content of the scan TSV file.
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
         """
         for an_entry in self.zooscan_scan.work.path.iterdir():
             if an_entry.is_dir():
