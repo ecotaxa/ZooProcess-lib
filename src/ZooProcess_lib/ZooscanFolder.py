@@ -1,5 +1,7 @@
 import re
+import os
 from datetime import datetime
+from os import DirEntry
 from pathlib import Path
 from typing import List, Tuple, Union, Dict, TypedDict, Optional, Generator
 
@@ -200,6 +202,35 @@ class ZooscanBackFolder:
             if a_file.name.endswith("_back_large_raw_2.tif"):
                 date_entry["raw_background_2"] = a_file
 
+    def read_groups(self) -> Dict[str, List[DirEntry]]:
+        """
+        Builds a dictionary with date as key, and a list of DirEntry objects with this date prefix,
+        sorted by file last modification time (st_mtime).
+
+        Returns:
+            Dict[str, List[DirEntry]]: Dictionary with dates as keys and sorted lists of DirEntry objects as values
+        """
+        ret = {}
+
+        # Use os.scandir to iterate through files in the directory
+        with os.scandir(self.path) as entries:
+            for entry in entries:
+                if entry.is_file():
+                    date_match = date_re.match(entry.name)
+                    if not date_match:
+                        continue
+                    date = date_match.group(1)
+                    # Add the file to the corresponding date group
+                    if date not in ret:
+                        ret[date] = []
+                    ret[date].append(entry)
+
+        # Sort each list by file's last modification time (st_mtime)
+        for date, entries in ret.items():
+            ret[date] = sorted(entries, key=lambda e: e.stat().st_mtime)
+
+        return ret
+
     def get_dates(self) -> List[str]:
         """
         return the list of dates
@@ -231,12 +262,10 @@ class ZooscanBackFolder:
             self.content[last_date_str]["raw_background_2"],
         ]
 
-    def get_raw_background_file(self, scan_date: str, index: int = None) -> Path:
+    def get_raw_background_file(self, scan_date: str, index: Union[int, str]) -> Path:
         """Return a conventional file path for a scanned background image"""
         assert scan_date in self.get_dates()
-        index_str = ""
-        if index:
-            index_str = "_" + str(index)
+        index_str = "_" + str(index)
         return Path(self.path, scan_date + "_back_large_raw" + index_str + ".tif")
 
     def get_processed_background_file(self, scan_date: str, index: int = None) -> Path:
