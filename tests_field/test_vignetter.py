@@ -1,19 +1,16 @@
 import os
 import random
 import shutil
-from datetime import datetime
 
 import cv2
 import pytest
-from PIL import Image
 
 from ZooProcess_lib.Processor import Processor
-from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder, WRK_SEP
 from ZooProcess_lib.img_tools import (
     loadimage,
     add_separated_mask,
-    image_info,
-    get_date_time_digitized,
+    get_creation_date,
 )
 from tests.data_tools import (
     sort_ROIs_like_legacy,
@@ -51,11 +48,7 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     ref_box_measures = read_box_measurements(folder, sample, index)
     # Read raw sample scan
     raw_sample_file = folder.zooscan_scan.raw.get_file(sample, index)
-    img_info = image_info(Image.open(raw_sample_file))
-    digitized_at = get_date_time_digitized(img_info)
-    if digitized_at is None:
-        file_stats = raw_sample_file.stat()  # TODO: Encapsulate this
-        digitized_at = datetime.fromtimestamp(file_stats.st_mtime)
+    digitized_at = get_creation_date(raw_sample_file)
     assert digitized_at is not None
     # Backgrounds pre-processing
     bg_raw_files = folder.zooscan_back.get_last_raw_backgrounds_before(digitized_at)
@@ -76,7 +69,7 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     )
     # Always add separator mask, if present
     work_files = folder.zooscan_scan.work.get_files(sample, index)
-    sep_file = work_files.get("sep")
+    sep_file = work_files.get(WRK_SEP)
     if sep_file is not None:
         sep_image = loadimage(sep_file, type=cv2.COLOR_BGR2GRAY)
         sample_scan = add_separated_mask(sample_scan, sep_image)
@@ -109,6 +102,7 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     compare_vignettes(ref_thumbs_dir, thumbs_dir, conf.upper)
     # Cleanup if all went well
     shutil.rmtree(thumbs_dir)
+
 
 
 dev_samples = [(p, s) for (p, s) in all_samples_in(POINT_B_JB)]  # if "197809" in s

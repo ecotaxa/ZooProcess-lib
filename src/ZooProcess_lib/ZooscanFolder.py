@@ -1,5 +1,5 @@
-import re
 import os
+import re
 from datetime import datetime
 from os import DirEntry
 from pathlib import Path
@@ -7,6 +7,16 @@ from typing import List, Tuple, Union, Dict, TypedDict, Optional, Generator
 
 from .LegacyConfig import Lut, ZooscanConfig, ProjectMeta
 from .tools import parse_csv
+
+SEP_ENDING = "_sep.gif"
+
+# Lookup keys for work directory content
+WRK_VIS1 = "combz"
+WRK_SEP = "sep"
+WRK_OUT1 = "out1"
+WRK_MSK1 = "msk1"
+
+MSK1_ENDING = "_msk1.gif"
 
 
 class ZooscanDrive:
@@ -58,7 +68,7 @@ class ZooscanProjectFolder:
             return []
 
     def list_scans_with_state(self) -> Generator[str, None, None]:
-        """TODO: Finish inventory using:
+        """Inventory done using:
         zooscan_lov/Zooscan_apero_tha_bioness_2_sn033$ find . -name "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2*" | sort
         Directory:
             ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/
@@ -66,17 +76,37 @@ class ZooscanProjectFolder:
             ./Zooscan_meta/zooscan_scan_header_table.csv
             ./Zooscan_meta/zooscan_scan_header_table.bak
         Files:
-            Images:
+            Scan Image from scanner device:
                 ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_raw_1.tif
-                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_vis1.zip
-            Image, not really mandatory:
+            Image, 8bits, not really mandatory:
                 ./Zooscan_scan/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1.tif
-            Text files:
-                ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.bak
-                ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.txt
+            Text files for scan:
+                Produced just after the RAW:
+                    ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.bak
+                    ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.txt
                 ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
                 Below file should be identical to content of the scan TSV file.
                 ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
+            Log files:
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.bak
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.txt
+            Data files, for Plankton Identifier app, identical to Log file above + [data] section with CSV dump
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_dat1.bak
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_dat1.pid
+            Mask image, b&w containing thresholded output for checking segmentation _input_ quality
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_msk1.gif
+            Out image, b&w containing object contours
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_out1.gif
+            "Vignettes" images, output of segmentation:
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_*.jpg
+            Measurements files, output of features generation:
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meas.bak
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meas.txt
+            Separator image, b&w with operator-drawn lines for separating multiples
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_sep.gif
+            Scan - background + separator, processed
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_vis1.zip
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_vis1.bak
         """
         for an_entry in self.zooscan_scan.work.path.iterdir():
             if an_entry.is_dir():
@@ -291,27 +321,30 @@ class ZooscanScanWorkFolder:
 
         file_type: Dict[str, str] = {
             ".tsv": "tsv",
-            "_sep.gif": "sep",
-            "_out1.gif": "out1",
-            "_msk1.gif": "msk1",
+            SEP_ENDING: WRK_SEP,
+            "_out1.gif": WRK_OUT1,
+            MSK1_ENDING: WRK_MSK1,
             "_meta.txt": "meta",
             "_meas.txt": "meas",
             "_log.txt": "log",
             "_dat1.pid": "pid",
-            "_vis1.zip": "combz",
+            "_vis1.zip": WRK_VIS1,
         }
         files = {"jpg": []}
         for file in filelist:
-            for pattern in file_type:
-                if pattern in file.name:
-                    files[file_type[pattern]] = file
-                    del file_type[pattern]
+            for ending in file_type:
+                if file.name.endswith(ending):
+                    files[file_type[ending]] = file
+                    del file_type[ending]
                     break
             if ".jpg" in file.name:
                 files["jpg"].append(file)
         if len(files["jpg"]) == 0:
             del files["jpg"]
         return files
+
+    def get_sub_directory(self, subsample_name: str, index: int) -> Path:
+        return Path(self.path, subsample_name + "_" + str(index))
 
 
 class ZooscanScanRawFolder:

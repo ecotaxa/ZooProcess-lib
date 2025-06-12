@@ -1,4 +1,3 @@
-from platform import processor
 
 import cv2
 import numpy as np

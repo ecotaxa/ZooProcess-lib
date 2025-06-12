@@ -56,9 +56,9 @@ class Segmenter(object):
         return ret, stats
 
     def get_mask_from_image(self, image: ndarray) -> np.ndarray:
-        _, inv_mask = cv2.threshold(image, self.threshold, 1, cv2.THRESH_BINARY_INV)
-        # mask is white (255) objects on black (0) background
-        return inv_mask
+        _th, mask = cv2.threshold(image, self.threshold, 255, cv2.THRESH_BINARY)
+        # mask is black (255) objects on white (0) background, it's for human eye
+        return mask
 
     def find_ROIs_in_image(
         self, image: ndarray, resolution: int, method: int = METH_TOP_CONTOUR_SPLIT
@@ -73,7 +73,7 @@ class Segmenter(object):
         assert image.dtype == np.uint8
         height, width = image.shape[:2]
         # Threshold the source image to have a b&w mask
-        # mask is white objects on black background
+        # mask is white (1) objects on black (0) background, suitable for segmentation
         _th, inv_mask = cv2.threshold(image, self.threshold, 1, cv2.THRESH_BINARY_INV)
         # saveimage(inv_mask, "/tmp/inv_mask.tif")
         self.sanity_check(inv_mask)

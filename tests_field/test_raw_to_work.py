@@ -7,12 +7,12 @@ import pytest
 from PIL import Image
 
 from ZooProcess_lib.Processor import Processor
-from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder, WRK_SEP
 from ZooProcess_lib.img_tools import (
     image_info,
     get_date_time_digitized,
     loadimage,
-    load_tiff_image_and_info,
+    load_tiff_image_and_info, get_creation_date,
 )
 from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
 from .env_fixture import projects
@@ -42,12 +42,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
 
     # Read raw sample scan, just for its date
     raw_sample_file = folder.zooscan_scan.raw.get_file(sample, index)
-    img_info = image_info(Image.open(raw_sample_file))
-    digitized_at = get_date_time_digitized(img_info)
-    if digitized_at is None:
-        file_stats = raw_sample_file.stat()  # TODO: Encapsulate this
-        digitized_at = datetime.fromtimestamp(file_stats.st_mtime)
-    assert digitized_at is not None
+    digitized_at = get_creation_date(raw_sample_file)
 
     # Read 8bit sample scan
     eight_bit_sample_file = folder.zooscan_scan.get_file_produced_from(
@@ -74,7 +69,7 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     # compare
     # Always add separator mask, if present
     work_files = folder.zooscan_scan.work.get_files(sample, index)
-    sep_file = work_files.get("sep")
+    sep_file = work_files.get(WRK_SEP)
     if sep_file is not None:
         assert sep_file.exists()
         sep_image = loadimage(sep_file, type=cv2.COLOR_BGR2GRAY)

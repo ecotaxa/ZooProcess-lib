@@ -168,6 +168,14 @@ def saveimage(
     return new_filename
 
 
+def save_gif_image(image: np.ndarray, file_path: Path) -> None:
+    assert image.dtype == np.uint8
+    pil_image = Image.fromarray(image, mode="L")
+    pil_image.save(
+        file_path, format="GIF", optimize=False  # Force the same full palette as ImageJ
+    )
+
+
 # def saveimage2(image, filename, extraname=None, ext=None, path=None) -> str:
 #     import cv2
 #     new_filename = getPath(filename, extraname=extraname, ext=ext, path=path)
@@ -1176,3 +1184,14 @@ def add_separated_mask(sample_image: np.ndarray, separator_image: np.ndarray):
     sample_image_plus_sep = sample_image.astype(np.uint16) + separator_image
     ret = np.clip(sample_image_plus_sep, 0, 255).astype(np.uint8)
     return ret
+
+
+def get_creation_date(tif_file: Path) -> datetime:
+    """Return creation date for this file, either from TIF directory (more reliable)
+    or from the file itself"""
+    img_info = image_info(Image.open(tif_file))
+    digitized_at = get_date_time_digitized(img_info)
+    if digitized_at is None:
+        file_stats = tif_file.stat()
+        digitized_at = datetime.fromtimestamp(file_stats.st_mtime)
+    return digitized_at

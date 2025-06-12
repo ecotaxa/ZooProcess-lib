@@ -14,7 +14,7 @@ from ZooProcess_lib.Features import (
 from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.ROI import ROI
 from ZooProcess_lib.Segmenter import Segmenter
-from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder, WRK_VIS1
 from ZooProcess_lib.img_tools import (
     load_zipped_image,
     load_tiff_image_and_info,
@@ -68,7 +68,7 @@ def load_final_ref_image(folder, sample, index):
         a_sample["name"] for a_sample in folder.zooscan_scan.raw.get_names()
     ]
     work_files_in_sample = folder.zooscan_scan.work.get_files(sample, index)
-    zipped_combined = work_files_in_sample.get("combz")
+    zipped_combined = work_files_in_sample.get(WRK_VIS1)
     assert zipped_combined.exists()
     ref_info, reference_image = load_zipped_image(zipped_combined)
     # Note: the resolution is absent from the zipped TIFF
