@@ -242,6 +242,19 @@ def loadimage(
     return image
 
 
+def load_image(file_path: Path, img_type=cv2.COLOR_BGR2GRAY) -> np.ndarray:
+    if file_path.name.endswith(".gif"):
+        # patent issue? opencv cannot read GIF
+        # TODO: Not consistent, img_type unused here
+        pil_image = Image.open(file_path)
+        image = np.array(pil_image)
+    else:
+        image = cv2.imread(file_path.as_posix(), img_type)
+        if image is None:  # TODO: wrong diag if format issue or any
+            raise Exception(f"Could not load: {file_path}")
+    return image
+
+
 # Is not needed in python 3.13, https://github.com/python/cpython/issues/111835
 class SeekableMmap(mmap.mmap):
     def seekable(self):
