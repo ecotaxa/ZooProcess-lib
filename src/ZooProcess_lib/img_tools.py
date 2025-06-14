@@ -79,6 +79,36 @@ def convert_image_to_8bit(img) -> np.ndarray:
     return cv2.convertScaleAbs(img, alpha=1.0 / 256.0, beta=-0.49999)
 
 
+def convert_image_to_8bit_flattened(img) -> np.ndarray:
+    """
+    Converts an image to 8-bit and flattens it to 1 byte/pixel (grayscale).
+    If the image is already grayscale, it just converts to 8-bit.
+    If the image has multiple channels, it converts to grayscale first.
+
+    Args:
+        img: Input image as numpy array
+
+    Returns:
+        8-bit grayscale image (1 byte/pixel)
+    """
+    # First convert to 8-bit based on image data type
+    if img.dtype == np.uint16:
+        # For 16-bit images, scale down by 256
+        img_8bit = cv2.convertScaleAbs(img, alpha=1.0 / 256.0, beta=-0.49999)
+    else:
+        # For 8-bit or other images, preserve the values
+        img_8bit = cv2.convertScaleAbs(img)
+
+    # Check if image has multiple channels (color image)
+    if len(img_8bit.shape) == 3 and img_8bit.shape[2] > 1:
+        # Convert to grayscale (1 byte/pixel)
+        img_gray = cv2.cvtColor(img_8bit, cv2.COLOR_BGR2GRAY)
+        return img_gray
+
+    # Image is already grayscale
+    return img_8bit
+
+
 def rotate90c(img) -> np.ndarray:
     image = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
     return image
