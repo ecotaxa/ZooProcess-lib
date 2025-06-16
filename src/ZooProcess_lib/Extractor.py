@@ -42,13 +42,16 @@ class Extractor(object):
         for index, a_roi in enumerate(rois, 1):
             img = self.extract_image_at_ROI(image, a_roi, True)
             resized_img = self._add_border_and_legend(img, longline)
-            img_filename = naming_prefix + "_" + str(index) + ".png"
-            img_path = destination_dir / img_filename
-            save_lossless_small_image(
-                resized_img,
-                resolution,
-                img_path,
-            )
+            # Convert the image to 3 channels before saving
+            resized_img_3ch = cv2.merge([resized_img, resized_img, resized_img])
+            for extension in [".png", ".jpg"]:
+                img_filename = naming_prefix + "_" + str(index) + extension
+                img_path = destination_dir / img_filename
+                save_lossless_small_image(
+                    resized_img_3ch,
+                    resolution,
+                    img_path,
+                )
 
     def extract_all_to_images(
         self,
@@ -56,7 +59,7 @@ class Extractor(object):
         rois: List[ROI],
         erasing_background: bool = False,
     ):
-        """ Plain extraction to a list of images at ROIs """
+        """Plain extraction to a list of images at ROIs"""
         ret = []
         for index, a_roi in enumerate(rois, 1):
             img = self.extract_image_at_ROI(image, a_roi, erasing_background)

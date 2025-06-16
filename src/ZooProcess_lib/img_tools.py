@@ -1197,7 +1197,7 @@ def save_lossless_small_image(image: np.ndarray, resolution: int, path: Path):
     pil_image = Image.fromarray(image)
     options = {"optimize": True, "dpi": (resolution, resolution)}
     if ext in (".jpg", ".jpeg"):
-        options["quality"] = 100
+        options["quality"] = 100  # Note: this does _not_ make the JPEG lossless
     pil_image.save(path, **options)
 
 
