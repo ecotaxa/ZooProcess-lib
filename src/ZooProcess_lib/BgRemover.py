@@ -6,7 +6,12 @@ from typing import Tuple
 import numpy as np
 
 from .Border import Border
-from .ImageJLike import circular_mean_blur, bilinear_resize, images_difference, draw_line
+from .ImageJLike import (
+    circular_mean_blur,
+    bilinear_resize,
+    images_difference,
+    draw_line,
+)
 from .img_tools import (
     crophw,
     crop_right,
@@ -21,7 +26,7 @@ class BackgroundRemover:
     Port of algorithms from legacy Zooscan_1asep.txt macro
     """
 
-    def __init__(self, background_process:str):
+    def __init__(self, background_process: str):
         self.background_process = background_process
 
     def do_from_files(self, background_file: Path, sample_file: Path) -> np.ndarray:
@@ -32,10 +37,14 @@ class BackgroundRemover:
         sample_info, sample_image = load_tiff_image_and_info(sample_file)
         assert sample_image.dtype == np.uint8
         sample_resolution = sample_info.resolution
-        sample_minus_bg = self.do_from_images(background_image, bg_resolution, sample_image, sample_resolution)
+        sample_minus_bg = self.do_from_images(
+            background_image, bg_resolution, sample_image, sample_resolution
+        )
         return sample_minus_bg
 
-    def do_from_images(self, background_image, bg_resolution, sample_image, sample_resolution):
+    def do_from_images(
+        self, background_image, bg_resolution, sample_image, sample_resolution
+    ):
         sample_minus_bg = self._remove_bg_from_sample(
             sample_image=sample_image,
             sample_image_resolution=sample_resolution,
@@ -111,8 +120,9 @@ class BackgroundRemover:
         fondy0 = bg_height - haut
 
         # TODO: What happens on ImageJ side?
-        fondy0 = max(fondy0, 0)
-        haut = min(haut, bg_image.shape[0])
+        fondx0, fondy0 = max(fondx0, 0), max(fondy0, 0)
+        haut = min(haut, bg_height)
+        larg = min(larg, bg_width)
 
         image_cropped = crophw(bg_image, fondx0, fondy0, larg, haut)
 
