@@ -242,14 +242,15 @@ def loadimage(
     return image
 
 
-def load_image(file_path: Path, img_type=cv2.COLOR_BGR2GRAY) -> np.ndarray:
+def load_image(file_path: Path, imread_mode: int) -> np.ndarray:
+    assert imread_mode in (cv2.IMREAD_COLOR_RGB, cv2.IMREAD_COLOR_BGR)
     if file_path.name.endswith(".gif"):
         # patent issue? opencv cannot read GIF
-        # TODO: Not consistent, img_type unused here
+        # TODO: Not consistent, imread_mode unused here
         pil_image = Image.open(file_path)
         image = np.array(pil_image)
     else:
-        image = cv2.imread(file_path.as_posix(), img_type)
+        image = cv2.imread(file_path.as_posix(), imread_mode)
         if image is None:  # TODO: wrong diag if format issue or any
             raise Exception(f"Could not load: {file_path}")
     return image
