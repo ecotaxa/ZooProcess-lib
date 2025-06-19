@@ -11,7 +11,7 @@ from PIL import Image
 from PIL.ExifTags import Base, TAGS
 from PIL.ImageFile import ImageFile
 
-from .LegacyConfig import Lut
+from .LegacyMeta import LutFile
 from .tools import timeit
 
 Image.MAX_IMAGE_PIXELS = 375000000
@@ -243,11 +243,17 @@ def loadimage(
 
 
 def load_image(file_path: Path, imread_mode: int) -> np.ndarray:
-    assert imread_mode in (cv2.IMREAD_COLOR_RGB, cv2.IMREAD_COLOR_BGR)
+    assert imread_mode in (
+        cv2.IMREAD_COLOR_RGB,
+        cv2.IMREAD_COLOR_BGR,
+        cv2.IMREAD_GRAYSCALE,
+    )
     if file_path.name.endswith(".gif"):
-        # patent issue? opencv cannot read GIF
-        # TODO: Not consistent, imread_mode unused here
+        # OpenCV cannot read GIF
         pil_image = Image.open(file_path)
+        assert (
+            imread_mode == cv2.IMREAD_GRAYSCALE and pil_image.mode == "L"
+        ), "Only greyscale mode is supported"
         image = np.array(pil_image)
     else:
         image = cv2.imread(file_path.as_posix(), imread_mode)
@@ -726,7 +732,7 @@ def inside_a_bit(largeur, hauteur):
 # min,max,odrange = read_lut()
 
 
-def minAndMax(median, lut: Lut) -> Tuple[int, int]:
+def minAndMax(median, lut: LutFile) -> Tuple[int, int]:
     """
     Return: (min, smax)
     """

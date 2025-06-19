@@ -8,7 +8,8 @@ from .BgRemover import BackgroundRemover
 from .Converter import Converter
 from .Extractor import Extractor
 from .Features import FeaturesCalculator
-from .LegacyConfig import Lut, ZooscanConfig
+from .LegacyConfig import ZooscanConfig
+from .LegacyMeta import LutFile
 from .Segmenter import Segmenter
 
 
@@ -19,7 +20,7 @@ class Processor:
     """ZooProcess v10 image processor"""
 
     def __init__(
-        self, config: Optional[ZooscanConfig] = None, lut: Optional[Lut] = None
+        self, config: Optional[ZooscanConfig] = None, lut: Optional[LutFile] = None
     ):
         """Provide all needed configuration."""
         self.config = config
@@ -27,7 +28,7 @@ class Processor:
 
     @classmethod
     def from_legacy_config(
-        cls, config: Optional[ZooscanConfig], lut: Optional[Lut]
+        cls, config: Optional[ZooscanConfig], lut: Optional[LutFile]
     ) -> "Processor":
         """Initialize from ZooProcess v8 config"""
         return cls(config, lut)

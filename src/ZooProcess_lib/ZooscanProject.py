@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from .LegacyConfig import Lut
+from .LegacyMeta import LutFile
 from .ReadLog import LogReader
 
 
@@ -116,9 +116,9 @@ class ZooscanProject:
 
         return list
 
-    def readLut(self) -> Lut:
+    def readLut(self) -> LutFile:
         config_file = self.config / "lut.txt"
-        return Lut.read(config_file)
+        return LutFile.read(config_file)
 
 
 # Factory

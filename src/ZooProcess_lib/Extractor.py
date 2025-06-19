@@ -68,14 +68,10 @@ class Extractor(object):
 
     def _add_border_and_legend(self, image: np.ndarray, longline: float):
         height, width = image.shape
-        # Resized image is plain one...
-        # ...+ 20% border and footer in height
-        final_height = round(height * 1.4 + self.FOOTER)
-        # ...and +20% border with enough space for line in width
-        final_width = round(max(width * 1.4, longline + 2 * self.X1))
+        final_height, final_width = self.get_final_dimensions(height, width, longline)
         # draw a new frame big enough and paste
         resized = np.full((final_height, final_width), 255, dtype=np.uint8)
-        y_offset = (final_height - self.FOOTER - height) // 2
+        y_offset = (final_height - Extractor.FOOTER - height) // 2
         x_offset = (final_width - width) // 2
         resized[y_offset : y_offset + height, x_offset : x_offset + width] = image
         # Paint the scale
@@ -113,6 +109,15 @@ class Extractor(object):
         # )
         # print(f"height: {height}, width: {width} => {final_height}x{final_width} px xoffset: {x_offset} yoffset: {y_offset}")
         return resized
+
+    @staticmethod
+    def get_final_dimensions(height: int, width: int, longline: float):
+        # Resized image is plain one...
+        # ...+ 20% border and footer in height
+        final_height = round(height * 1.4 + Extractor.FOOTER)
+        # ...and +20% border with enough space for line in width
+        final_width = round(max(width * 1.4, longline + 2 * Extractor.X1))
+        return final_height, final_width
 
     def extract_image_at_ROI(
         self, image: np.ndarray, a_roi: ROI, erasing_background: bool = False

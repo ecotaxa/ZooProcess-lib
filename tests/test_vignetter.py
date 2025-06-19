@@ -5,7 +5,8 @@ from pathlib import Path
 import cv2
 from PIL import Image
 
-from ZooProcess_lib.LegacyConfig import Lut, ZooscanConfig
+from ZooProcess_lib.LegacyConfig import ZooscanConfig
+from ZooProcess_lib.LegacyMeta import LutFile
 from ZooProcess_lib.Processor import Processor
 from ZooProcess_lib.img_tools import (
     loadimage,
@@ -19,7 +20,7 @@ from .test_utils import compare_vignettes
 
 def test_thumbnail_generator(tmp_path):
     # A bit of e2e testing as well, see if we can do from _only_ raw images up to thumbnails
-    lut = Lut.read(CONFIG_DIR / "lut.txt")
+    lut = LutFile.read(CONFIG_DIR / "lut.txt")
     conf = ZooscanConfig.read(CONFIG_DIR / "process_install_both_config.txt")
     processor = Processor(conf, lut)
     # Backgrounds pre-processing

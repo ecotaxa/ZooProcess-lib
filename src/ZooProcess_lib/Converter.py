@@ -9,7 +9,8 @@ from numpy import ndarray
 
 from .ImageJLike import convert_16bit_image_to_8bit_min_max
 from .Legacy import averaged_median_mean
-from .img_tools import rotate90c, Lut, minAndMax, saveimage, load_tiff_image_and_info
+from .img_tools import rotate90c, minAndMax, saveimage, load_tiff_image_and_info
+from .LegacyMeta import LutFile
 
 CV2_VERTICAL_FLIP_CODE = 0
 CV2_NO_TIFF_COMPRESSION = 1
@@ -20,7 +21,7 @@ class Converter(object):
     In charge of images 16->8 bits conversion
     """
 
-    def __init__(self, lut: Lut):
+    def __init__(self, lut: LutFile):
         self.lut = lut
 
     def do_file_to_file(self, from_file: Path, to_file: Path):

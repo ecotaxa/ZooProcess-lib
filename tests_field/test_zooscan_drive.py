@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 
-from ZooProcess_lib.LegacyConfig import ProjectMeta
+from ZooProcess_lib.LegacyMeta import ProjectMeta
 from ZooProcess_lib.ZooscanFolder import ZooscanDrive, ZooscanMetaFolder
 from .env_fixture import read_home
 

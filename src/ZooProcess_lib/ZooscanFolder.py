@@ -5,8 +5,11 @@ from os import DirEntry
 from pathlib import Path
 from typing import List, Tuple, Union, Dict, TypedDict, Optional, Generator
 
-from .LegacyConfig import Lut, ZooscanConfig, ProjectMeta
+from .LegacyConfig import ZooscanConfig
+from .LegacyMeta import LutFile, ProjectMeta
 from .tools import parse_csv
+
+WRK_JPGS = "jpg"
 
 SEP_ENDING = "_sep.gif"
 
@@ -15,6 +18,8 @@ WRK_VIS1 = "combz"
 WRK_SEP = "sep"
 WRK_OUT1 = "out1"
 WRK_MSK1 = "msk1"
+WRK_PID = "pid"
+WRK_MEAS = "meas"
 
 MSK1_ENDING = "_msk1.gif"
 
@@ -125,9 +130,9 @@ class ZooscanConfigFolder:
         install_conf = Path(self.path, self.INSTALL_CONFIG)
         return ZooscanConfig.read(install_conf)
 
-    def read_lut(self) -> Lut:
+    def read_lut(self) -> LutFile:
         config_file = self.path / "lut.txt"
-        return Lut.read(config_file)
+        return LutFile.read(config_file)
 
 
 class ZooscanMetaFolder:
@@ -325,22 +330,22 @@ class ZooscanScanWorkFolder:
             "_out1.gif": WRK_OUT1,
             MSK1_ENDING: WRK_MSK1,
             "_meta.txt": "meta",
-            "_meas.txt": "meas",
+            "_meas.txt": WRK_MEAS,
             "_log.txt": "log",
-            "_dat1.pid": "pid",
+            "_dat1.pid": WRK_PID,
             "_vis1.zip": WRK_VIS1,
         }
-        files = {"jpg": []}
-        for file in filelist:
+        files = {WRK_JPGS: []}
+        for a_file in sorted(filelist):
             for ending in file_type:
-                if file.name.endswith(ending):
-                    files[file_type[ending]] = file
+                if a_file.name.endswith(ending):
+                    files[file_type[ending]] = a_file
                     del file_type[ending]
                     break
-            if ".jpg" in file.name:
-                files["jpg"].append(file)
-        if len(files["jpg"]) == 0:
-            del files["jpg"]
+            if ".jpg" in a_file.name:
+                files[WRK_JPGS].append(a_file)
+        if len(files[WRK_JPGS]) == 0:
+            del files[WRK_JPGS]
         return files
 
     def get_sub_directory(self, subsample_name: str, index: int) -> Path:

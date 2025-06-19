@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 
-from ZooProcess_lib.LegacyConfig import ProjectMeta
+from ZooProcess_lib.LegacyMeta import ProjectMeta
 from .data_dir import PROJECT_DIR
 from ZooProcess_lib.ZooscanFolder import ZooscanMetaFolder
 
