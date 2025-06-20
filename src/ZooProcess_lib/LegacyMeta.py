@@ -379,3 +379,10 @@ class Measurements:
             writer = csv.DictWriter(f, fieldnames=self.header_row, delimiter="\t")
             writer.writeheader()
             writer.writerows(self.data_rows)
+
+    def find(self, img_name: str) -> Optional[Dict[str, Any]]:
+        for row in self.data_rows:
+            if f"{row['Label']}_{row['']}" == img_name:
+                return row
+        else:
+            return None

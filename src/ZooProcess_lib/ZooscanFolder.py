@@ -12,6 +12,7 @@ from .tools import parse_csv
 WRK_JPGS = "jpg"
 
 SEP_ENDING = "_sep.gif"
+MEASURE_ENDING = "_meas.txt"
 
 # Lookup keys for work directory content
 WRK_VIS1 = "combz"
@@ -330,7 +331,7 @@ class ZooscanScanWorkFolder:
             "_out1.gif": WRK_OUT1,
             MSK1_ENDING: WRK_MSK1,
             "_meta.txt": "meta",
-            "_meas.txt": WRK_MEAS,
+            MEASURE_ENDING: WRK_MEAS,
             "_log.txt": "log",
             "_dat1.pid": WRK_PID,
             "_vis1.zip": WRK_VIS1,

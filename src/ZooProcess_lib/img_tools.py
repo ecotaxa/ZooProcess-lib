@@ -1247,17 +1247,16 @@ def get_creation_date(tif_file: Path) -> datetime:
     return digitized_at
 
 
-def remove_footer_and_white_borders(image: np.ndarray) -> np.ndarray:
+def borders_of_original(image: np.ndarray) -> Tuple[int, int, int, int]:
     """
-    Removes Extractor.FOOTER pixels from the bottom of an image,
-    then removes white lines and columns from all 4 borders.
-    NOTE: does not work to undo if the image format is lossy (JPEG) due to some error propagation.
+    Detects end of white borderer zones (all pixels with value 255) on all 4 sides of an image.
+    Takes into account Extractor.FOOTER pixels at the bottom.
 
     Args:
         image: The input image as a numpy array
 
     Returns:
-        The processed image with footer and white borders removed
+        A tuple of (top, left, bottom, right) coordinates of the non-white content
     """
     from .Extractor import Extractor  # Due to circular import
 
@@ -1295,6 +1294,25 @@ def remove_footer_and_white_borders(image: np.ndarray) -> np.ndarray:
         if np.any(image[:, i] < 255):
             right = i
             break
+
+    # Add 1 to bottom and right to include the last non-white pixel
+    return top, left, bottom + 1, right + 1
+
+
+def remove_footer_and_white_borders(image: np.ndarray) -> np.ndarray:
+    """
+    Removes Extractor.FOOTER pixels from the bottom of an image,
+    then removes white lines and columns from all 4 borders.
+    NOTE: does not work to undo if the image format is lossy (JPEG) due to some error propagation.
+
+    Args:
+        image: The input image as a numpy array
+
+    Returns:
+        The processed image with footer and white borders removed
+    """
+    # Detect white borders
+    top, left, bottom, right = borders_of_original(image)
 
     # Crop the image to remove white borders
     return cropnp(image, top=top, left=left, bottom=bottom, right=right)
