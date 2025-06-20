@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 
 from .ImageJLike import parseInt
-from .ROI import ROI
+from .ROI import ROI, unique_visible_key
 from .bitmaps import one_mm_img
 from .img_tools import (
     cropnp,
@@ -43,7 +43,9 @@ class Extractor(object):
             img = self.extract_image_at_ROI(image, a_roi, True)
             resized_img = self._add_border_and_legend(img, longline)
             for extension in [".png"]:
-                img_filename = naming_prefix + "_" + str(index) + extension
+                img_filename = (
+                    naming_prefix + "_" + unique_visible_key(a_roi) + extension
+                )
                 img_path = destination_dir / img_filename
                 if extension == ".jpg":
                     # Convert the image to 3 channels before saving, like legacy
