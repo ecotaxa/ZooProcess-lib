@@ -4,7 +4,7 @@ from typing import List, Tuple, Dict, Callable, Any
 
 import numpy as np
 
-from ZooProcess_lib.Features import TYPE_BY_LEGACY, feature_unq
+from ZooProcess_lib.Features import TYPE_BY_LEGACY, feature_unq, BOX_MEASUREMENTS
 from ZooProcess_lib.ROI import ROI
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder, WRK_MEAS
@@ -132,14 +132,6 @@ def to_legacy_format(features_list):
                 replacement = ij_round(to_round)
                 a_features[a_round] = float(replacement)
     return features_list
-
-
-BOX_MEASUREMENTS = {
-    "BX": int,
-    "BY": int,
-    "Width": int,
-    "Height": int,
-}
 
 
 def read_measures_from_file(measures, only_box=False):

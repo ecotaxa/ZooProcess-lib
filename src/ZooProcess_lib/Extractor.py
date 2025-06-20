@@ -42,13 +42,17 @@ class Extractor(object):
         for index, a_roi in enumerate(rois, 1):
             img = self.extract_image_at_ROI(image, a_roi, True)
             resized_img = self._add_border_and_legend(img, longline)
-            # Convert the image to 3 channels before saving
-            resized_img_3ch = cv2.merge([resized_img, resized_img, resized_img])
-            for extension in [".png", ".jpg"]:
+            for extension in [".png"]:
                 img_filename = naming_prefix + "_" + str(index) + extension
                 img_path = destination_dir / img_filename
+                if extension == ".jpg":
+                    # Convert the image to 3 channels before saving, like legacy
+                    img_to_save = cv2.merge([resized_img, resized_img, resized_img])
+                else:
+                    # Save 1 byte/pixel, grey
+                    img_to_save = resized_img
                 save_lossless_small_image(
-                    resized_img_3ch,
+                    img_to_save,
                     resolution,
                     img_path,
                 )

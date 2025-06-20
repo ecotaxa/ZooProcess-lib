@@ -2,8 +2,9 @@ import cv2
 import pytest
 
 from ZooProcess_lib.Extractor import Extractor
-from ZooProcess_lib.LegacyMeta import PidFile
-from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder, WRK_PID, WRK_JPGS
+from ZooProcess_lib.Features import BOX_MEASUREMENTS
+from ZooProcess_lib.LegacyMeta import PidFile, Measurements
+from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder, WRK_PID, WRK_JPGS, WRK_MEAS
 from ZooProcess_lib.img_tools import load_image
 from .env_fixture import projects
 from .projects_repository import tested_samples
@@ -105,6 +106,87 @@ def test_jpegs_are_in_pids(projects, project, sample):
 
         if not found:
             problems.append(f"Not matched: {jpg_file.name}")
+
+    # Assert only once at the end of the test
+    assert not problems, ", ".join(problems)
+
+
+@pytest.mark.parametrize(
+    "project, sample",
+    tested_samples,
+    ids=[sample for (_prj, sample) in tested_samples],
+)
+def test_data_same_as_meas(projects, project, sample):
+    """
+    Compare data section of the PID with the WRK_MEAS read in same work folder
+    """
+    folder = ZooscanProjectFolder(projects, project)
+    index = 1  # TODO: should come from get_names() below
+    work_files = folder.zooscan_scan.work.get_files(sample, index)
+
+    # Read PID file path
+    pid_file_path = work_files.get(WRK_PID)
+    if pid_file_path is None:
+        return
+
+    # Read the PID file
+    pid_file = PidFile.read(pid_file_path)
+
+    # Check if MEAS file exists
+    meas_file_path = work_files.get(WRK_MEAS)
+    if meas_file_path is None:
+        return
+
+    # Read the MEAS file
+    meas_file = Measurements.read(meas_file_path)
+
+    # Compare data rows from PID and MEAS files
+    problems = []
+
+    # Check if the number of rows is the same
+    if len(pid_file.data_rows) != len(meas_file.data_rows):
+        problems.append(f"Number of rows in PID ({len(pid_file.data_rows)}) doesn't match MEAS ({len(meas_file.data_rows)})")
+
+    # Check if the data in each row matches
+    for i, (pid_row, meas_row) in enumerate(zip(pid_file.data_rows, meas_file.data_rows)):
+        # Compare only BOX_MEASUREMENTS fields, there is extreme rounding for all the rest in the PID file
+        for field in BOX_MEASUREMENTS:
+            if field in pid_row and field in meas_row:
+                # Convert values to strings for comparison
+                pid_value = str(pid_row[field])
+                meas_value = str(meas_row[field])
+
+                # Some values might be stored as floats in one file and integers in another
+                # Try to normalize them for comparison
+                try:
+                    # Try to convert both values to floats for comparison
+                    pid_float = float(pid_value)
+                    meas_float = float(meas_value)
+
+                    # Check if the values are integers stored as floats
+                    pid_is_int = pid_float.is_integer()
+                    meas_is_int = meas_float.is_integer()
+
+                    # If both are integers, compare them as integers
+                    if pid_is_int and meas_is_int:
+                        if int(pid_float) != int(meas_float):
+                            problems.append(f"Row {i+1}, field '{field}': PID value '{pid_value}' doesn't match MEAS value '{meas_value}'")
+                    else:
+                        # For floating point values, use a larger tolerance to account for rounding differences
+                        # The tolerance is relative to the scale of the values
+                        tolerance = max(1e-2, abs(pid_float) * 0.01)  # 1% relative tolerance or 0.01 absolute, whichever is larger
+
+                        if abs(pid_float - meas_float) > tolerance:
+                            # Check if the difference is due to rounding to 2 decimal places
+                            pid_rounded = round(pid_float, 2)
+                            meas_rounded = round(meas_float, 2)
+
+                            if pid_rounded != meas_rounded:
+                                problems.append(f"Row {i+1}, field '{field}': PID value '{pid_value}' doesn't match MEAS value '{meas_value}'")
+                except (ValueError, TypeError):
+                    # If conversion fails, compare as strings
+                    if pid_value != meas_value:
+                        problems.append(f"Row {i+1}, field '{field}': PID value '{pid_value}' doesn't match MEAS value '{meas_value}'")
 
     # Assert only once at the end of the test
     assert not problems, ", ".join(problems)

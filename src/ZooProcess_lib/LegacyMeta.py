@@ -1,7 +1,9 @@
 # Various file aside from graphical data
+import csv
 import dataclasses
+import numpy as np
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Type
 
 
 class LutFile:
@@ -277,6 +279,7 @@ class PidFile:
         This preserves all sections, key-value pairs, and data rows.
         """
         with open(path, "w") as strm:
+            strm.write("PID\n")  # Standard header
             # Write each section with its key-value pairs
             for section_name, section_data in self.sections.items():
                 strm.write(f"[{section_name}]\n")
@@ -286,10 +289,93 @@ class PidFile:
 
             # Write the data section if there's any data
             if self.header_row:
-                strm.write("PID\n")
                 strm.write(f"!{';'.join(self.header_row)}\n")
 
                 # Write each data row
                 for row in self.data_rows:
                     values = [row.get(header, "") for header in self.header_row]
                     strm.write(f"{';'.join(values)}\n")
+
+
+class Measurements:
+    """
+    Class to read and parse measurement files (TSV format) which contain feature measurements for objects.
+    Measurement files have a tab-separated format with a header row and data rows.
+    """
+
+    def __init__(self):
+        self.header_row: List[str] = []
+        self.data_rows: List[Dict[str, Any]] = []
+
+    @classmethod
+    def read(
+        cls, path: Path, typings: Optional[Dict[str, Type]] = None
+    ) -> "Measurements":
+        """
+        Read a measurement file and return a Measurements instance with data populated.
+
+        Args:
+            path: Path to the measurement file
+            typings: Dictionary mapping column names to types. If None, all values will be kept as strings.
+
+        Returns:
+            A Measurements instance with data populated from the file
+        """
+        measurements = Measurements()
+
+        with open(path, "r") as f:
+            reader = csv.DictReader(f, delimiter="\t")
+            measurements.header_row = reader.fieldnames if reader.fieldnames else []
+
+            for a_line in reader:
+                if not typings:
+                    measurements.data_rows.append(a_line)
+                    continue
+                to_add = {}
+                for k, v in a_line.items():
+                    if k not in typings:
+                        to_add[k] = v
+                        continue
+                    typing = (
+                        float
+                        if typings[k] == float or typings[k] == np.float64
+                        else typings[k]
+                    )
+                    try:
+                        to_add[k] = typing(v)
+                    except ValueError:
+                        # Some theoretically int features are stored as floats
+                        try:
+                            flt = float(v)
+                            if int(flt) == flt and typing == int:
+                                to_add[k] = typing(flt)
+                            else:
+                                to_add[k] = flt
+                        except ValueError:
+                            # If all conversions fail, keep as string
+                            to_add[k] = v
+                measurements.data_rows.append(to_add)
+
+        return measurements
+
+    def get_data_rows(self) -> List[Dict[str, Any]]:
+        """
+        Get all data rows.
+        """
+        return self.data_rows
+
+    def get_header_row(self) -> List[str]:
+        """
+        Get the header row.
+        """
+        return self.header_row
+
+    def write(self, path: Path) -> None:
+        """
+        Write the Measurements instance to a file in the same format as it is read.
+        This preserves all data rows and the header row.
+        """
+        with open(path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=self.header_row, delimiter="\t")
+            writer.writeheader()
+            writer.writerows(self.data_rows)

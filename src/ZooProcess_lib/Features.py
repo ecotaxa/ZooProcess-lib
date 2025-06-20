@@ -19,21 +19,29 @@ from .calculators.EllipseFitter import EllipseFitter
 from .calculators.symmetry import imagej_like_symmetry
 from .img_tools import cropnp
 
-TO_LEGACY: Dict[
-    str, Callable
-] = {}  # Key=legacy property name, Value=bound method to call
-TYPE_BY_LEGACY: Dict[
-    str, Type
-] = {}  # Key=legacy property name, Value=a type e.g. int of np.float64
-TO_ECOTAXA: Dict[
-    str, Callable
-] = {}  # Key=ecotaxa feature name, Value=bound method to call
-TYPE_BY_ECOTAXA: Dict[
-    str, Type
-] = {}  # Key=ecotaxa feature name, Value=a type e.g. int of np.float64
+TO_LEGACY: Dict[str, Callable] = (
+    {}
+)  # Key=legacy property name, Value=bound method to call
+TYPE_BY_LEGACY: Dict[str, Type] = (
+    {}
+)  # Key=legacy property name, Value=a type e.g. int of np.float64
+TO_ECOTAXA: Dict[str, Callable] = (
+    {}
+)  # Key=ecotaxa feature name, Value=bound method to call
+TYPE_BY_ECOTAXA: Dict[str, Type] = (
+    {}
+)  # Key=ecotaxa feature name, Value=a type e.g. int of np.float64
 
 # Unicity inside a list of measures/features
 feature_unq = lambda f: (f["BX"], f["BY"], f["Width"], f["Height"])
+
+# Box measurements, i.e. the bounding box of an object
+BOX_MEASUREMENTS = {
+    "BX": int,
+    "BY": int,
+    "Width": int,
+    "Height": int,
+}
 
 
 def legacy(name: str) -> Callable[[Any], Callable[[tuple[Any, ...]], None]]:
