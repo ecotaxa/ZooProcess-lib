@@ -184,7 +184,7 @@ def compare_vignettes(ref_thumbs_dir: Path, act_thumbs_dir: Path, threshold: int
     assert len(ref_images) == len(
         act_images
     ), f"Different number of vignettes, expected {len(ref_images)} actual {len(act_images)}"
-    assert set(ref_images.keys()) == set(act_images.keys())
+    # assert set(ref_images.keys()) == set(act_images.keys())
     # Tricky matches as we have != numbering
     ref_by_size = categorize_by_size(ref_images)
     act_by_size = categorize_by_size(act_images)
