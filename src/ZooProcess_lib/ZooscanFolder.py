@@ -9,8 +9,6 @@ from .LegacyConfig import ZooscanConfig
 from .LegacyMeta import LutFile, ProjectMeta
 from .tools import parse_csv
 
-WRK_JPGS = "jpg"
-
 SEP_ENDING = "_sep.gif"
 MEASURE_ENDING = "_meas.txt"
 
@@ -21,6 +19,7 @@ WRK_OUT1 = "out1"
 WRK_MSK1 = "msk1"
 WRK_PID = "pid"
 WRK_MEAS = "meas"
+WRK_JPGS = "jpg"
 
 MSK1_ENDING = "_msk1.gif"
 
@@ -113,6 +112,9 @@ class ZooscanProjectFolder:
             Scan - background + separator, processed
                 ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_vis1.zip
                 ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_vis1.bak
+            TSV and JPGs for EcoTaxa
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1.tsv
+                ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_*.jpg
         """
         for an_entry in self.zooscan_scan.work.path.iterdir():
             if an_entry.is_dir():
@@ -320,13 +322,13 @@ class ZooscanScanWorkFolder:
         self.path = Path(zooscan_scan_raw_folder, self.SUBDIR_PATH)
 
     def get_files(
-        self, sample_name: str, index: int
+        self, sample_name: str, index: int, with_jpegs=False
     ) -> dict[str, Union[list[Path], Path]]:
-        path = Path(self.path, sample_name + "_" + str(index))
-        filelist = Path(path).glob("*")
-
+        ret = {}
+        scan_name = sample_name + "_" + str(index)
+        work_path = Path(self.path, scan_name)
         file_type: Dict[str, str] = {
-            ".tsv": "tsv",
+            ".tsv": "tsv",  # EcoTaxa export TSV
             SEP_ENDING: WRK_SEP,
             "_out1.gif": WRK_OUT1,
             MSK1_ENDING: WRK_MSK1,
@@ -336,18 +338,15 @@ class ZooscanScanWorkFolder:
             "_dat1.pid": WRK_PID,
             "_vis1.zip": WRK_VIS1,
         }
-        files = {WRK_JPGS: []}
-        for a_file in sorted(filelist):
-            for ending in file_type:
-                if a_file.name.endswith(ending):
-                    files[file_type[ending]] = a_file
-                    del file_type[ending]
-                    break
-            if ".jpg" in a_file.name:
-                files[WRK_JPGS].append(a_file)
-        if len(files[WRK_JPGS]) == 0:
-            del files[WRK_JPGS]
-        return files
+        for an_ending, a_key in file_type.items():
+            maybe_path = work_path / (scan_name + an_ending)
+            if maybe_path.exists():
+                ret[a_key] = maybe_path
+        if with_jpegs:
+            jpegs = list(work_path.glob("*.jpg"))
+            if len(jpegs) > 0:
+                ret[WRK_JPGS] = jpegs
+        return ret
 
     def get_sub_directory(self, subsample_name: str, index: int) -> Path:
         return Path(self.path, subsample_name + "_" + str(index))

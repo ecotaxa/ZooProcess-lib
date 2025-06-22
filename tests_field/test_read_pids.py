@@ -61,7 +61,7 @@ def test_jpegs_are_in_pids(projects, project, sample):
     """
     folder = ZooscanProjectFolder(projects, project)
     index = 1  # TODO: should come from get_names() below
-    work_files = folder.zooscan_scan.work.get_files(sample, index)
+    work_files = folder.zooscan_scan.work.get_files(sample, index, with_jpeg=True)
     # Read PID file path
     pid_file_path = work_files.get(WRK_PID)
     if pid_file_path is None:
@@ -75,7 +75,7 @@ def test_jpegs_are_in_pids(projects, project, sample):
     # Check that for each .jpg in work directory, a line exists in data_rows with its name
     assert WRK_JPGS in work_files
 
-    jpg_files = work_files[WRK_JPGS]
+    jpg_files = sorted(work_files[WRK_JPGS])
 
     # Collect all jpg files that don't have a matching data row or have incorrect dimensions
     problems = []
