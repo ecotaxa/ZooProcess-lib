@@ -2,6 +2,7 @@ import csv
 import os
 import sys
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Any, Tuple, List, Dict
 
@@ -72,9 +73,9 @@ def create_folder(path: Path):
         eprint("cannot create folder: ", path_str, ", ", str(error))
 
 
+@lru_cache(maxsize=2)  # Keep last sample and last scan
 def parse_csv(file_path: Path) -> List[Dict[str, str]]:
     """Parses a CSV file and returns a list of dictionaries."""
-
     data: List[Dict[str, str]] = []
     with open(file_path, "r", newline="", encoding="ISO-8859-1") as csv_file:
         reader = csv.DictReader(csv_file, delimiter=";")

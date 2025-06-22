@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import datetime
+from functools import lru_cache
 from os import DirEntry
 from pathlib import Path
 from typing import List, Tuple, Union, Dict, TypedDict, Optional, Generator
@@ -72,6 +73,9 @@ class ZooscanProjectFolder:
         except (FileNotFoundError, KeyError):
             return []
 
+    @lru_cache(
+        maxsize=1
+    )  # For speed. TODO: A dedicated primitive, with _real_ state, i.e. progress in workflow of the scan
     def list_scans_with_state(self) -> Generator[str, None, None]:
         """Inventory done using:
         zooscan_lov/Zooscan_apero_tha_bioness_2_sn033$ find . -name "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2*" | sort
