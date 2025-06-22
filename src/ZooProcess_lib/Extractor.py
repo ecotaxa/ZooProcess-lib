@@ -9,7 +9,7 @@ from .ROI import ROI, unique_visible_key
 from .bitmaps import one_mm_img
 from .img_tools import (
     cropnp,
-    save_lossless_small_image,
+    save_jpg_or_png_image,
 )
 
 
@@ -53,7 +53,7 @@ class Extractor(object):
                 else:
                     # Save 1 byte/pixel, grey
                     img_to_save = resized_img
-                save_lossless_small_image(
+                save_jpg_or_png_image(
                     img_to_save,
                     resolution,
                     img_path,

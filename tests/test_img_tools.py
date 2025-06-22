@@ -1,7 +1,11 @@
+import tempfile
+from pathlib import Path
+
 import numpy as np
 import pytest
+from PIL import Image
 
-from ZooProcess_lib.img_tools import crop
+from ZooProcess_lib.img_tools import crop, image_info, save_jpg_or_png_image
 
 
 def test_crop_basic():
@@ -54,3 +58,48 @@ def test_crop_input_validation():
     # Test with negative coordinates
     with pytest.raises(IndexError):
         crop(test_image, top=-1, left=0, bottom=3, right=3)
+
+
+def test_save_jpg_or_png_image_roundtrip():
+    """Test roundtrip for save_jpg_or_png_image, checking description and resolution."""
+    # Create a simple test image
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    test_image[25:75, 25:75] = [255, 0, 0]  # Red square in the middle
+
+    # Test parameters
+    test_resolution = 300
+    test_description = "Test image description"
+
+    # Create a temporary directory for test files
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Test with JPG format
+        jpg_path = Path(temp_dir) / "test_image.jpg"
+        save_jpg_or_png_image(test_image, test_resolution, jpg_path, test_description)
+
+        # Load the JPG image and check metadata
+        jpg_pil_image = Image.open(jpg_path)
+        jpg_info = image_info(jpg_pil_image)
+
+        # Verify resolution (allow for small floating-point differences)
+        jpg_dpi_x, jpg_dpi_y = jpg_info["dpi"]
+        assert abs(jpg_dpi_x - test_resolution) < 0.01
+        assert abs(jpg_dpi_y - test_resolution) < 0.01
+
+        # Verify description (in EXIF data for JPG)
+        assert jpg_info.get("ImageDescription") == test_description
+
+        # Test with PNG format
+        png_path = Path(temp_dir) / "test_image.png"
+        save_jpg_or_png_image(test_image, test_resolution, png_path, test_description)
+
+        # Load the PNG image and check metadata
+        png_pil_image = Image.open(png_path)
+        png_info = image_info(png_pil_image)
+
+        # Verify resolution (allow for small floating-point differences)
+        png_dpi_x, png_dpi_y = png_info["dpi"]
+        assert abs(png_dpi_x - test_resolution) < 0.01
+        assert abs(png_dpi_y - test_resolution) < 0.01
+
+        # Verify description (in text metadata for PNG)
+        assert png_info.get("Description") == test_description

@@ -7,9 +7,10 @@ from zipfile import ZipFile
 
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ExifTags
 from PIL.ExifTags import Base, TAGS
 from PIL.ImageFile import ImageFile
+from PIL.PngImagePlugin import PngInfo
 
 from .LegacyMeta import LutFile
 from .tools import timeit
@@ -1198,13 +1199,24 @@ def find_res(filename):
     print("IMAGE RESOLUTION IS : ", width, "X", height)
 
 
-def save_lossless_small_image(image: np.ndarray, resolution: int, path: Path):
+def save_jpg_or_png_image(
+    image: np.ndarray, resolution: int, path: Path, description: Optional[str] = None
+) -> None:
     ext = path.suffix
     assert ext in [".jpg", ".jpeg", ".png"]
     pil_image = Image.fromarray(image)
     options = {"optimize": True, "dpi": (resolution, resolution)}
     if ext in (".jpg", ".jpeg"):
         options["quality"] = 100  # Note: this does _not_ make the JPEG lossless
+    if description is not None:
+        if ext == ".png":
+            info = PngInfo()
+            info.add_text("Description", description)
+            options["pnginfo"] = info  # type:ignore
+        else:
+            exif = Image.Exif()
+            exif[ExifTags.Base.ImageDescription] = description
+            options["exif"] = exif  # type:ignore
     pil_image.save(path, **options)
 
 
