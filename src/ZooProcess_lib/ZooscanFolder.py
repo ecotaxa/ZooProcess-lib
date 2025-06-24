@@ -76,7 +76,7 @@ class ZooscanProjectFolder:
     @lru_cache(
         maxsize=1
     )  # For speed. TODO: A dedicated primitive, with _real_ state, i.e. progress in workflow of the scan
-    def list_scans_with_state(self) -> Generator[str, None, None]:
+    def list_scans_with_state(self) -> List[str]:
         """Inventory done using:
         zooscan_lov/Zooscan_apero_tha_bioness_2_sn033$ find . -name "apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2*" | sort
         Directory:
@@ -120,9 +120,11 @@ class ZooscanProjectFolder:
                 ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1.tsv
                 ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_*.jpg
         """
-        for an_entry in self.zooscan_scan.work.path.iterdir():
-            if an_entry.is_dir():
-                yield an_entry.name
+        return [
+            an_entry.name
+            for an_entry in self.zooscan_scan.work.path.iterdir()
+            if an_entry.is_dir()
+        ]
 
 
 class ZooscanConfigFolder:
