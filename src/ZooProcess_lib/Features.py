@@ -449,3 +449,41 @@ class FeaturesCalculator(object):
             Features(image, resolution, p, self.threshold).as_measures(only)
             for p in roi_list
         ]
+
+    def ecotaxa_measures_list_from_roi_list(
+        self,
+        image: ndarray,
+        resolution: int,
+        roi_list: List[ROI],
+    ) -> list[dict[str, int | float]]:
+        return [
+            Features(image, resolution, p, self.threshold).as_ecotaxa()
+            for p in roi_list
+        ]
+
+
+ECOTAXA_TSV_ROUNDINGS = {  # from Zooscan_print_pid_5.txt
+    "object_major": 1,
+    "object_minor": 1,
+    "object_angle": 1,
+    "object_feret": 1,
+    "object_x": 2,
+    "object_y": 2,
+    "object_xm": 2,
+    "object_ym": 2,
+    "object_perim.": 2,
+    "object_%area": 2,
+    "object_mean": 2,
+    "object_stddev": 3,
+    "object_circ.": 3,
+    "object_skew": 3,
+    "object_kurt": 3,
+    "object_fractal": 3,
+    "object_slope": 3,
+    "object_fcons": 3,
+    "object_symetrieh": 3,
+    "object_symetriev": 3,
+    "object_thickr": 3,
+}
+ECOTAXA_TSV_ROUNDINGS.update
+{"object_meanpos": 3}

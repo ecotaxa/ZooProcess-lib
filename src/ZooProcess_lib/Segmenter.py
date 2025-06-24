@@ -60,16 +60,20 @@ class Segmenter(object):
         # mask is black (255) objects on white (0) background, it's for human eye
         return mask
 
+    @staticmethod
+    def pixel_size(resolution):
+        return 25.4 / resolution
+
     def find_ROIs_in_image(
         self, image: ndarray, resolution: int, method: int = METH_TOP_CONTOUR_SPLIT
     ) -> Tuple[List[ROI], List[int]]:
         """:return: (list of ROIs, elimination statistics i.e. number of particles eliminated at different stages)"""
-        pixel = 25.4 / resolution
+        pixel_sz = self.pixel_size(resolution)
         sm_min = (3.1416 / 4) * pow(self.minsize, 2)
         sm_max = (3.1416 / 4) * pow(self.maxsize, 2)
         # part_size_* are in pixel^2
-        part_size_min: int = round(sm_min / (pow(pixel, 2)))
-        part_size_max: int = round(sm_max / (pow(pixel, 2)))
+        part_size_min: int = round(sm_min / (pow(pixel_sz, 2)))
+        part_size_max: int = round(sm_max / (pow(pixel_sz, 2)))
         assert image.dtype == np.uint8
         height, width = image.shape[:2]
         # Threshold the source image to have a b&w mask

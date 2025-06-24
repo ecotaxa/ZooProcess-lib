@@ -42,22 +42,28 @@ class Extractor(object):
         for index, a_roi in enumerate(rois, 1):
             img = self.extract_image_at_ROI(image, a_roi, True)
             resized_img = self._add_border_and_legend(img, longline)
-            for extension in [".png"]:
-                img_filename = (
-                    naming_prefix + "_" + unique_visible_key(a_roi) + extension
-                )
-                img_path = destination_dir / img_filename
-                if extension == ".jpg":
-                    # Convert the image to 3 channels before saving, like legacy
-                    img_to_save = cv2.merge([resized_img, resized_img, resized_img])
-                else:
-                    # Save 1 byte/pixel, grey
-                    img_to_save = resized_img
+            img_filename = self.vignette_name(a_roi, naming_prefix)
+            img_path = destination_dir / img_filename
+            # Save 1 byte/pixel, grey
+            img_to_save = resized_img
+            save_jpg_or_png_image(
+                img_to_save,
+                resolution,
+                img_path,
+            )
+            if False:
+                # Convert the image to 3 channels before saving, like legacy
+                # Note: unreachable code kept for later
+                img_to_save_3chan = cv2.merge([resized_img, resized_img, resized_img])
                 save_jpg_or_png_image(
-                    img_to_save,
+                    img_to_save_3chan,
                     resolution,
-                    img_path,
+                    img_path[:-4] + ".jpg",
                 )
+
+    @staticmethod
+    def vignette_name(a_roi, naming_prefix):
+        return naming_prefix + "_" + unique_visible_key(a_roi) + ".png"
 
     def extract_all_to_images(
         self,

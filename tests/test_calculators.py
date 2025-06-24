@@ -1,10 +1,9 @@
 from math import exp
 
-import cv2
 import numpy as np
 import pytest
 
-from ZooProcess_lib.Features import Features, TYPE_BY_ECOTAXA
+from ZooProcess_lib.Features import Features, TYPE_BY_ECOTAXA, ECOTAXA_TSV_ROUNDINGS
 from ZooProcess_lib.ROI import ecotaxa_tsv_unq
 from ZooProcess_lib.Segmenter import Segmenter
 from ZooProcess_lib.calculators.Custom import fractal_mp, ij_perimeter
@@ -68,33 +67,6 @@ def test_ij_like_perimeter():
     assert round(perim, 3) == 359.772
 
 
-ECOTAXA_TSV_ROUNDINGS = {  # from Zooscan_print_pid_5.txt
-    "object_major": 1,
-    "object_minor": 1,
-    "object_angle": 1,
-    "object_feret": 1,
-    "object_x": 2,
-    "object_y": 2,
-    "object_xm": 2,
-    "object_ym": 2,
-    "object_perim.": 2,
-    "object_%area": 2,
-    "object_mean": 2,
-    "object_stddev": 3,
-    "object_circ.": 3,
-    "object_skew": 3,
-    "object_kurt": 3,
-    "object_fractal": 3,
-    "object_slope": 3,
-    "object_fcons": 3,
-    "object_symetrieh": 3,
-    "object_symetriev": 3,
-    "object_thickr": 3,
-}
-ECOTAXA_TSV_ROUNDINGS.update
-{"object_meanpos": 3}
-
-
 @pytest.mark.parametrize(
     "img",
     [
@@ -106,7 +78,9 @@ def test_ij_like_features(img: str):
     image = loadimage(MEASURES_DIR / f"crop_{img}.png")
     THRESHOLD = 243
     segmenter = Segmenter(0.3, 100, THRESHOLD)
-    rois, _ = segmenter.find_ROIs_in_cropped_image(image, 2400, Segmenter.METH_TOP_CONTOUR_SPLIT)
+    rois, _ = segmenter.find_ROIs_in_cropped_image(
+        image, 2400, Segmenter.METH_TOP_CONTOUR_SPLIT
+    )
     assert len(rois) == 1
     feat = Features(image=image, resolution=2400, roi=rois[0], threshold=THRESHOLD)
     exp = read_ecotaxa_tsv(FEATURES_DIR / f"ecotaxa_{img}.tsv", TYPE_BY_ECOTAXA)
