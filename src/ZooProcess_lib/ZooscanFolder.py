@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import List, Tuple, Union, Dict, TypedDict, Optional, Generator
 
 from .LegacyConfig import ZooscanConfig
-from .LegacyMeta import LutFile, ProjectMeta
+from .LegacyMeta import LutFile, ProjectMeta, ScanMeta
 from .tools import parse_csv
+
 
 SEP_ENDING = "_sep.gif"
 MEASURE_ENDING = "_meas.txt"
@@ -17,6 +18,7 @@ MEASURE_ENDING = "_meas.txt"
 WRK_VIS1 = "combz"
 WRK_SEP = "sep"
 WRK_OUT1 = "out1"
+WRK_META = "meta"
 WRK_MSK1 = "msk1"
 WRK_PID = "pid"
 WRK_MEAS = "meas"
@@ -338,7 +340,7 @@ class ZooscanScanWorkFolder:
             SEP_ENDING: WRK_SEP,
             "_out1.gif": WRK_OUT1,
             MSK1_ENDING: WRK_MSK1,
-            "_meta.txt": "meta",
+            "_meta.txt": WRK_META,
             MEASURE_ENDING: WRK_MEAS,
             "_log.txt": "log",
             "_dat1.pid": WRK_PID,
@@ -356,6 +358,13 @@ class ZooscanScanWorkFolder:
 
     def get_sub_directory(self, subsample_name: str, index: int) -> Path:
         return Path(self.path, subsample_name + "_" + str(index))
+
+    def get_txt_meta(self, sample_name: str, index: int) -> ScanMeta:
+        files = self.get_files(sample_name, index)
+        if WRK_META in files:
+            return ScanMeta.read(files[WRK_META])
+        else:
+            return None
 
 
 class ZooscanScanRawFolder:

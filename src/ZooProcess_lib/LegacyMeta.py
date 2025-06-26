@@ -1,9 +1,10 @@
 # Various file aside from graphical data
 import csv
 import dataclasses
-import numpy as np
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Type
+
+import numpy as np
 
 
 class LutFile:
@@ -49,7 +50,87 @@ class LutFile:
 
 
 @dataclasses.dataclass(frozen=False)
-class ProjectMeta:
+class BaseMeta:
+    """
+    Base class for metadata classes with common functionality for reading and writing metadata files.
+    """
+
+    @classmethod
+    def read(cls, path: Path) -> "BaseMeta":
+        """
+        Read a metadata file and return an instance with fields populated from the file.
+        """
+        meta = cls()
+        with open(path, "r") as strm:
+            for line in strm:
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip()
+
+                    if hasattr(meta, key):
+                        field_type = type(getattr(meta, key))
+                        try:
+                            if field_type == int:
+                                setattr(meta, key, int(value))
+                            elif field_type == float:
+                                setattr(meta, key, float(value))
+                            else:
+                                setattr(meta, key, value)
+                        except ValueError:
+                            # If conversion fails, keep as string
+                            setattr(meta, key, value)
+                    else:
+                        # For any fields not explicitly defined, add them as strings
+                        setattr(meta, key, value)
+
+        return meta
+
+    def _relevant_attributes(self):
+        """
+        Generator that yields relevant attributes for writing to a metadata file.
+        Yields tuples of (attr_name, attr_value) for non-default attributes.
+        """
+        for attr_name in dir(self):
+            # Skip special attributes, methods, and class variables
+            if (
+                attr_name.startswith("__")
+                or callable(getattr(self, attr_name))
+                or attr_name == "__annotations__"
+            ):
+                continue
+
+            # Get the attribute value
+            attr_value = getattr(self, attr_name)
+
+            # Skip default values for primitive types
+            if attr_value == "" or attr_value == -1 or attr_value == -1.0:
+                continue
+
+            yield attr_name, attr_value
+
+    def to_dict(self) -> dict:
+        """
+        Convert the instance to a dictionary using the _relevant_attributes generator.
+        Returns a dictionary with attribute names as keys and their values as values.
+        """
+        return {
+            attr_name: attr_value
+            for attr_name, attr_value in self._relevant_attributes()
+        }
+
+    def write(self, path: Path) -> None:
+        """
+        Write the instance to a metadata file in the same format as it is read.
+        """
+        with open(path, "w") as strm:
+            # Write all relevant attributes to the file
+            for attr_name, attr_value in self._relevant_attributes():
+                strm.write(f"{attr_name}= {attr_value}\n")
+
+
+@dataclasses.dataclass(frozen=False)
+class ProjectMeta(BaseMeta):
     """
     Class to read and store metadata from a metadata.txt file.
     All fields are explicitly defined with proper type annotations.
@@ -104,80 +185,57 @@ class ProjectMeta:
     latitude_end: float = -1.0  # e.g. 51.4421000
     longitude_end: float = -1.0  # e.g. 18.3417000
 
-    @classmethod
-    def read(cls, path: Path) -> "ProjectMeta":
-        """
-        Read a metadata.txt file and return a ProjectMeta instance with fields
-        populated from the file.
-        """
-        meta = ProjectMeta()
-        with open(path, "r") as strm:
-            for line in strm:
-                if "=" in line:
-                    key, value = line.split("=", 1)
-                    key = key.strip()
-                    value = value.strip()
 
-                    if hasattr(meta, key):
-                        field_type = type(getattr(meta, key))
-                        try:
-                            if field_type == int:
-                                setattr(meta, key, int(value))
-                            elif field_type == float:
-                                setattr(meta, key, float(value))
-                            else:
-                                setattr(meta, key, value)
-                        except ValueError:
-                            # If conversion fails, keep as string
-                            setattr(meta, key, value)
-                    else:
-                        # For any fields not explicitly defined, add them as strings
-                        setattr(meta, key, value)
+@dataclasses.dataclass(frozen=False)
+class ScanMeta(BaseMeta):
+    # String fields
+    SampleId: str = ""  # e.g. t_17_7
+    Scanop: str = ""  # e.g. lisel_loschenkohl
+    Ship: str = ""  # e.g. tethys
+    Scientificprog: str = ""  # e.g. IADO2021
+    StationId: str = ""  # e.g. t_17_7
+    Date: str = ""  # e.g. 20210917-1413
+    CTDref: str = ""  # e.g. t_17_7
+    Otherref: str = ""  # e.g. NaN
+    Nettype: str = ""  # e.g. WP2
+    FracId: str = ""  # e.g. tot
+    Observation: str = ""  # e.g. no
+    SubMethod: str = ""  # e.g. motoda
+    Sample_comment: str = ""  # e.g. nan
+    barcode: str = ""  # e.g. gen000001089
 
-        return meta
+    # Integer fields
+    Depth: int = -1  # e.g. 1558
+    Townb: int = -1  # e.g. 1
+    Towtype: int = -1  # e.g. 3
+    Netmesh: int = -1  # e.g. 200
+    Zmax: int = -1  # e.g. 200
+    Zmin: int = -1  # e.g. 0
+    Fracmin: int = -1  # e.g. 100
+    Fracsup: int = -1  # e.g. 999999
+    Fracnb: int = -1  # e.g. 8
+    Code: int = -1  # e.g. 1
+    CellPart: int = -1  # e.g. 1
+    Replicates: int = -1  # e.g. 1
+    VolIni: int = -1  # e.g. 1
+    VolPrec: int = -1  # e.g. 1
+    vol_qc: int = -1  # e.g. 3
+    depth_qc: int = -1  # e.g. 3
+    sample_qc: int = -1  # e.g. 1111
+    net_duration: int = -1  # e.g. 13
+    ship_speed_knots: int = -1  # e.g. 99999
+    cable_length: int = -1  # e.g. 99999
+    cable_angle: int = -1  # e.g. 99999
+    nb_jar: int = -1  # e.g. 1
 
-    def _relevant_attributes(self):
-        """
-        Generator that yields relevant attributes for writing to a metadata file.
-        Yields tuples of (attr_name, attr_value) for non-default attributes.
-        """
-        for attr_name in dir(self):
-            # Skip special attributes, methods, and class variables
-            if (
-                attr_name.startswith("__")
-                or callable(getattr(self, attr_name))
-                or attr_name == "__annotations__"
-            ):
-                continue
-
-            # Get the attribute value
-            attr_value = getattr(self, attr_name)
-
-            # Skip default values for primitive types
-            if attr_value == "" or attr_value == -1 or attr_value == -1.0:
-                continue
-
-            yield attr_name, attr_value
-
-    def to_dict(self) -> dict:
-        """
-        Convert the ProjectMeta instance to a dictionary using the _relevant_attributes generator.
-        Returns a dictionary with attribute names as keys and their values as values.
-        """
-        return {
-            attr_name: attr_value
-            for attr_name, attr_value in self._relevant_attributes()
-        }
-
-    def write(self, path: Path) -> None:
-        """
-        Write the ProjectMeta instance to a metadata.txt file in the same format
-        as it is read.
-        """
-        with open(path, "w") as strm:
-            # Write all relevant attributes to the file
-            for attr_name, attr_value in self._relevant_attributes():
-                strm.write(f"{attr_name}= {attr_value}\n")
+    # Float fields
+    Latitude: float = -1.0  # e.g. 43.25711
+    Longitude: float = -1.0  # e.g. -7.33761
+    Netsurf: float = -1.0  # e.g. 0.25
+    Vol: float = -1.0  # e.g. 50
+    latitude_end: float = -1.0  # e.g. 43.25694
+    longitude_end: float = -1.0  # e.g. -7.3376
+    cable_speed: float = -1.0  # e.g. 99999
 
 
 class PidFile:
