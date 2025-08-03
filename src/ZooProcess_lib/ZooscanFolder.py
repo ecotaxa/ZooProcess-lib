@@ -60,10 +60,6 @@ class ZooscanProjectFolder:
         self.zooscan_config = ZooscanConfigFolder(self.path)
         self.zooscan_meta = ZooscanMetaFolder(self.path)
 
-    def path_old(self, folder, file) -> str:
-        path = self._absolute_home_project_path + self.project_folder + folder + file
-        return path
-
     def list_samples_with_state(self) -> list[str]:
         """
         The samples are entries in metadata CSV.
@@ -128,6 +124,14 @@ class ZooscanProjectFolder:
             if an_entry.is_dir()
         ]
 
+    def __eq__(self, other):
+        if isinstance(other, ZooscanProjectFolder):
+            return self.path == other.path
+        return False
+
+    def __hash__(self):
+        return hash(self.path)
+
 
 class ZooscanConfigFolder:
     SUDIR_PATH = "Zooscan_config"
@@ -144,6 +148,9 @@ class ZooscanConfigFolder:
     def read_lut(self) -> LutFile:
         config_file = self.path / "lut.txt"
         return LutFile.read(config_file)
+
+    def list(self) -> List[Path]:
+        return list(self.path.iterdir())
 
 
 class ZooscanMetaFolder:

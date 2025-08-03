@@ -44,10 +44,9 @@ class BackgroundCombiner:
         dest_file = to_file.as_posix()
         saveimage(dest_image, dest_file, dpi=(dest_resolution, dest_resolution))
 
-    def do_from_images(
-        self, backs: List[Tuple[np.ndarray, int]]
-    ) -> Tuple[np.ndarray, int]:
-        assert len(backs) == 2
+    @staticmethod
+    def do_from_images(backs: List[Tuple[np.ndarray, int]]) -> Tuple[np.ndarray, int]:
+        assert len(backs) == 2, f"Backgrounds: {backs}"
         assert backs[0][1] == backs[1][1]  # Resolutions
         dest_image = divide_round_up(backs[0][0], 2)
         dest_image += divide_round_up(backs[1][0], 2)
