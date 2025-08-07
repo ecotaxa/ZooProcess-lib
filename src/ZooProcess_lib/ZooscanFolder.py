@@ -290,7 +290,7 @@ class ZooscanBackFolder:
         """
         return list(self.content.keys())
 
-    def get_last_background_before(self, max_date: datetime) -> Path:
+    def _last_date_before(self, max_date: datetime) -> List[str]:
         sorted_dates = sorted(
             [
                 (datetime.strptime(a_date, "%Y%m%d_%H%M"), a_date)
@@ -298,17 +298,19 @@ class ZooscanBackFolder:
             ]
         )
         not_after = list(filter(lambda d: d[0] < max_date, sorted_dates))
+        return not_after
+
+    def get_last_background_before(self, max_date: datetime) -> Optional[Path]:
+        not_after = self._last_date_before(max_date)
+        if len(not_after) == 0:
+            return None
         last_date, last_date_str = not_after[-1]
         return self.content[last_date_str]["final_background"]
 
     def get_last_raw_backgrounds_before(self, max_date: datetime) -> List[Path]:
-        sorted_dates = sorted(
-            [
-                (datetime.strptime(a_date, "%Y%m%d_%H%M"), a_date)
-                for a_date in self.get_dates()
-            ]
-        )
-        not_after = list(filter(lambda d: d[0] < max_date, sorted_dates))
+        not_after = self._last_date_before(max_date)
+        if len(not_after) == 0:
+            return []
         last_date, last_date_str = not_after[-1]
         return [
             self.content[last_date_str]["raw_background_1"],
@@ -380,6 +382,7 @@ class ZooscanScanRawFolder:
     def __init__(self, zooscan_scan_folder: Path) -> None:
         self.path = Path(zooscan_scan_folder, self.SUBDIR_PATH)
 
+    @lru_cache(maxsize=1)  # For speed
     def get_samples(self) -> List[Path]:
         raw_files = self.path.glob("*_raw_*")
         files = []
