@@ -10,7 +10,6 @@ from .LegacyConfig import ZooscanConfig
 from .LegacyMeta import LutFile, ProjectMeta, ScanMeta
 from .tools import parse_csv
 
-
 SEP_ENDING = "_sep.gif"
 MEASURE_ENDING = "_meas.txt"
 
@@ -254,6 +253,21 @@ class ZooscanBackFolder:
                 date_entry["raw_background_1"] = a_file
             if a_file.name.endswith("_back_large_raw_2.tif"):
                 date_entry["raw_background_2"] = a_file
+        # Remove incomplete entries, as seen e.g. in:
+        #  20240911_0908_background_large_manual.tif
+        #  20240911_0908_back_large_1.tif
+        #  20240911_0908_back_large_2.tif
+        #  20240911_0908_back_large_manual_log.txt
+        #  20240911_0908_back_large_raw_1.tif
+        #  20240911_0908_back_large_raw_2.tif
+        #  20240911_1037_back_large_raw_1.tif     <- This one is a mistake
+        for a_date in list(self.content.keys()):
+            file_set = self.content[a_date]
+            if (
+                file_set["raw_background_1"] is None
+                or file_set["raw_background_2"] is None
+            ):
+                del self.content[a_date]
 
     def read_groups(self) -> Dict[str, List[DirEntry]]:
         """
@@ -290,7 +304,7 @@ class ZooscanBackFolder:
         """
         return list(self.content.keys())
 
-    def _last_date_before(self, max_date: datetime) -> List[str]:
+    def _last_dates_before(self, max_date: datetime) -> List[Tuple[datetime, str]]:
         sorted_dates = sorted(
             [
                 (datetime.strptime(a_date, "%Y%m%d_%H%M"), a_date)
@@ -301,21 +315,22 @@ class ZooscanBackFolder:
         return not_after
 
     def get_last_background_before(self, max_date: datetime) -> Optional[Path]:
-        not_after = self._last_date_before(max_date)
+        not_after = self._last_dates_before(max_date)
         if len(not_after) == 0:
             return None
         last_date, last_date_str = not_after[-1]
         return self.content[last_date_str]["final_background"]
 
     def get_last_raw_backgrounds_before(self, max_date: datetime) -> List[Path]:
-        not_after = self._last_date_before(max_date)
+        not_after = self._last_dates_before(max_date)
         if len(not_after) == 0:
             return []
         last_date, last_date_str = not_after[-1]
-        return [
+        bg1, bg2 = (
             self.content[last_date_str]["raw_background_1"],
             self.content[last_date_str]["raw_background_2"],
-        ]
+        )
+        return [bg1, bg2]
 
     def get_raw_background_file(self, scan_date: str, index: Union[int, str]) -> Path:
         """Return a conventional file path for a scanned background image"""
