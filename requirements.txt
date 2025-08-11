@@ -1,6 +1,6 @@
-numpy~=2.3.2
-scipy~=1.16.1
+numpy~=2.2.6 # Not > 2.3 for opencv
 opencv-python-headless~=4.12.0.88
+scipy~=1.16.1
 pillow~=11.3.0
 # Dev stuff
 matplotlib~=3.10.0
