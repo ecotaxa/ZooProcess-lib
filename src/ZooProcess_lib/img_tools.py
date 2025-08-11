@@ -15,7 +15,7 @@ from PIL.PngImagePlugin import PngInfo
 from .LegacyMeta import LutFile
 from .tools import timeit
 
-Image.MAX_IMAGE_PIXELS = 375000000
+Image.MAX_IMAGE_PIXELS = 512_000_000
 
 debug = True  # False
 

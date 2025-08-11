@@ -34,7 +34,7 @@ class ZooscanDrive:
 
     def list(self) -> Generator[Path, None, None]:
         # Get all subdirectories in the drive
-        for item in self.path.iterdir():
+        for item in self.path.iterdir():  # TODO: protect
             if not item.is_dir():
                 continue
             if item.name in ("Zooprocess", "Zooscan", "Background"):
@@ -119,7 +119,7 @@ class ZooscanProjectFolder:
         """
         return [
             an_entry.name
-            for an_entry in self.zooscan_scan.work.path.iterdir()
+            for an_entry in self.zooscan_scan.work.path.iterdir()  # TODO: protect
             if an_entry.is_dir()
         ]
 
@@ -149,7 +149,7 @@ class ZooscanConfigFolder:
         return LutFile.read(config_file)
 
     def list(self) -> List[Path]:
-        return list(self.path.iterdir())
+        return list(self.path.iterdir())  # TODO: protect
 
 
 class ZooscanMetaFolder:
@@ -201,7 +201,7 @@ class ZooscanScanFolder:
     def list_samples(self) -> Generator[str, None, None]:
         """Not really samples, rather scans i.e. subsamples, but kept with
         same name until a rename TODO"""
-        for a_file in self.path.iterdir():
+        for a_file in self.path.iterdir():  # TODO: protect
             if a_file.suffix == ".tif":
                 yield a_file.name[:-6]
 
