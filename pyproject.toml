@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ZooProcess_lib"
-version = "0.1.0"
+version = "0.3.0"
 authors = [
   { name="Laurent Salinas", email="grololo06@github.com" },
 ]
@@ -20,10 +20,10 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
-    "numpy",
-    "scipy",
-    "opencv-python",
-    "pillow",
+    "numpy~=2.3.2",
+    "scipy~=1.16.1",
+    "opencv-python-headless~=4.12.0.88",
+    "pillow~=11.3.0",
 ]
 
 [project.urls]
