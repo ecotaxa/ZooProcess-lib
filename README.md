@@ -12,24 +12,29 @@ A Python library meant at reproducing as exactly as possible the behavior of Zoo
 
 ## Installation
 
-You can install the package directly from GitHub. It is advised to use a tag, not main which might be unstable.
+You can install the package directly from a GitHub release. It is advised to use a specific version release, not the main branch which might be unstable.
 
 ```bash
-pip install git+https://github.com/ecotaxa/ZooProcess-lib.git@v0.1.0
+pip install https://github.com/ecotaxa/ZooProcess-lib/archive/refs/tags/v0.6.0.tar.gz
 ```
 
-Or clone the repository and install locally:
+Or download the release tarball and install locally:
 
 ```bash
-git clone https://github.com/ecotaxa/ZooProcess-lib.git@v0.1.0
-cd ZooProcess-lib
+# Download the release
+wget https://github.com/ecotaxa/ZooProcess-lib/archive/refs/tags/v0.6.0.tar.gz
+# Extract the archive
+tar -xzf v0.6.0.tar.gz
+# Navigate to the extracted directory
+cd ZooProcess-lib-0.6.0
+# Install the package
 pip install -e .
 ```
 
 In requirements.txt it should look like:
 
 ```
-ZooProcess-lib@git+https://github.com/ecotaxa/ZooProcess-lib.git@v0.1.0
+ZooProcess-lib @ https://github.com/ecotaxa/ZooProcess-lib/archive/refs/tags/v0.6.0.tar.gz
 ```
 
 ## Requirements
