@@ -247,12 +247,13 @@ class ZooscanBackFolder:
                     raw_background_2=None,
                 ),
             )
-            if a_file.name.endswith("_background_large_manual.tif"):
-                date_entry["final_background"] = a_file
-            if a_file.name.endswith("_back_large_raw_1.tif"):
-                date_entry["raw_background_1"] = a_file
-            if a_file.name.endswith("_back_large_raw_2.tif"):
-                date_entry["raw_background_2"] = a_file
+            for bg_kind in ("large", "narrow"):
+                if a_file.name.endswith(f"_background_{bg_kind}_manual.tif"):
+                    date_entry["final_background"] = a_file
+                if a_file.name.endswith(f"_back_{bg_kind}_raw_1.tif"):
+                    date_entry["raw_background_1"] = a_file
+                if a_file.name.endswith(f"_back_{bg_kind}_raw_2.tif"):
+                    date_entry["raw_background_2"] = a_file
         # Remove incomplete entries, as seen e.g. in:
         #  20240911_0908_background_large_manual.tif
         #  20240911_0908_back_large_1.tif
@@ -353,24 +354,25 @@ class ZooscanScanWorkFolder:
     def __init__(self, zooscan_scan_raw_folder: Path) -> None:
         self.path = Path(zooscan_scan_raw_folder, self.SUBDIR_PATH)
 
+    TYPE_PER_ENDING: Dict[str, str] = {
+        ".tsv": "tsv",  # EcoTaxa export TSV
+        SEP_ENDING: WRK_SEP,
+        "_out1.gif": WRK_OUT1,
+        MSK1_ENDING: WRK_MSK1,
+        "_meta.txt": WRK_META,
+        MEASURE_ENDING: WRK_MEAS,
+        "_log.txt": "log",
+        "_dat1.pid": WRK_PID,
+        "_vis1.zip": WRK_VIS1,
+    }
+
     def get_files(
         self, sample_name: str, index: int, with_jpegs=False
     ) -> dict[str, Union[list[Path], Path]]:
         ret = {}
         scan_name = sample_name + "_" + str(index)
         work_path = Path(self.path, scan_name)
-        file_type: Dict[str, str] = {
-            ".tsv": "tsv",  # EcoTaxa export TSV
-            SEP_ENDING: WRK_SEP,
-            "_out1.gif": WRK_OUT1,
-            MSK1_ENDING: WRK_MSK1,
-            "_meta.txt": WRK_META,
-            MEASURE_ENDING: WRK_MEAS,
-            "_log.txt": "log",
-            "_dat1.pid": WRK_PID,
-            "_vis1.zip": WRK_VIS1,
-        }
-        for an_ending, a_key in file_type.items():
+        for an_ending, a_key in self.TYPE_PER_ENDING.items():
             maybe_path = work_path / (scan_name + an_ending)
             if maybe_path.exists():
                 ret[a_key] = maybe_path
@@ -383,7 +385,7 @@ class ZooscanScanWorkFolder:
     def get_sub_directory(self, subsample_name: str, index: int) -> Path:
         return Path(self.path, subsample_name + "_" + str(index))
 
-    def get_txt_meta(self, sample_name: str, index: int) -> ScanMeta:
+    def get_txt_meta(self, sample_name: str, index: int) -> Optional[ScanMeta]:
         files = self.get_files(sample_name, index)
         if WRK_META in files:
             return ScanMeta.read(files[WRK_META])
