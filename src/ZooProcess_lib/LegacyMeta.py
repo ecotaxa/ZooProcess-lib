@@ -238,6 +238,64 @@ class ScanMeta(BaseMeta):
     cable_speed: float = -1.0  # e.g. 99999
 
 
+@dataclasses.dataclass(frozen=False)
+class ScanLog:
+    """
+    Lightweight dataclass to expose a few convenient fields extracted from a scan log file.
+    The raw parsed sections are available in `sections` if something more specific is needed.
+    """
+
+    # Image section
+    scanning_date: str = ""
+    scanning_area: str = ""
+    vuescan_version: str = ""
+
+    # Input section
+    scanner_source: str = ""
+
+    # Info section
+    info_hardware: str = ""
+    info_software: str = ""
+    info_resolution: int = -1
+
+    # Derived
+    background_pattern: str = ""
+
+    # Full content for advanced use (not part of the public repr to keep it short)
+    sections: Dict[str, Dict[str, str]] = dataclasses.field(
+        default_factory=dict, repr=False
+    )
+
+    @classmethod
+    def read(cls, path: Path) -> "ScanLog":
+        """Parse a log file and populate a ScanLog instance."""
+        log = ScanLogFile.read(path)
+
+        def _get(section: str, key: str) -> str:
+            val = log.get_value(section, key)
+            return val.strip() if isinstance(val, str) else ""
+
+        # info_resolution stored as string; cast to int when possible
+        res_str = _get("Info", "Resolution")
+        try:
+            info_resolution = int(res_str) if res_str else -1
+        except ValueError:
+            info_resolution = -1
+
+        instance = cls(
+            scanning_date=_get("Image", "Scanning_date"),
+            scanning_area=_get("Image", "Scanning_area"),
+            vuescan_version=_get("Image", "Vuescan_version"),
+            scanner_source=_get("Input", "Source"),
+            info_hardware=_get("Info", "Hardware"),
+            info_software=_get("Info", "Software"),
+            info_resolution=info_resolution,
+            background_pattern=log.get_background_pattern() or "",
+        )
+        instance.sections = log.sections
+        return instance
+
+
 class PidFile:
     """
     Class to read and parse .pid files which contain metadata and measurements for samples.
@@ -353,6 +411,75 @@ class PidFile:
                 for row in self.data_rows:
                     values = [row.get(header, "") for header in self.header_row]
                     strm.write(f"{';'.join(values)}\n")
+
+
+class ScanLogFile:
+    """
+    Parser for Zooscan log files (.txt) written by the Zooscan processing pipeline.
+    Format: starts with 'PID', then multiple [Section] blocks with 'key = value' lines.
+    This mirrors the PidFile section parsing but without any data table.
+    """
+
+    def __init__(self):
+        self.sections: Dict[str, Dict[str, str]] = {}
+
+    @classmethod
+    def read(cls, path: Path) -> "ScanLogFile":
+        """Read a Zooscan log file using Python's configparser instead of manual parsing."""
+        import configparser
+
+        log = ScanLogFile()
+
+        parser = configparser.ConfigParser(
+            delimiters=("=",),
+            allow_no_value=True,  # tolerate stray lines without '='
+            interpolation=None,
+            strict=False,
+        )
+        # Preserve key case
+        parser.optionxform = str  # type: ignore[attr-defined]
+
+        # Skip the first 'PID' header line if present, then parse as INI
+        with open(path, "r") as f:
+            first = f.readline().strip()
+            rest_stream = f if first == "PID" else open(path, "r")
+            try:
+                parser.read_file(rest_stream)
+            finally:
+                # Close rest_stream only if we opened it separately
+                if rest_stream is not f:
+                    rest_stream.close()
+
+        # Transfer parsed sections to our simple dict structure
+        for section in parser.sections():
+            items: Dict[str, str] = {}
+            for opt, val in parser.items(section):
+                # Ignore options without value (to mimic previous behavior)
+                if val is None:
+                    continue
+                items[opt.strip()] = val.strip()
+            log.sections[section] = items
+
+        return log
+
+    def get_section(self, section_name: str) -> Optional[Dict[str, str]]:
+        return self.sections.get(section_name)
+
+    def get_value(self, section_name: str, key: str, default: Any = None) -> Any:
+        section = self.get_section(section_name)
+        if section:
+            return section.get(key, default)
+        return default
+
+    def get_background_pattern(self) -> Optional[str]:
+        """
+        Return the background pattern timestamp (YYYYMMDD_HHMM) used during processing,
+        extracted from [Image_Process]/Background_correct_using if present.
+        """
+        value = self.get_value("Image_Process", "Background_correct_using")
+        if not value or not isinstance(value, str):
+            return None
+        return value[: len("20141003_1144")]
 
 
 class Measurements:

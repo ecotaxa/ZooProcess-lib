@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Tuple, Union, Dict, TypedDict, Optional, Generator
 
 from .LegacyConfig import ZooscanConfig
-from .LegacyMeta import LutFile, ProjectMeta, ScanMeta
+from .LegacyMeta import LutFile, ProjectMeta, ScanMeta, ScanLog
 from .tools import parse_csv
 
 SEP_ENDING = "_sep.gif"
@@ -22,6 +22,7 @@ WRK_MSK1 = "msk1"
 WRK_PID = "pid"
 WRK_MEAS = "meas"
 WRK_JPGS = "jpg"
+WRK_LOG = "log"
 
 MSK1_ENDING = "_msk1.gif"
 
@@ -361,17 +362,21 @@ class ZooscanScanWorkFolder:
         MSK1_ENDING: WRK_MSK1,
         "_meta.txt": WRK_META,
         MEASURE_ENDING: WRK_MEAS,
-        "_log.txt": "log",
+        "_log.txt": WRK_LOG,
         "_dat1.pid": WRK_PID,
         "_vis1.zip": WRK_VIS1,
     }
+
+    def get_path_for(self, sample_name: str, index: int) -> tuple[Path, str]:
+        scan_name = sample_name + "_" + str(index)
+        work_path = Path(self.path, scan_name)
+        return work_path, scan_name
 
     def get_files(
         self, sample_name: str, index: int, with_jpegs=False
     ) -> dict[str, Union[list[Path], Path]]:
         ret = {}
-        scan_name = sample_name + "_" + str(index)
-        work_path = Path(self.path, scan_name)
+        work_path, scan_name = self.get_path_for(sample_name, index)
         for an_ending, a_key in self.TYPE_PER_ENDING.items():
             maybe_path = work_path / (scan_name + an_ending)
             if maybe_path.exists():
@@ -427,6 +432,13 @@ class ZooscanScanRawFolder:
 
     def get_file(self, name: str, index: int) -> Path:
         return Path(self.path, f"{name}_raw_{index}.tif")
+
+    def get_scan_log(self, name: str, index: int) -> Optional[ScanLog]:
+        """Parse and return ScanLog dataclass from the log file if present."""
+        log_file = Path(self.path, f"{name}_{index}_log.txt")
+        if log_file.exists():
+            return ScanLog.read(log_file)
+        return None
 
 
 class ZooscanSampleScan:

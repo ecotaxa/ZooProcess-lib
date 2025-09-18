@@ -28,6 +28,11 @@ def test_read_project_and_scan_meta(projects, project, sample, tmp_path):
     # Read ScanMeta
     scan_meta = folder.zooscan_scan.work.get_txt_meta(sample, index)
 
+    # Read Scan Log (produced just after RAW)
+    scan_log = folder.zooscan_scan.raw.get_scan_log(sample, index)
+
+    assert scan_log is not None
+
     # Verify that project metadata has expected fields
     assert hasattr(project_meta, 'SampleId')
 
