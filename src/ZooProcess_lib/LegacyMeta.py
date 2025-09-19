@@ -1,6 +1,8 @@
 # Various file aside from graphical data
+import configparser
 import csv
 import dataclasses
+from io import StringIO
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Type
 
@@ -252,6 +254,30 @@ class ScanLog:
 
     # Input section
     scanner_source: str = ""
+    input_options: str = ""
+    input_default_folder: str = ""
+    input_raw_file_name: str = ""
+
+    # Input-<Device>-<Mode> section (device-specific)
+    bits_per_pixel: int = -1
+    make_gray_from: int = -1
+    rotation: int = -1
+    mirror: int = -1
+    scan_resolution: int = -1
+    preview_resolution: int = -1
+
+    # Crop-<Device>-<Mode> section (device-specific preview area)
+    preview_area: int = -1
+    preview_x_size: int = -1
+    preview_y_size: int = -1
+    preview_x_offset: int = -1
+    preview_y_offset: int = -1
+
+    # Prefs section
+    window_x_offset: int = -1
+    window_y_offset: int = -1
+    window_x_size: int = -1
+    window_y_size: int = -1
 
     # Info section
     info_hardware: str = ""
@@ -282,11 +308,69 @@ class ScanLog:
         except ValueError:
             info_resolution = -1
 
+        # Find device-specific input section, e.g., "Input-PerfectionV700-Flatbed"
+        device_input_section = None
+        for sec_name, items in log.sections.items():
+            if sec_name.startswith("Input-") and isinstance(items, dict):
+                if (
+                    "BitsPerPixel" in items
+                    or "ScanResolution" in items
+                    or "PreviewResolution" in items
+                ):
+                    device_input_section = sec_name
+                    break
+
+        # Find device-specific crop section, e.g., "Crop-PerfectionV700-Flatbed"
+        device_crop_section = None
+        for sec_name, items in log.sections.items():
+            if sec_name.startswith("Crop-") and isinstance(items, dict):
+                if (
+                    "PreviewArea" in items
+                    or "PreviewXSize" in items
+                    or "PreviewYSize" in items
+                    or "PreviewXOffset" in items
+                    or "PreviewYOffset" in items
+                ):
+                    device_crop_section = sec_name
+                    break
+
+        def _get_int(section: Optional[str], key: str) -> int:
+            if not section:
+                return -1
+            val = log.get_value(section, key)
+            if isinstance(val, str):
+                try:
+                    return int(val.strip())
+                except ValueError:
+                    return -1
+            try:
+                return int(val)  # type: ignore[arg-type]
+            except Exception:
+                return -1
+
         instance = cls(
             scanning_date=_get("Image", "Scanning_date"),
             scanning_area=_get("Image", "Scanning_area"),
             vuescan_version=_get("Image", "Vuescan_version"),
             scanner_source=_get("Input", "Source"),
+            input_options=_get("Input", "Options"),
+            input_default_folder=_get("Input", "DefaultFolder"),
+            input_raw_file_name=_get("Input", "RawFileName"),
+            bits_per_pixel=_get_int(device_input_section, "BitsPerPixel"),
+            make_gray_from=_get_int(device_input_section, "MakeGrayFrom"),
+            rotation=_get_int(device_input_section, "Rotation"),
+            mirror=_get_int(device_input_section, "Mirror"),
+            scan_resolution=_get_int(device_input_section, "ScanResolution"),
+            preview_resolution=_get_int(device_input_section, "PreviewResolution"),
+            preview_area=_get_int(device_crop_section, "PreviewArea"),
+            preview_x_size=_get_int(device_crop_section, "PreviewXSize"),
+            preview_y_size=_get_int(device_crop_section, "PreviewYSize"),
+            preview_x_offset=_get_int(device_crop_section, "PreviewXOffset"),
+            preview_y_offset=_get_int(device_crop_section, "PreviewYOffset"),
+            window_x_offset=_get_int("Prefs", "WindowXOffset"),
+            window_y_offset=_get_int("Prefs", "WindowYOffset"),
+            window_x_size=_get_int("Prefs", "WindowXSize"),
+            window_y_size=_get_int("Prefs", "WindowYSize"),
             info_hardware=_get("Info", "Hardware"),
             info_software=_get("Info", "Software"),
             info_resolution=info_resolution,
@@ -425,8 +509,7 @@ class ScanLogFile:
 
     @classmethod
     def read(cls, path: Path) -> "ScanLogFile":
-        """Read a Zooscan log file using Python's configparser instead of manual parsing."""
-        import configparser
+        """Read a Zooscan log file while tolerating legacy non-UTF8 encodings."""
 
         log = ScanLogFile()
 
@@ -439,16 +522,26 @@ class ScanLogFile:
         # Preserve key case
         parser.optionxform = str  # type: ignore[attr-defined]
 
-        # Skip the first 'PID' header line if present, then parse as INI
-        with open(path, "r") as f:
-            first = f.readline().strip()
-            rest_stream = f if first == "PID" else open(path, "r")
+        # Read bytes and try multiple decoding
+        raw = Path(path).read_bytes()
+        decoded: str
+        for enc in ("utf-8-sig", "cp1252", "latin-1"):
             try:
-                parser.read_file(rest_stream)
-            finally:
-                # Close rest_stream only if we opened it separately
-                if rest_stream is not f:
-                    rest_stream.close()
+                decoded = raw.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            # Last resort: replace undecodable characters
+            decoded = raw.decode("utf-8", errors="ignore")
+
+        # Remove the optional 'PID' header line
+        lines = decoded.splitlines()
+        if lines and lines[0].strip() == "PID":
+            decoded = "\n".join(lines[1:])
+
+        # Parse using configparser from in-memory text
+        parser.read_file(StringIO(decoded))
 
         # Transfer parsed sections to our simple dict structure
         for section in parser.sections():

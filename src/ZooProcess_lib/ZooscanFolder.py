@@ -23,6 +23,7 @@ WRK_PID = "pid"
 WRK_MEAS = "meas"
 WRK_JPGS = "jpg"
 WRK_LOG = "log"
+WRK_TSV = ".tsv"
 
 MSK1_ENDING = "_msk1.gif"
 
@@ -88,13 +89,13 @@ class ZooscanProjectFolder:
             Image, 8bits, not really mandatory:
                 ./Zooscan_scan/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1.tif
             Text files for scan:
-                Produced just after the RAW:
+                Log, produced just after the RAW:
                     ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.bak
                     ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.txt
                 ./Zooscan_scan/_raw/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
                 Below file should be identical to content of the scan TSV file.
                 ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_meta.txt
-            Log files:
+            Log files of Process steps:
                 ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.bak
                 ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_log.txt
             Data files, for Plankton Identifier app, identical to Log file above + [data] section with CSV dump
@@ -356,7 +357,6 @@ class ZooscanScanWorkFolder:
         self.path = Path(zooscan_scan_raw_folder, self.SUBDIR_PATH)
 
     TYPE_PER_ENDING: Dict[str, str] = {
-        ".tsv": "tsv",  # EcoTaxa export TSV
         SEP_ENDING: WRK_SEP,
         "_out1.gif": WRK_OUT1,
         MSK1_ENDING: WRK_MSK1,
@@ -381,6 +381,9 @@ class ZooscanScanWorkFolder:
             maybe_path = work_path / (scan_name + an_ending)
             if maybe_path.exists():
                 ret[a_key] = maybe_path
+        maybe_export_tsv = work_path / f"ecotaxa_{scan_name}.tsv"
+        if maybe_export_tsv.exists():
+            ret[WRK_TSV] = maybe_export_tsv
         if with_jpegs:
             jpegs = list(work_path.glob("*.jpg"))
             if len(jpegs) > 0:
