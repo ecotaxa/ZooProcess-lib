@@ -265,6 +265,7 @@ class ScanLog:
     mirror: int = -1
     scan_resolution: int = -1
     preview_resolution: int = -1
+    quality: int = -1
 
     # Crop-<Device>-<Mode> section (device-specific preview area)
     preview_area: int = -1
@@ -362,6 +363,7 @@ class ScanLog:
             mirror=_get_int(device_input_section, "Mirror"),
             scan_resolution=_get_int(device_input_section, "ScanResolution"),
             preview_resolution=_get_int(device_input_section, "PreviewResolution"),
+            quality=_get_int(device_input_section, "Quality"),
             preview_area=_get_int(device_crop_section, "PreviewArea"),
             preview_x_size=_get_int(device_crop_section, "PreviewXSize"),
             preview_y_size=_get_int(device_crop_section, "PreviewYSize"),
@@ -376,6 +378,22 @@ class ScanLog:
             info_resolution=info_resolution,
             background_pattern=log.get_background_pattern() or "",
         )
+        # If the 'Source' key is missing in the [Input] section, try to reconstitute it
+        # from the device-specific section names, e.g. "Input-PerfectionV700-Flatbed"
+        if not instance.scanner_source:
+            if isinstance(
+                device_input_section, str
+            ) and device_input_section.startswith("Input-"):
+                instance.scanner_source = device_input_section[len("Input-") :]
+            elif isinstance(
+                device_crop_section, str
+            ) and device_crop_section.startswith("Crop-"):
+                instance.scanner_source = device_crop_section[len("Crop-") :]
+            # Normalize: remove trailing mode suffix if present (e.g., "-Flatbed")
+            if isinstance(
+                instance.scanner_source, str
+            ) and instance.scanner_source.endswith("-Flatbed"):
+                instance.scanner_source = instance.scanner_source[: -len("-Flatbed")]
         instance.sections = log.sections
         return instance
 
