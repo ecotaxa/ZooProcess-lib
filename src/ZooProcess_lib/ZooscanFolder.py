@@ -39,7 +39,7 @@ class ZooscanDrive:
         for item in self.path.iterdir():  # TODO: protect
             if not item.is_dir():
                 continue
-            if item.name in ("Zooprocess", "Zooscan", "Background"):
+            if not item.name.startswith("Zooscan_"):  # Convention
                 continue
             yield item
 
