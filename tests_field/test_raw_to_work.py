@@ -1,3 +1,5 @@
+import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -12,16 +14,17 @@ from ZooProcess_lib.img_tools import (
     image_info,
     get_date_time_digitized,
     loadimage,
-    load_tiff_image_and_info, get_creation_date,
+    load_tiff_image_and_info, get_creation_date, saveimage, save_gif_image,
 )
 from tests.test_utils import save_diff_image, diff_actual_with_ref_and_source
 from .env_fixture import projects
-from .projects_for_test import TRIATLAS
+from .projects_for_test import TRIATLAS, TRIATLAS2
 from .projects_repository import tested_samples
 from .test_sample import load_final_ref_image
 
 tested_samples = [
-    (TRIATLAS, "m158_mn06_n3_d3")
+    # (TRIATLAS, "m158_mn06_n3_d3"),
+    (TRIATLAS2, "m181_mn07_n1_d3")
 ]  # Extra vignette not filtered by W/H ratio
 
 @pytest.mark.parametrize(
@@ -65,7 +68,15 @@ def test_raw_to_work(projects, tmp_path, project, sample):
     _, expected_final_image = load_final_ref_image(folder, sample, index)
     assert sample_minus_background_image.shape == expected_final_image.shape
 
-    # saveimage(sample_minus_background_image, "/tmp/zooprocess/final_with_bg.tif")
+    mask = processor.segmenter.get_mask_from_image(sample_minus_background_image)
+
+    def save_mask_image(mask: np.ndarray, path: Path) -> None:
+        tmp_path = tempfile.mktemp(suffix=".gif")
+        save_gif_image(mask, Path(tmp_path))  # Write to a temp file
+        shutil.move(tmp_path, path)  # Rename
+    save_mask_image(mask, Path("/tmp/zooprocess/mask.gif"))
+
+    saveimage(sample_minus_background_image, "/tmp/zooprocess/final_with_bg.tif")
     # compare
     # Always add separator mask, if present
     work_files = folder.zooscan_scan.work.get_files(sample, index)

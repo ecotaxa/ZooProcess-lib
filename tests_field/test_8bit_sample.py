@@ -26,7 +26,7 @@ def test_identical_converted_8bit_sample(projects, project, sample, tmp_path):
     processor = Processor.from_legacy_config(folder.zooscan_config.read(), folder.zooscan_config.read_lut())
 
     raw_sample_file = folder.zooscan_scan.raw.get_file(sample, index)
-    actual_image, _ = processor.converter.do_file_to_image(raw_sample_file)
+    actual_image, _ = processor.converter.do_file_to_image(raw_sample_file, False)
 
     ref_8bit_sample_file = folder.zooscan_scan.get_file_produced_from(
         raw_sample_file.name

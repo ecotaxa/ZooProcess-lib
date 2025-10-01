@@ -10,7 +10,7 @@ from ZooProcess_lib.ZooscanFolder import ZooscanProjectFolder, WRK_SEP
 from ZooProcess_lib.img_tools import (
     loadimage,
     add_separated_mask,
-    get_creation_date,
+    get_creation_date, saveimage,
 )
 from tests.data_tools import (
     sort_ROIs_like_legacy,
@@ -21,7 +21,7 @@ from tests.data_tools import (
 )
 from tests.test_utils import compare_vignettes
 from .env_fixture import projects
-from .projects_for_test import POINT_B_JB, APERO1, TRIATLAS
+from .projects_for_test import POINT_B_JB, APERO1, TRIATLAS, TRIATLAS2
 from .projects_repository import tested_samples, all_samples_in
 
 # The test takes ages, by randomizing the order there are better chances to see problems early
@@ -53,20 +53,25 @@ def assert_same_vignettes(project, projects, sample, tmp_path):
     # Backgrounds pre-processing
     bg_raw_files = folder.zooscan_back.get_last_raw_backgrounds_before(digitized_at)
     bg_converted_files = [
-        processor.converter.do_file_to_image(a_raw_bg_file)
+        processor.converter.do_file_to_image(a_raw_bg_file, True)
         for a_raw_bg_file in bg_raw_files
     ]
+    for idx, an_img in enumerate(bg_converted_files):
+        saveimage(an_img[0], f"/tmp/zooprocess/sample_bg{idx}.jpg")
     combined_bg_image, bg_resolution = processor.bg_combiner.do_from_images(
         bg_converted_files
     )
+    saveimage(combined_bg_image, "/tmp/zooprocess/sample_bg.jpg")
     # Sample pre-processing
     eight_bit_sample_image, sample_resolution = processor.converter.do_file_to_image(
-        raw_sample_file
+        raw_sample_file, False
     )
+    saveimage(eight_bit_sample_image, "/tmp/zooprocess/sample_raw.jpg")
     # Background removal
     sample_scan = processor.bg_remover.do_from_images(
         combined_bg_image, bg_resolution, eight_bit_sample_image, sample_resolution
     )
+    saveimage(sample_scan, "/tmp/zooprocess/sample.jpg")
     # Always add separator mask, if present
     work_files = folder.zooscan_scan.work.get_files(sample, index)
     sep_file = work_files.get(WRK_SEP)
@@ -110,7 +115,9 @@ dev_samples = [
     (TRIATLAS, "m158_mn15_n3_d3")
 ]  # Extra vignette not filtered by W/H ratio
 dev_samples = all_samples_in(APERO1)[:8]
-
+dev_samples = [
+    (TRIATLAS2, "m181_mn07_n1_d3")
+]  # Extra vignette not filtered by W/H ratio
 
 @pytest.mark.parametrize("project, sample", dev_samples)
 def test_dev_thumbnail_generator(projects, project, sample, tmp_path):
