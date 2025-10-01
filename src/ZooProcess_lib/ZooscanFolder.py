@@ -342,7 +342,7 @@ class ZooscanBackFolder:
         return Path(self.path, scan_date + "_back_large_raw" + index_str + ".tif")
 
     def get_processed_background_file(self, scan_date: str, index: int = None) -> Path:
-        """Return a conventional file path for a scanned background image"""
+        """Return a conventional file path for a scanned background image, processed"""
         assert scan_date in self.get_dates()
         index_str = ""
         if index:

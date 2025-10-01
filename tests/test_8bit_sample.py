@@ -15,7 +15,7 @@ def test_identical_converted_8bit_sample(tmp_path):
     output_path = tmp_path / raw_sample_file.name
     lut = LutFile.read(CONFIG_DIR / "lut.txt")
     processor = Processor.from_legacy_config(None, lut)
-    processor.converter.do_file_to_file(raw_sample_file, output_path)
+    processor.converter.do_file_to_file(raw_sample_file, output_path, False)
 
     actual_image = loadimage(output_path, type=cv2.IMREAD_UNCHANGED)
 

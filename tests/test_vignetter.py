@@ -31,7 +31,7 @@ def test_thumbnail_generator(tmp_path):
     ]
     eight_bit_bgs = [tmp_path / raw_bg_file.name for raw_bg_file in bg_raw_files]
     [
-        processor.converter.do_file_to_file(raw_bg_file, output_path)
+        processor.converter.do_file_to_file(raw_bg_file, output_path, True)
         for raw_bg_file, output_path in zip(bg_raw_files, eight_bit_bgs)
     ]
     combined_bg_file = Path(tmp_path, f"{bg_scan_date}_background_large_manual.tif")
@@ -39,7 +39,7 @@ def test_thumbnail_generator(tmp_path):
     # Sample pre-processing
     raw_sample_file = RAW_DIR / "apero2023_tha_bioness_017_st66_d_n1_d3_raw_1.tif"
     eight_bit_sample = tmp_path / raw_sample_file.name
-    processor.converter.do_file_to_file(raw_sample_file, eight_bit_sample)
+    processor.converter.do_file_to_file(raw_sample_file, eight_bit_sample, False)
     # Background removal
     sample_scan = processor.bg_remover.do_from_files(combined_bg_file, eight_bit_sample)
     # Add separator mask, it is present in test data

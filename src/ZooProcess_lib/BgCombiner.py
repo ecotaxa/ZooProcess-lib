@@ -47,7 +47,12 @@ class BackgroundCombiner:
     @staticmethod
     def do_from_images(backs: List[Tuple[np.ndarray, int]]) -> Tuple[np.ndarray, int]:
         assert len(backs) == 2, f"Backgrounds: {backs}"
-        assert backs[0][1] == backs[1][1]  # Resolutions
-        dest_image = divide_round_up(backs[0][0], 2)
-        dest_image += divide_round_up(backs[1][0], 2)
-        return dest_image, backs[0][1]
+        back1, res1 = backs[0]
+        back2, res2 = backs[1]
+        assert res1 == res2
+        dest_image = divide_round_up(back1, 2)
+        img_to_add = divide_round_up(back2, 2)
+        dest_image += img_to_add
+        # Prevent overflow (black spot)
+        dest_image[dest_image < img_to_add] = 255
+        return dest_image, res1
