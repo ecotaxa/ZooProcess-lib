@@ -18,6 +18,7 @@ ScanResolution=3
 Rotation=3
 Mirror=1
 FileType=2
+Quality=4
 [Crop-PerfectionV700-Flatbed]
 CropSize=0
 XSize=30000
