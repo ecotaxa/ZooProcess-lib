@@ -29,6 +29,8 @@ def averaged_median_mean(image: np.ndarray) -> Tuple[float, float]:
         By = int(By)
         W = int(W)
         step = int(step)
+        if By + step > height:
+            step = height - By
         img = crophw(image, BX, By, W, step)
 
         median = np.median(img, axis=None)
