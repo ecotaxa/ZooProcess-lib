@@ -119,10 +119,7 @@ class BackgroundRemover:
         fondx0 = bg_width - larg
         fondy0 = bg_height - haut
 
-        # TODO: What happens on ImageJ side?
         fondx0, fondy0 = max(fondx0, 0), max(fondy0, 0)
-        haut = min(haut, bg_height)
-        larg = min(larg, bg_width)
 
         image_cropped = crophw(bg_image, fondx0, fondy0, larg, haut)
 

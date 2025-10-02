@@ -435,7 +435,7 @@ def crop(
     # Validate coordinates
     if top_i < 0 or left_i < 0 or bottom_i > height or right_i > width:
         raise IndexError("Crop coordinates out of image bounds")
-    if bottom_i <= top_i or right_i <= left_i:
+    if bottom_i < top_i or right_i < left_i:
         raise ValueError(
             "Invalid crop dimensions: ensure bottom > top and right > left"
         )
@@ -497,19 +497,16 @@ def crophw(
         raise ValueError("Cannot crop with width of 0")
 
     bottom = top + height
+    if bottom > image.shape[0]:
+        bottom = image.shape[0]
     right = left + width
+    if right > image.shape[1]:
+        right = image.shape[1]
 
     if top > bottom or left > right:
         raise ValueError("Cropped region is not within image boundaries")
 
     return crop(image, top=top, left=left, bottom=bottom, right=right)
-
-    # cropped_image = crop(image,top=top,left=left,bottom=top+height,right=left+width)
-    # # if cropped_image is None:
-    #     # raise ValueError("Cropped image is None")
-    # # cropped_image = crop(image, top=top, left=left, right=top+height, bottom=left+width)
-    # print(f"shape: {cropped_image.shape}")
-    # return cropped_image
 
 
 def crop_scan(image) -> np.ndarray:
@@ -961,21 +958,6 @@ def map_uint16_to_uint8(img, lower_bound=None, upper_bound=None):
         ]
     )
     return lut[img].astype(np.uint8)
-
-
-def generate_cropped_image(
-    image: np.ndarray, x, y, w, h, name=None, extraname=None, path=None
-):
-    crop = crophw(image, y, x, h, w)
-    if name:
-        s = f"_{x}_{y}_{w}_{h}"
-        # print(s)
-        _extraname = s
-        if extraname:
-            _extraname = extraname + _extraname
-        saveimage(crop, name, _extraname, path=path)
-
-    return crop
 
 
 def save_cv2_image_with_dpi(opencv_image, output_path, dpi=(300, 300)) -> str:
