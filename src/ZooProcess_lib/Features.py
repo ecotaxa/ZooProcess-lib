@@ -455,9 +455,10 @@ class FeaturesCalculator(object):
         image: ndarray,
         resolution: int,
         roi_list: List[ROI],
+        only: Optional[Set[str]] = None,
     ) -> list[dict[str, int | float]]:
         return [
-            Features(image, resolution, p, self.threshold).as_ecotaxa()
+            Features(image, resolution, p, self.threshold).as_ecotaxa(only)
             for p in roi_list
         ]
 
