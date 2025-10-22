@@ -119,11 +119,14 @@ class ZooscanProjectFolder:
                 ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1.tsv
                 ./Zooscan_scan/_work/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1/apero2023_tha_bioness_013_st46_d_n4_d2_2_sur_2_1_*.jpg
         """
-        return [
+        with_work = set([
             an_entry.name
             for an_entry in self.zooscan_scan.work.path.iterdir()  # TODO: protect
             if an_entry.is_dir()
-        ]
+        ])  # Processed by v8
+        in_raw = self.zooscan_scan.raw.get_names()  # Scanned by v8
+        with_work |= set([name_and_id['name'] + "_" + str(name_and_id["id"]) for name_and_id in in_raw])
+        return list(with_work)
 
     def __eq__(self, other):
         if isinstance(other, ZooscanProjectFolder):
